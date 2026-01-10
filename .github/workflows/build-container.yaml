@@ -1,4 +1,4 @@
-name: Build Docker Images
+name: Build & Push Docker Images to GHCR
 
 on:
   push:
@@ -6,33 +6,85 @@ on:
       - "**"
 
 jobs:
-  build:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Generate image tag
         id: tag
         run: |
           DATE=$(date +"%Y.%m.%d")
           RAND=$(uuidgen | cut -d'-' -f1)
-          echo "IMAGE_TAG=${DATE}-${RAND}" >> $GITHUB_ENV
+          echo "image_tag=${DATE}-${RAND}" >> $GITHUB_OUTPUT
 
-      - name: Build Frontend Docker Image
-        run: |
-          ls
-          cd frontend
-          ls
-          docker build \
-            -t frontend:${IMAGE_TAG} \
-            -f Dockerfile .
+      - name: Detect changed folders
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'Frontend/**'
+            backend:
+              - 'backend/**'
 
-      - name: Build Backend Docker Image
+  frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Frontend Image
         run: |
-          cd backend
           docker build \
-            -t backend:${IMAGE_TAG} \
-            -f  Dockerfile \
+            -t ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.detect-changes.outputs.image_tag }} \
+            -f Frontend/Dockerfile \
+            Frontend
+
+          docker push ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.detect-changes.outputs.image_tag }}
+
+  backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Backend Image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/backend:${{ needs.detect-changes.outputs.image_tag }} \
+            -f backend/Dockerfile \
             backend
+
+          docker push ghcr.io/${{ github.repository_owner }}/backend:${{ needs.detect-changes.outputs.image_tag }}
