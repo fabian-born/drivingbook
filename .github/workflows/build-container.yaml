@@ -24,6 +24,7 @@ jobs:
         run: |
           ls
           cd frontend
+          ls
           docker build \
             -t frontend:${IMAGE_TAG} \
             -f Dockerfile \
