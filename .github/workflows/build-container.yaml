@@ -1,0 +1,35 @@
+name: Build Docker Images
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          DATE=$(date +"%Y.%m.%d")
+          RAND=$(uuidgen | cut -d'-' -f1)
+          echo "IMAGE_TAG=${DATE}-${RAND}" >> $GITHUB_ENV
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build \
+            -t frontend:${IMAGE_TAG} \
+            -f Frontend/Dockerfile \
+            Frontend
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build \
+            -t backend:${IMAGE_TAG} \
+            -f backend/Dockerfile \
+            backend
