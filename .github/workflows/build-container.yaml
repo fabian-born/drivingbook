@@ -27,8 +27,7 @@ jobs:
           ls
           docker build \
             -t frontend:${IMAGE_TAG} \
-            -f Dockerfile \
-            frontend
+            -f Dockerfile .
 
       - name: Build Backend Docker Image
         run: |
