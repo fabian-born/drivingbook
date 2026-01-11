@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fahrtenbuch</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="index.html">Fahrtenbuch</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Menü öffnen">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="driving.html">Neue Fahrt</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="view.html">Fahrten anzeigen</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="index.html">Dashboard</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  
+<div class="container py-5">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h3 class="card-title mb-4">Fahrtenbuch</h3>
+
+      <div class="mb-3">
+        <label for="kmstand" class="form-label">KM Stand</label>
+        <input type="number" class="form-control" id="kmstand" placeholder="Kilometerstand eingeben...">
+      </div>
+
+      <div class="mb-3">
+        <label for="ziel" class="form-label">Ziel / Kundenname</label>
+        <div class="input-group">
+          <input type="text" class="form-control" id="ziel" placeholder="Ziel oder Kundenname eingeben...">
+          <button class="btn btn-outline-secondary" type="button" onclick="getLocation()">📍 Standort</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label d-block">Fahrtart</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="fahrtart" id="geschaeftlich" value="geschäftlich" checked>
+          <label class="form-check-label" for="geschaeftlich">Geschäftlich</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="fahrtart" id="privat" value="privat">
+          <label class="form-check-label" for="privat">Privat</label>
+        </div>
+      </div>
+
+      <button class="btn btn-success me-2" onclick="addFahrt()">Absenden</button>
+      <button class="btn btn-primary me-2" onclick="importCSV()">CSV Import</button>
+      <button class="btn btn-secondary me-2" onclick="downloadJSON()">JSON Export</button>
+      <a href="index.html" class="btn btn-info">Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE_URL = "https://fahrtenbuch-backend.home.fabianborn.net/"; // Backend Container
+
+  function getLocation() {
+    if (!navigator.geolocation) return alert("Geolocation wird nicht unterstützt.");
+    navigator.geolocation.getCurrentPosition(showPosition, showError);
+  }
+
+  function showPosition(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`)
+      .then(res => res.json())
+      .then(data => {
+        const addr = data.address || {};
+        const strasse = addr.road || "";
+        const hausnr = addr.house_number || "";
+        const plz = addr.postcode || "";
+        const ort = addr.city || addr.town || addr.village || "";
+        document.getElementById("ziel").value = `${strasse} ${hausnr}, ${plz} ${ort}`.trim();
+      })
+      .catch(err => console.error(err));
+  }
+
+  function showError(error) {
+    const msgs = ["Zugriff verweigert", "Position nicht verfügbar", "Zeitüberschreitung"];
+    alert(msgs[error.code - 1] || "Unbekannter Fehler");
+  }
+
+  function addFahrt() {
+    const kmstand = document.getElementById("kmstand").value;
+    const ziel = document.getElementById("ziel").value;
+    const fahrtart = document.querySelector('input[name="fahrtart"]:checked')?.value;
+    const timestamp = new Date().toISOString();
+
+    if (!kmstand || !ziel || !fahrtart) return alert("Bitte alle Felder ausfüllen!");
+
+    fetch(`${API_BASE_URL}/api/fahrt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kmstand, ziel, fahrtart, timestamp })
+    })
+    .then(res => res.json())
+    .then(() => {
+      alert("✅ Fahrt gespeichert!");
+      document.getElementById("kmstand").value = "";
+      document.getElementById("ziel").value = "";
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Fehler beim Speichern. Siehe Konsole.");
+    });
+  }
+
+  function downloadCSV() {
+    const month = new Date().toISOString().slice(0,7);
+    window.location.href = `${API_BASE_URL}/api/export/csv?month=${month}`;
+  }
+
+  function downloadJSON() {
+    const month = new Date().toISOString().slice(0,7);
+    window.location.href = `${API_BASE_URL}/api/export/json?month=${month}`;
+  }
+</script>
+
+
+<footer class="bg-dark text-light mt-5">
+  <div class="container py-3 text-center small">
+    © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById("year").innerText = new Date().getFullYear();
+</script>
+<script src="js/footer.js"></script>
+</body>
+</html>

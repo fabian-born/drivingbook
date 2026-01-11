@@ -1,0 +1,36 @@
+networks:
+  frontend:
+    external: true
+services:
+  backend:
+    image: ghcr.io/fabian-born/fahrtenbuch-backend:dev-3  
+    container_name: fahrtenbuch-backend
+    ports:
+      - "3000:3000"         # extern erreichbar (optional)
+    volumes:
+      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/backend/data:/app/data
+    restart: unless-stopped
+    networks:
+      - frontend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.driversbook-backend-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
+      - "traefik.http.routers.driversbook-backend-https.entrypoints=websecure"
+      - "traefik.http.routers.driversbook-backend-https.tls=true"
+      - "traefik.http.routers.driversbook-backend-https.tls.certresolver=hetzner"
+  frontend:
+    image: ghcr.io/fabian-born/fahrtenbuch-frontend:dev-3
+    container_name: fahrtenbuch-frontend
+    ports:
+      - "8080:80"           # Frontend über Port 8080 erreichbar
+    restart: unless-stopped
+    networks:
+      - frontend
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.driversbook-frontend-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
+      - "traefik.http.routers.driversbook-frontend-https.entrypoints=websecure"
+      - "traefik.http.routers.driversbook-frontend-https.tls=true"
+      - "traefik.http.routers.driversbook-frontend-https.tls.certresolver=hetzner"
