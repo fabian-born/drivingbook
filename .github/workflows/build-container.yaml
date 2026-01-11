@@ -55,11 +55,11 @@ jobs:
       - name: Build & Push Frontend Image
         run: |
           docker build \
-            -t ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.detect-changes.outputs.image_tag }} \
-            -f Frontend/Dockerfile \
+            -t ghcr.io/${{ github.repository_owner }}/fahrtenbuch-frontend:${{ needs.detect-changes.outputs.image_tag }} \
+            -f frontend/Dockerfile \
             Frontend
 
-          docker push ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.detect-changes.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository_owner }}/fahrtenbuch-frontend:${{ needs.detect-changes.outputs.image_tag }}
 
   backend:
     needs: detect-changes
@@ -83,8 +83,8 @@ jobs:
       - name: Build & Push Backend Image
         run: |
           docker build \
-            -t ghcr.io/${{ github.repository_owner }}/backend:${{ needs.detect-changes.outputs.image_tag }} \
+            -t ghcr.io/${{ github.repository_owner }}/fahrtenbuch-backend:${{ needs.detect-changes.outputs.image_tag }} \
             -f backend/Dockerfile \
             backend
 
-          docker push ghcr.io/${{ github.repository_owner }}/backend:${{ needs.detect-changes.outputs.image_tag }}
+          docker push ghcr.io/${{ github.repository_owner }}/fahrtenbuch-backend:${{ needs.detect-changes.outputs.image_tag }}
