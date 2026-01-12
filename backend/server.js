@@ -24,6 +24,29 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 // ------------------------
 // POST: Neue Fahrt speichern (Import-kompatibel, JSON-only)
 // ------------------------
+//
+app.post("/api/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // ⚠️ TEMPORÄR – später durch DB + Hash ersetzen
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username und Passwort erforderlich" });
+  }
+
+  // Dummy-User
+  if (username === "admin" && password === "admin") {
+    return res.json({
+      token: "dev-token-123",
+      user: {
+        username: "admin"
+      }
+    });
+  }
+
+  return res.status(401).json({ error: "Ungültige Zugangsdaten" });
+});
+
+
 app.post("/api/fahrt", (req, res) => {
   console.log("📥 Neue Fahrt empfangen:", req.body);
   const { kmstand, ziel, fahrtart, timestamp } = req.body;
@@ -140,6 +163,7 @@ app.delete("/api/fahrt/:month/:index", (req, res) => {
   fs.writeFileSync(jsonFile, JSON.stringify(fahrten, null, 2));
   res.json({ message: "Fahrt gelöscht" });
 });
+
 
 // ------------------------
 // Server starten

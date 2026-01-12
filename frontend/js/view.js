@@ -29,7 +29,9 @@ async function fuelleMonateMitCheck() {
     option.textContent = mm;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`);
+      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
+    });
       if (!res.ok) option.disabled = true;
       else if (!ersterAktiverMonat) ersterAktiverMonat = mm;
     } catch {
@@ -56,7 +58,11 @@ async function ladeFahrten() {
   const monthKey = `${jahr}-${monat}`;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`);
+    const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`,{
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`
+    }
+  });
     if (!res.ok) {
       tbody.innerHTML = `<tr><td colspan="6">Keine Daten vorhanden</td></tr>`;
       aktuelleFahrten = [];
@@ -105,7 +111,10 @@ tbody.addEventListener("blur", async e => {
 
   await fetch(`${API_BASE_URL}/api/fahrt/${monthKey}/${index}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("authToken")}`
+     },
     body: JSON.stringify(aktuelleFahrten[index])
   });
 }, true);
