@@ -79,7 +79,79 @@
 </div>
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/driving-new.js"></script>
+<script>
+  const API_BASE_URL = "https://fahrtenbuch-backend.home.fabianborn.net/"; // Backend Container
+
+  function getLocation() {
+    if (!navigator.geolocation) return alert("Geolocation wird nicht unterstützt.");
+    navigator.geolocation.getCurrentPosition(showPosition, showError);
+  }
+
+  function showPosition(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`)
+      .then(res => res.json())
+      .then(data => {
+        const addr = data.address || {};
+        const strasse = addr.road || "";
+        const hausnr = addr.house_number || "";
+        const plz = addr.postcode || "";
+        const ort = addr.city || addr.town || addr.village || "";
+        document.getElementById("ziel").value = `${strasse} ${hausnr}, ${plz} ${ort}`.trim();
+      })
+      .catch(err => console.error(err));
+  }
+
+  function showError(error) {
+    const msgs = ["Zugriff verweigert", "Position nicht verfügbar", "Zeitüberschreitung"];
+    alert(msgs[error.code - 1] || "Unbekannter Fehler");
+  }
+
+function addFahrt() {
+    const kmstand = document.getElementById("kmstand").value;
+    const ziel = document.getElementById("ziel").value;
+    const fahrtart = document.querySelector('input[name="fahrtart"]:checked')?.value;
+    const timestamp = new Date().toISOString();
+
+    if (!kmstand || !ziel || !fahrtart) {
+      return alert("Bitte alle Felder ausfüllen!");
+    }
+
+    // WICHTIG: Das Semikolon darf erst GANZ AM ENDE nach .catch() stehen!
+    fetch(`${API_BASE_URL}/api/fahrt`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("authToken")}`
+      },
+      body: JSON.stringify({ kmstand, ziel, fahrtart, timestamp })
+    }) // <--- KEIN Semikolon hier
+    .then(res => {
+      if (!res.ok) throw new Error("Server-Fehler");
+      return res.json();
+    }) // <--- KEIN Semikolon hier
+    .then(data => {
+      alert("✅ Fahrt gespeichert!");
+      document.getElementById("kmstand").value = "";
+      document.getElementById("ziel").value = "";
+    }) // <--- KEIN Semikolon hier
+    .catch(err => {
+      console.error("Fehler:", err);
+      alert("Fehler beim Speichern. Siehe Konsole.");
+    }); // <--- NUR HIER am Ende der Kette steht das Semikolon
+  }
+
+  function downloadCSV() {
+    const month = new Date().toISOString().slice(0,7);
+    window.location.href = `${API_BASE_URL}/api/export/csv?month=${month}`;
+  }
+
+  function downloadJSON() {
+    const month = new Date().toISOString().slice(0,7);
+    window.location.href = `${API_BASE_URL}/api/export/json?month=${month}`;
+  }
+</script>
 
 
 <footer class="bg-dark text-light mt-5">
