@@ -9,9 +9,120 @@
 <title>Fahrtenbuch – Jahreshistorie</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  /* ── Bildschirm-Layout ─────────────────────────────────────── */
+  .print-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  .print-chart-col { flex: 0 0 42%; }
+  .print-table-col { flex: 1 1 auto; overflow-x: auto; }
+  .section-title   { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; }
+
+  /* ── Druck: A4 Querformat ──────────────────────────────────── */
+  @media print {
+    @page {
+      size: A4 landscape;
+      margin: 10mm 12mm;
+    }
+
+    /* Alles ausblenden, was nicht gedruckt werden soll */
+    nav,
+    footer,
+    #historyLoading,
+    .no-print {
+      display: none !important;
+    }
+
+    body {
+      background: white !important;
+      font-size: 9pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .container {
+      max-width: 100% !important;
+      padding: 0 !important;
+    }
+
+    /* Seitentitel */
+    .print-header {
+      display: flex !important;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid #212529;
+      padding-bottom: 4pt;
+      margin-bottom: 8pt;
+    }
+    .print-header h2 { font-size: 13pt; margin: 0; }
+    .print-header span { font-size: 9pt; color: #555; }
+
+    /* Stat-Karten: kompakte einzeilige Leiste */
+    #statCards {
+      display: flex !important;
+      flex-direction: row;
+      gap: 6pt;
+      margin-bottom: 8pt !important;
+    }
+    #statCards .col-md-4 {
+      flex: 1;
+      width: auto !important;
+      max-width: none !important;
+      padding: 0 !important;
+    }
+    #statCards .card        { border: 1px solid #ccc; box-shadow: none !important; }
+    #statCards .card-body   { padding: 4pt 6pt !important; }
+    #statCards h6.card-title { font-size: 7pt; margin-bottom: 2pt; }
+    #statCards p            { font-size: 9pt !important; margin: 0 !important; }
+
+    /* Diagramm + Tabelle nebeneinander */
+    .print-layout {
+      display: flex;
+      flex-direction: row;
+      gap: 10pt;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .print-chart-col { flex: 0 0 44%; }
+    .print-table-col { flex: 1 1 auto; }
+    .section-title   { font-size: 9pt; font-weight: 700; margin-bottom: 4pt; }
+
+    /* Canvas ausblenden, PNG-Bild anzeigen */
+    #historyKmChart    { display: none !important; }
+    #historyKmChartImg { display: block !important; width: 100%; }
+
+    /* Tabelle */
+    #historyPrintTable {
+      font-size: 8pt;
+      width: 100%;
+    }
+    #historyPrintTable thead th {
+      background-color: #212529 !important;
+      color: #fff !important;
+      padding: 3pt 4pt !important;
+      font-size: 7.5pt;
+    }
+    #historyPrintTable td {
+      padding: 2pt 4pt !important;
+    }
+    /* Abwechselnde Zeilen */
+    #historyPrintTable tbody tr:nth-child(even) td {
+      background-color: #f2f2f2 !important;
+    }
+
+    /* Kein Seitenumbruch innerhalb des Layouts */
+    .print-layout,
+    #statCards,
+    #historyPrintTable { page-break-inside: avoid; }
+  }
+</style>
 </head>
 <body class="bg-light">
 
+<!-- Navbar -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="index.html">Fahrtenbuch</a>
@@ -23,38 +134,66 @@
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="driving.html">Neue Fahrt</a></li>
         <li class="nav-item"><a class="nav-link" href="view.html">Fahrten anzeigen</a></li>
-	<li class="nav-item"><a class="nav-link active" aria-current="page" href="history.html">Jahreshistorie</a></li>
         <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link active" aria-current="page" href="history.html">Jahreshistorie</a></li>
       </ul>
       <button id="logoutBtn" class="btn btn-outline-light btn-sm ms-2">Logout</button>
     </div>
   </div>
 </nav>
 
-<div class="container py-5">
-  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+<!-- Hauptinhalt -->
+<div class="container py-4">
+
+  <!-- Steuerleiste (wird nicht gedruckt) -->
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4 no-print">
     <h2 class="mb-0">Jahreshistorie</h2>
     <div class="d-flex align-items-center gap-2">
       <label for="historyJahrSelect" class="form-label mb-0 fw-semibold">Jahr:</label>
-      <select id="historyJahrSelect" class="form-select" style="width: auto;"></select>
+      <select id="historyJahrSelect" class="form-select" style="width:auto;"></select>
       <button id="historyCSVExport" class="btn btn-outline-secondary">CSV Export</button>
+      <button id="historyPDFExport" class="btn btn-danger">
+        🖨️ PDF drucken
+      </button>
     </div>
   </div>
 
+  <!-- Druckkopf (nur im Druck sichtbar) -->
+  <div class="print-header" style="display:none;">
+    <h2 id="printHeadline">Fahrtenbuch – Jahreshistorie</h2>
+    <span id="printDatum"></span>
+  </div>
+
+  <!-- Lade-Spinner -->
   <div id="historyLoading" class="text-center py-5">
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Wird geladen...</span>
     </div>
-    <p class="mt-3 text-muted">Daten werden geladen...</p>
+    <p class="mt-3 text-muted">Daten werden geladen…</p>
   </div>
 
+  <!-- Dynamischer Inhalt -->
   <div id="historyContent" class="d-none"></div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
 <script src="js/dashboard-history.js"></script>
+
+<!-- Druckkopf mit Jahr + Datum befüllen -->
+<script>
+  document.getElementById("printDatum").textContent =
+    "Erstellt: " + new Date().toLocaleDateString("de-DE");
+
+  document.getElementById("historyJahrSelect")?.addEventListener("change", function () {
+    document.getElementById("printHeadline").textContent =
+      "Fahrtenbuch – Jahreshistorie " + this.value;
+    document.getElementById("printDatum").textContent =
+      "Erstellt: " + new Date().toLocaleDateString("de-DE");
+  });
+</script>
 
 <footer class="bg-dark text-light mt-5">
   <div class="container py-3 text-center small">

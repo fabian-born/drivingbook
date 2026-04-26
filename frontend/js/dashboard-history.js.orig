@@ -13,11 +13,13 @@ async function ladeHistoryDashboard(jahr) {
   let totalPrivat = 0;
   let totalGeschaeft = 0;
 
+  // Lade-Spinner anzeigen
   document.getElementById("historyLoading").classList.remove("d-none");
   document.getElementById("historyContent").classList.add("d-none");
 
   for (let m = 1; m <= 12; m++) {
     const month = `${jahr}-${String(m).padStart(2, "0")}`;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/export/json?month=${month}`, { headers });
       if (!res.ok) continue;
@@ -30,6 +32,7 @@ async function ladeHistoryDashboard(jahr) {
 
       const endKm = parseInt(fahrten[fahrten.length - 1].kmstand, 10);
       const diff = endKm - startKm;
+
       prevEndKm = endKm;
 
       monatsKm[month] = diff;
@@ -37,9 +40,12 @@ async function ladeHistoryDashboard(jahr) {
 
       let privat = 0, geschaeft = 0;
       for (let i = 0; i < fahrten.length; i++) {
-        let kmDelta = i === 0
-          ? parseInt(fahrten[0].kmstand, 10) - startKm
-          : parseInt(fahrten[i].kmstand, 10) - parseInt(fahrten[i - 1].kmstand, 10);
+        let kmDelta;
+        if (i === 0) {
+          kmDelta = parseInt(fahrten[0].kmstand, 10) - startKm;
+        } else {
+          kmDelta = parseInt(fahrten[i].kmstand, 10) - parseInt(fahrten[i - 1].kmstand, 10);
+        }
         if (kmDelta < 0) kmDelta = 0;
 
         if (fahrten[i].fahrtart.toLowerCase() === "privat") privat += kmDelta;
@@ -55,9 +61,11 @@ async function ladeHistoryDashboard(jahr) {
     }
   }
 
+  // Lade-Spinner verstecken
   document.getElementById("historyLoading").classList.add("d-none");
   document.getElementById("historyContent").classList.remove("d-none");
 
+  // Keine Daten vorhanden?
   if (monatsTabelle.length === 0) {
     document.getElementById("historyContent").innerHTML = `
       <div class="alert alert-info text-center mt-4">
@@ -66,77 +74,66 @@ async function ladeHistoryDashboard(jahr) {
     return;
   }
 
+  // Content-Bereich neu aufbauen
+  document.getElementById("historyContent").innerHTML = `
+    <div class="row mb-4" id="statCards"></div>
+    <h4 class="mt-4">Monatsübersicht ${jahr}</h4>
+    <div class="table-responsive shadow-sm card mb-5">
+      <table class="table table-bordered table-striped mb-0">
+        <thead>
+          <tr>
+            <th>Monat</th>
+            <th>Start KM</th>
+            <th>End KM</th>
+            <th>Gefahrene KM</th>
+            <th>Privat KM</th>
+            <th>Geschäftlich KM</th>
+            <th>Privat %</th>
+            <th>Geschäftlich %</th>
+          </tr>
+        </thead>
+        <tbody id="historyTabelle"></tbody>
+      </table>
+    </div>
+    <h4>Gefahrene KM – Verlauf ${jahr}</h4>
+    <canvas id="historyKmChart" height="100" class="shadow-sm card mb-5"></canvas>
+  `;
+
+  // Stat-Karten
   const privatPct    = gesamtKm > 0 ? ((totalPrivat    / gesamtKm) * 100).toFixed(2) : "0.00";
   const geschaeftPct = gesamtKm > 0 ? ((totalGeschaeft / gesamtKm) * 100).toFixed(2) : "0.00";
 
-  document.getElementById("historyContent").innerHTML = `
-    <!-- Stat-Karten -->
-    <div class="row mb-3" id="statCards">
-      <div class="col-md-4">
-        <div class="card text-center shadow-sm h-100">
-          <div class="card-body py-2">
-            <h6 class="card-title mb-1">Gesamte KM ${jahr}</h6>
-            <p class="fs-4 fw-bold mb-0">${gesamtKm.toLocaleString("de-DE")} km</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card text-center shadow-sm h-100">
-          <div class="card-body py-2">
-            <h6 class="card-title mb-1">Privat / Geschäftlich</h6>
-            <p class="fw-bold mb-0" style="font-size:0.95rem;">
-              Privat: ${totalPrivat.toLocaleString("de-DE")} km (${privatPct} %)<br>
-              Geschäftlich: ${totalGeschaeft.toLocaleString("de-DE")} km (${geschaeftPct} %)
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card text-center shadow-sm h-100">
-          <div class="card-body py-2">
-            <h6 class="card-title mb-1">Aktive Monate</h6>
-            <p class="fs-4 fw-bold mb-0">${monatsTabelle.length} / 12</p>
-          </div>
+  document.getElementById("statCards").innerHTML = `
+    <div class="col-md-4">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Gesamte KM ${jahr}</h5>
+          <p class="fs-3 fw-bold">${gesamtKm.toLocaleString("de-DE")} km</p>
         </div>
       </div>
     </div>
-
-    <!-- Diagramm + Tabelle nebeneinander im Druck -->
-    <div class="print-layout">
-      <!-- Diagramm -->
-      <div class="print-chart-col">
-        <h5 class="section-title">Gefahrene KM – Verlauf ${jahr}</h5>
-        <div style="position:relative;">
-          <canvas id="historyKmChart"></canvas>
-          <!-- Wird beim Drucken durch dieses img ersetzt -->
-          <img id="historyKmChartImg" style="display:none; width:100%;" />
+    <div class="col-md-4">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Privat / Geschäftlich</h5>
+          <p class="fs-6 fw-bold mb-1">Privat: ${totalPrivat.toLocaleString("de-DE")} km (${privatPct} %)</p>
+          <p class="fs-6 fw-bold mb-0">Geschäftlich: ${totalGeschaeft.toLocaleString("de-DE")} km (${geschaeftPct} %)</p>
         </div>
       </div>
-
-      <!-- Tabelle -->
-      <div class="print-table-col">
-        <h5 class="section-title">Monatsübersicht ${jahr}</h5>
-        <table class="table table-bordered table-striped table-sm mb-0" id="historyPrintTable">
-          <thead class="table-dark">
-            <tr>
-              <th>Monat</th>
-              <th>Start KM</th>
-              <th>End KM</th>
-              <th>Ges. KM</th>
-              <th>Privat KM</th>
-              <th>Gesch. KM</th>
-              <th>Privat %</th>
-              <th>Gesch. %</th>
-            </tr>
-          </thead>
-          <tbody id="historyTabelle"></tbody>
-        </table>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Aktive Monate</h5>
+          <p class="fs-3 fw-bold">${monatsTabelle.length} / 12</p>
+        </div>
       </div>
     </div>
   `;
 
-  // Tabelle befüllen
+  // Monats-Tabelle befüllen
   const tbody = document.getElementById("historyTabelle");
+  tbody.innerHTML = "";
   monatsTabelle.forEach(row => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -187,7 +184,6 @@ async function ladeHistoryDashboard(jahr) {
     },
     options: {
       responsive: true,
-      animation: { duration: 400 },
       plugins: {
         legend: { display: true, position: "top" },
         tooltip: {
@@ -204,23 +200,13 @@ async function ladeHistoryDashboard(jahr) {
   });
 }
 
-// PDF / Drucken
-function druckeSeite() {
-  // Canvas → PNG konvertieren, damit es im Druckdialog erscheint
-  const canvas = document.getElementById("historyKmChart");
-  const img    = document.getElementById("historyKmChartImg");
-  if (canvas && img) {
-    img.src = canvas.toDataURL("image/png");
-  }
-  window.print();
-}
-
-// Initialisierung
+// Initialisierung: Jahre-Dropdown befüllen & Events setzen
 function initHistory() {
   const jahrSelect = document.getElementById("historyJahrSelect");
   const aktuellesJahr = new Date().getFullYear();
 
   jahrSelect.innerHTML = "";
+  // Vergangene Jahre (NICHT das aktuelle Jahr – dafür gibt es dashboard.js)
   for (let j = aktuellesJahr - 1; j >= START_JAHR; j--) {
     const opt = document.createElement("option");
     opt.value = j;
@@ -228,11 +214,11 @@ function initHistory() {
     jahrSelect.appendChild(opt);
   }
 
+  // CSV-Export
   document.getElementById("historyCSVExport")?.addEventListener("click", () => {
-    window.location.href = `${API_BASE_URL}/api/export/csv/year/${jahrSelect.value}`;
+    const jahr = jahrSelect.value;
+    window.location.href = `${API_BASE_URL}/api/export/csv/year/${jahr}`;
   });
-
-  document.getElementById("historyPDFExport")?.addEventListener("click", druckeSeite);
 
   jahrSelect.addEventListener("change", () => ladeHistoryDashboard(jahrSelect.value));
 
