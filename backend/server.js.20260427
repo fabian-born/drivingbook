@@ -22,6 +22,35 @@ const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
 // ------------------------
+// 🔒 Hilfsfunktion: Month-Parameter validieren (Schutz vor Path Traversal)
+// Erlaubt nur exakt das Format YYYY-MM, z.B. "2026-04"
+// ------------------------
+function isValidMonth(month) {
+  return /^\d{4}-\d{2}$/.test(month);
+}
+
+// ------------------------
+// 🔒 Auth-Middleware: Token prüfen
+// Erwartet Header: Authorization: Bearer <token>
+// ------------------------
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Kein Token angegeben" });
+  }
+
+  // ⚠️ TEMPORÄR: Statischer Dev-Token
+  // TODO: Durch echte JWT-Validierung ersetzen (z.B. jsonwebtoken.verify())
+  if (token !== "dev-token-123") {
+    return res.status(403).json({ error: "Ungültiger Token" });
+  }
+
+  next();
+}
+
+// ------------------------
 // POST: Login
 // ------------------------
 app.post("/api/login", (req, res) => {
@@ -31,7 +60,7 @@ app.post("/api/login", (req, res) => {
     return res.status(400).json({ error: "Username und Passwort erforderlich" });
   }
 
-  // Dummy-User
+  // ⚠️ TEMPORÄR – später durch DB + bcrypt ersetzen
   if (username === "admin" && password === "admin") {
     return res.json({
       token: "dev-token-123",
@@ -44,8 +73,9 @@ app.post("/api/login", (req, res) => {
 
 // ------------------------
 // POST: Neue Fahrt speichern
+// 🔒 Geschützt durch authMiddleware
 // ------------------------
-app.post("/api/fahrt", (req, res) => {
+app.post("/api/fahrt", authMiddleware, (req, res) => {
   console.log("📥 Neue Fahrt empfangen:", req.body);
   const { kmstand, ziel, fahrtart, timestamp } = req.body;
 
@@ -57,6 +87,12 @@ app.post("/api/fahrt", (req, res) => {
   if (isNaN(date)) return res.status(400).json({ error: "Ungültiger Timestamp" });
 
   const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+  // 🔒 Sicherheitscheck (sollte hier immer passen, aber zur Sicherheit)
+  if (!isValidMonth(monthKey)) {
+    return res.status(400).json({ error: "Ungültiges Datumsformat" });
+  }
+
   const jsonFile = path.join(dataDir, `fahrten_${monthKey}.json`);
 
   let fahrten = [];
@@ -82,108 +118,65 @@ app.post("/api/fahrt", (req, res) => {
 });
 
 // ------------------------
-// POST: Fahrt in anderen Monat verschieben
-// Wird aufgerufen wenn der Zeitpunkt so geändert wird, dass sich der Monat ändert.
-// Body: { fromMonth: "YYYY-MM", index: number, fahrt: {...} }
+// GET: JSON exportieren
+// 🔒 Geschützt durch authMiddleware + Path-Traversal-Schutz
 // ------------------------
-app.post("/api/fahrt/move", (req, res) => {
-  const { fromMonth, index, fahrt } = req.body;
-
-  if (!fromMonth || index === undefined || !fahrt || !fahrt.timestamp) {
-    return res.status(400).json({ error: "fromMonth, index und fahrt erforderlich" });
-  }
-
-  // Ziel-Monat aus dem neuen Timestamp ermitteln
-  const neuesDatum = new Date(fahrt.timestamp);
-  if (isNaN(neuesDatum)) {
-    return res.status(400).json({ error: "Ungültiger Timestamp in fahrt" });
-  }
-  const toMonth = `${neuesDatum.getFullYear()}-${String(neuesDatum.getMonth() + 1).padStart(2, "0")}`;
-
-  if (fromMonth === toMonth) {
-    return res.status(400).json({ error: "Quell- und Zielmonat sind identisch – bitte PUT verwenden" });
-  }
-
-  const fromFile = path.join(dataDir, `fahrten_${fromMonth}.json`);
-  const toFile   = path.join(dataDir, `fahrten_${toMonth}.json`);
-
-  // Quell-Datei prüfen
-  if (!fs.existsSync(fromFile)) {
-    return res.status(404).json({ error: `Quelldatei für ${fromMonth} nicht gefunden` });
-  }
-
-  let fromFahrten = [];
-  try {
-    fromFahrten = JSON.parse(fs.readFileSync(fromFile, "utf-8"));
-  } catch (err) {
-    return res.status(500).json({ error: "Fehler beim Lesen der Quelldatei" });
-  }
-
-  if (!fromFahrten[index]) {
-    return res.status(404).json({ error: `Eintrag ${index} in ${fromMonth} nicht gefunden` });
-  }
-
-  // Fahrt aus Quelldatei entfernen
-  fromFahrten.splice(index, 1);
-
-  // Ziel-Datei laden (oder leer anlegen)
-  let toFahrten = [];
-  if (fs.existsSync(toFile)) {
-    try {
-      toFahrten = JSON.parse(fs.readFileSync(toFile, "utf-8"));
-    } catch (err) {
-      console.error("Fehler beim Lesen der Zieldatei:", err);
-      toFahrten = [];
-    }
-  }
-
-  // Fahrt in Zieldatei einfügen und nach Timestamp sortieren
-  toFahrten.push(fahrt);
-  toFahrten.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-  // Beide Dateien schreiben
-  try {
-    fs.writeFileSync(fromFile, JSON.stringify(fromFahrten, null, 2));
-    fs.writeFileSync(toFile,   JSON.stringify(toFahrten,   null, 2));
-    console.log(`✅ Fahrt von ${fromMonth} nach ${toMonth} verschoben`);
-    res.json({ message: `Fahrt von ${fromMonth} nach ${toMonth} verschoben`, toMonth });
-  } catch (err) {
-    console.error("Fehler beim Schreiben:", err);
-    res.status(500).json({ error: "Fehler beim Schreiben der JSON-Dateien" });
-  }
-});
-
-// ------------------------
-// GET: JSON exportieren (Frontend Fetch)
-// ------------------------
-app.get("/api/export/json", (req, res) => {
+app.get("/api/export/json", authMiddleware, (req, res) => {
   const month = req.query.month;
-  if (!month) return res.status(400).json({ error: "Query-Parameter 'month' erforderlich (YYYY-MM)" });
+
+  if (!month) {
+    return res.status(400).json({ error: "Query-Parameter 'month' erforderlich (YYYY-MM)" });
+  }
+
+  // 🔒 Path Traversal verhindern
+  if (!isValidMonth(month)) {
+    return res.status(400).json({ error: "Ungültiges Monatsformat. Erwartet: YYYY-MM" });
+  }
 
   const jsonFile = path.join(dataDir, `fahrten_${month}.json`);
-  if (!fs.existsSync(jsonFile)) return res.status(404).json({ error: "JSON-Datei für diesen Monat nicht gefunden" });
+  if (!fs.existsSync(jsonFile)) {
+    return res.status(404).json({ error: "JSON-Datei für diesen Monat nicht gefunden" });
+  }
 
   res.json(JSON.parse(fs.readFileSync(jsonFile, "utf-8")));
 });
 
 // ------------------------
-// GET: CSV exportieren pro Monat (optional)
+// GET: CSV exportieren pro Monat
+// 🔒 Geschützt durch authMiddleware + Path-Traversal-Schutz
 // ------------------------
-app.get("/api/export/csv", (req, res) => {
+app.get("/api/export/csv", authMiddleware, (req, res) => {
   const month = req.query.month;
-  if (!month) return res.status(400).json({ error: "Query-Parameter 'month' erforderlich (YYYY-MM)" });
+
+  if (!month) {
+    return res.status(400).json({ error: "Query-Parameter 'month' erforderlich (YYYY-MM)" });
+  }
+
+  // 🔒 Path Traversal verhindern
+  if (!isValidMonth(month)) {
+    return res.status(400).json({ error: "Ungültiges Monatsformat. Erwartet: YYYY-MM" });
+  }
 
   const csvFile = path.join(dataDir, `fahrten_${month}.csv`);
-  if (!fs.existsSync(csvFile)) return res.status(404).json({ error: "CSV-Datei für diesen Monat nicht gefunden" });
+  if (!fs.existsSync(csvFile)) {
+    return res.status(404).json({ error: "CSV-Datei für diesen Monat nicht gefunden" });
+  }
 
   res.download(csvFile, `fahrten_${month}.csv`);
 });
 
 // ------------------------
 // GET: CSV Export pro Jahr
+// 🔒 Geschützt durch authMiddleware + Jahr-Validierung
 // ------------------------
-app.get("/api/export/csv/year/:year", (req, res) => {
+app.get("/api/export/csv/year/:year", authMiddleware, (req, res) => {
   const year = req.params.year;
+
+  // 🔒 Nur vierstellige Jahreszahlen erlauben
+  if (!/^\d{4}$/.test(year)) {
+    return res.status(400).json({ error: "Ungültiges Jahresformat. Erwartet: YYYY" });
+  }
+
   let csv = "KM Stand;Ziel;Fahrtart;Zeitpunkt\n";
 
   fs.readdirSync(dataDir)
@@ -202,12 +195,21 @@ app.get("/api/export/csv/year/:year", (req, res) => {
 });
 
 // ------------------------
-// PUT: Fahrt aktualisieren (Inline Editing)
+// PUT: Fahrt aktualisieren
+// 🔒 Geschützt durch authMiddleware + Path-Traversal-Schutz
 // ------------------------
-app.put("/api/fahrt/:month/:index", (req, res) => {
+app.put("/api/fahrt/:month/:index", authMiddleware, (req, res) => {
   const { month, index } = req.params;
+
+  // 🔒 Path Traversal verhindern
+  if (!isValidMonth(month)) {
+    return res.status(400).json({ error: "Ungültiges Monatsformat. Erwartet: YYYY-MM" });
+  }
+
   const jsonFile = path.join(dataDir, `fahrten_${month}.json`);
-  if (!fs.existsSync(jsonFile)) return res.status(404).json({ error: "Datei nicht gefunden" });
+  if (!fs.existsSync(jsonFile)) {
+    return res.status(404).json({ error: "Datei nicht gefunden" });
+  }
 
   let fahrten = JSON.parse(fs.readFileSync(jsonFile, "utf-8"));
   if (!fahrten[index]) return res.status(404).json({ error: "Eintrag nicht gefunden" });
@@ -219,11 +221,20 @@ app.put("/api/fahrt/:month/:index", (req, res) => {
 
 // ------------------------
 // DELETE: Fahrt löschen
+// 🔒 Geschützt durch authMiddleware + Path-Traversal-Schutz
 // ------------------------
-app.delete("/api/fahrt/:month/:index", (req, res) => {
+app.delete("/api/fahrt/:month/:index", authMiddleware, (req, res) => {
   const { month, index } = req.params;
+
+  // 🔒 Path Traversal verhindern
+  if (!isValidMonth(month)) {
+    return res.status(400).json({ error: "Ungültiges Monatsformat. Erwartet: YYYY-MM" });
+  }
+
   const jsonFile = path.join(dataDir, `fahrten_${month}.json`);
-  if (!fs.existsSync(jsonFile)) return res.status(404).json({ error: "Datei nicht gefunden" });
+  if (!fs.existsSync(jsonFile)) {
+    return res.status(404).json({ error: "Datei nicht gefunden" });
+  }
 
   let fahrten = JSON.parse(fs.readFileSync(jsonFile, "utf-8"));
   if (!fahrten[index]) return res.status(404).json({ error: "Eintrag nicht gefunden" });

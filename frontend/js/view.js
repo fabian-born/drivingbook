@@ -59,9 +59,7 @@ async function ladeFahrten() {
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`
-      }
+      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     });
     if (!res.ok) {
       tbody.innerHTML = `<tr><td colspan="7">Keine Daten vorhanden</td></tr>`;
@@ -79,9 +77,15 @@ async function ladeFahrten() {
 function toDatetimeLocal(isoString) {
   const d = new Date(isoString);
   if (isNaN(d)) return "";
-  // Format: YYYY-MM-DDTHH:MM (für datetime-local input)
   const pad = n => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// ----------------- MonthKey aus ISO-Timestamp -----------------
+function monthKeyFromISO(isoString) {
+  const d = new Date(isoString);
+  if (isNaN(d)) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // ----------------- Tabelle rendern -----------------
@@ -139,7 +143,7 @@ tbody.addEventListener("blur", async e => {
   await speichereFahrt(index);
 }, true);
 
-// ----------------- Fahrtart Dropdown -----------------
+// ----------------- Fahrtart Dropdown & Zeitpunkt -----------------
 tbody.addEventListener("change", async e => {
   if (e.target.classList.contains("fahrtart-select")) {
     const index = e.target.dataset.index;
@@ -149,9 +153,49 @@ tbody.addEventListener("change", async e => {
 
   if (e.target.classList.contains("timestamp-input")) {
     const index = e.target.dataset.index;
-    const localVal = e.target.value; // "YYYY-MM-DDTHH:MM"
-    if (localVal) {
-      aktuelleFahrten[index].timestamp = new Date(localVal).toISOString();
+    const localVal = e.target.value;
+    if (!localVal) return;
+
+    const alterMonthKey = `${jahrSelect.value}-${monatSelect.value}`;
+    const neuesTimestamp = new Date(localVal).toISOString();
+    const neuerMonthKey = monthKeyFromISO(neuesTimestamp);
+
+    if (!neuerMonthKey) return;
+
+    if (neuerMonthKey !== alterMonthKey) {
+      // Monat hat sich geändert → Fahrt in andere JSON-Datei verschieben
+      const fahrtMitNeuemTimestamp = { ...aktuelleFahrten[index], timestamp: neuesTimestamp };
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/fahrt/move`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`
+          },
+          body: JSON.stringify({
+            fromMonth: alterMonthKey,
+            index: Number(index),
+            fahrt: fahrtMitNeuemTimestamp
+          })
+        });
+
+        if (res.ok) {
+          aktuelleFahrten.splice(index, 1);
+          renderTabelle();
+          zeigeHinweis(`Fahrt wurde nach ${neuerMonthKey} verschoben.`, "info");
+        } else {
+          const err = await res.json();
+          zeigeHinweis(`Fehler beim Verschieben: ${err.error}`, "danger");
+        }
+      } catch (err) {
+        console.error("Fehler beim Verschieben:", err);
+        zeigeHinweis("Fehler beim Verschieben der Fahrt.", "danger");
+      }
+
+    } else {
+      // Gleicher Monat → normales Update
+      aktuelleFahrten[index].timestamp = neuesTimestamp;
       await speichereFahrt(index);
     }
   }
@@ -170,7 +214,7 @@ async function speichereFahrt(index) {
       body: JSON.stringify(aktuelleFahrten[index])
     });
     if (!res.ok) {
-      console.error("Fehler beim Speichern:", res.status);
+      zeigeHinweis("Fehler beim Speichern.", "danger");
     }
   } catch (err) {
     console.error("Speicherfehler:", err);
@@ -186,7 +230,6 @@ tbody.addEventListener("click", async e => {
   const fahrt = aktuelleFahrten[index];
   const zeitpunkt = new Date(fahrt.timestamp).toLocaleString("de-DE");
 
-  // Bestätigungs-Modal anzeigen
   document.getElementById("confirmDeleteInfo").textContent =
     `#${parseInt(index) + 1} · ${fahrt.kmstand} km · ${fahrt.ziel} · ${fahrt.fahrtart} · ${zeitpunkt}`;
   document.getElementById("confirmDeleteIndex").value = index;
@@ -202,9 +245,7 @@ document.getElementById("confirmDeleteBtn").addEventListener("click", async () =
   try {
     const res = await fetch(`${API_BASE_URL}/api/fahrt/${monthKey}/${index}`, {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`
-      }
+      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     });
 
     if (res.ok) {
@@ -219,6 +260,22 @@ document.getElementById("confirmDeleteBtn").addEventListener("click", async () =
     alert("Fehler beim Löschen!");
   }
 });
+
+// ----------------- Toast-Hinweis -----------------
+function zeigeHinweis(text, typ = "info") {
+  let container = document.getElementById("hinweisContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "hinweisContainer";
+    container.style.cssText = "position:fixed;top:1rem;right:1rem;z-index:9999;min-width:280px;";
+    document.body.appendChild(container);
+  }
+  const div = document.createElement("div");
+  div.className = `alert alert-${typ} alert-dismissible fade show shadow`;
+  div.innerHTML = `${text}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+}
 
 // ----------------- Filter -----------------
 fahrtartFilter.addEventListener("change", renderTabelle);
