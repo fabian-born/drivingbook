@@ -5,7 +5,6 @@ const fahrtartFilter = document.getElementById("fahrtartFilter");
 const csvExportBtn = document.getElementById("csvExportYear");
 
 let aktuelleFahrten = [];
-let jahresansicht = false; // Flag: zeigt gerade alle Monate?
 
 // ----------------- Jahre füllen -----------------
 function fuelleJahre() {
@@ -16,20 +15,11 @@ function fuelleJahre() {
   }
 }
 
-// ----------------- Monate prüfen & aktuellen Monat vorauswählen -----------------
+// ----------------- Monate prüfen -----------------
 async function fuelleMonateMitCheck() {
   const jahr = jahrSelect.value;
-  const aktuellesJahr = new Date().getFullYear();
-  const aktuellerMonat = String(new Date().getMonth() + 1).padStart(2, "0");
   monatSelect.innerHTML = "";
-
-  // "Alle" Option ganz oben
-  const alleOption = document.createElement("option");
-  alleOption.value = "alle";
-  alleOption.textContent = "Alle Monate";
-  monatSelect.appendChild(alleOption);
-
-  let aktiverMonat = null;
+  let ersterAktiverMonat = null;
 
   for (let m = 1; m <= 12; m++) {
     const mm = String(m).padStart(2, "0");
@@ -42,44 +32,28 @@ async function fuelleMonateMitCheck() {
       const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
       });
-      if (!res.ok) {
-        option.disabled = true;
-      } else {
-        // Im aktuellen Jahr: aktuellen Monat bevorzugen, sonst ersten aktiven
-        if (String(jahr) === String(aktuellesJahr) && mm === aktuellerMonat) {
-          aktiverMonat = mm;
-        } else if (!aktiverMonat) {
-          aktiverMonat = mm;
-        }
-      }
+      if (!res.ok) option.disabled = true;
+      else if (!ersterAktiverMonat) ersterAktiverMonat = mm;
     } catch {
       option.disabled = true;
     }
     monatSelect.appendChild(option);
   }
 
-  if (aktiverMonat) {
-    monatSelect.value = aktiverMonat;
-    jahresansicht = false;
+  if (ersterAktiverMonat) {
+    monatSelect.value = ersterAktiverMonat;
     ladeFahrten();
   } else {
     tbody.innerHTML = `<tr><td colspan="7">Keine Daten für dieses Jahr</td></tr>`;
   }
 }
 
-// ----------------- Fahrten laden (Monat oder ganzes Jahr) -----------------
+// ----------------- Fahrten laden -----------------
 async function ladeFahrten() {
   const jahr = jahrSelect.value;
   const monat = monatSelect.value;
   if (!jahr || !monat) return;
 
-  if (monat === "alle") {
-    jahresansicht = true;
-    await ladeAlleMonateDesJahres(jahr);
-    return;
-  }
-
-  jahresansicht = false;
   tbody.innerHTML = `<tr><td colspan="7">Lade Daten...</td></tr>`;
   const monthKey = `${jahr}-${monat}`;
 
@@ -99,33 +73,6 @@ async function ladeFahrten() {
   }
 }
 
-// ----------------- Alle Monate des Jahres laden -----------------
-async function ladeAlleMonateDesJahres(jahr) {
-  tbody.innerHTML = `<tr><td colspan="7">Lade Jahresdaten...</td></tr>`;
-  aktuelleFahrten = [];
-
-  for (let m = 1; m <= 12; m++) {
-    const monthKey = `${jahr}-${String(m).padStart(2, "0")}`;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
-      });
-      if (!res.ok) continue;
-      const fahrten = await res.json();
-      aktuelleFahrten.push(...fahrten);
-    } catch {
-      // Monat überspringen
-    }
-  }
-
-  if (aktuelleFahrten.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7">Keine Daten für ${jahr} vorhanden</td></tr>`;
-    return;
-  }
-
-  renderTabelleJahresansicht();
-}
-
 // ----------------- Timestamp → datetime-local Format -----------------
 function toDatetimeLocal(isoString) {
   const d = new Date(isoString);
@@ -141,7 +88,7 @@ function monthKeyFromISO(isoString) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// ----------------- Tabelle rendern (Monatsansicht, editierbar) -----------------
+// ----------------- Tabelle rendern -----------------
 function renderTabelle() {
   tbody.innerHTML = "";
   const filter = fahrtartFilter.value;
@@ -183,60 +130,8 @@ function renderTabelle() {
   });
 }
 
-// ----------------- Tabelle rendern (Jahresansicht, nur lesend mit Monats-Trennzeilen) -----------------
-function renderTabelleJahresansicht() {
-  tbody.innerHTML = "";
-  const filter = fahrtartFilter.value;
-
-  let laufenderMonat = null;
-  let zeilennummer = 0;
-
-  aktuelleFahrten.forEach((f, i) => {
-    if (filter !== "alle" && f.fahrtart !== filter) return;
-
-    const monatDieserFahrt = monthKeyFromISO(f.timestamp);
-
-    // Monats-Trennzeile einfügen
-    if (monatDieserFahrt !== laufenderMonat) {
-      laufenderMonat = monatDieserFahrt;
-      zeilennummer = 0;
-      const trHeader = document.createElement("tr");
-      trHeader.className = "table-dark";
-      trHeader.innerHTML = `
-        <td colspan="7" class="fw-bold">
-          <span class="mdi mdi-calendar-month me-2"></span>${formatMonat(monatDieserFahrt)}
-        </td>
-      `;
-      tbody.appendChild(trHeader);
-    }
-
-    zeilennummer++;
-    const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${zeilennummer}</td>
-      <td>${f.kmstand}</td>
-      <td>${diff >= 0 ? diff : "–"}</td>
-      <td>${f.ziel}</td>
-      <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'}">${f.fahrtart}</span></td>
-      <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
-      <td></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// ----------------- Monatsname formatieren -----------------
-function formatMonat(monthKey) {
-  if (!monthKey) return monthKey;
-  const [y, m] = monthKey.split("-");
-  return new Date(y, parseInt(m) - 1).toLocaleString("de-DE", { month: "long", year: "numeric" });
-}
-
 // ----------------- Inline-Bearbeitung: KM Stand & Ziel (contenteditable) -----------------
 tbody.addEventListener("blur", async e => {
-  if (jahresansicht) return; // In Jahresansicht kein Editieren
   if (!e.target.dataset.field) return;
   const tr = e.target.closest("tr");
   const index = tr.dataset.index;
@@ -250,8 +145,6 @@ tbody.addEventListener("blur", async e => {
 
 // ----------------- Fahrtart Dropdown & Zeitpunkt -----------------
 tbody.addEventListener("change", async e => {
-  if (jahresansicht) return;
-
   if (e.target.classList.contains("fahrtart-select")) {
     const index = e.target.dataset.index;
     aktuelleFahrten[index].fahrtart = e.target.value;
@@ -270,7 +163,7 @@ tbody.addEventListener("change", async e => {
     if (!neuerMonthKey) return;
 
     if (neuerMonthKey !== alterMonthKey) {
-      // Monat hat sich geändert → Fahrt verschieben
+      // Monat hat sich geändert → Fahrt in andere JSON-Datei verschieben
       const fahrtMitNeuemTimestamp = { ...aktuelleFahrten[index], timestamp: neuesTimestamp };
 
       try {
@@ -301,6 +194,7 @@ tbody.addEventListener("change", async e => {
       }
 
     } else {
+      // Gleicher Monat → normales Update
       aktuelleFahrten[index].timestamp = neuesTimestamp;
       await speichereFahrt(index);
     }
@@ -329,7 +223,6 @@ async function speichereFahrt(index) {
 
 // ----------------- Löschen mit Bestätigung -----------------
 tbody.addEventListener("click", async e => {
-  if (jahresansicht) return; // In Jahresansicht kein Löschen
   const btn = e.target.closest(".delete-btn");
   if (!btn) return;
 
@@ -385,10 +278,7 @@ function zeigeHinweis(text, typ = "info") {
 }
 
 // ----------------- Filter -----------------
-fahrtartFilter.addEventListener("change", () => {
-  if (jahresansicht) renderTabelleJahresansicht();
-  else renderTabelle();
-});
+fahrtartFilter.addEventListener("change", renderTabelle);
 
 // ----------------- CSV Export -----------------
 csvExportBtn?.addEventListener("click", () => {
@@ -402,11 +292,10 @@ tbody.addEventListener("touchstart", e => startX = e.touches[0].clientX);
 tbody.addEventListener("touchend", e => {
   const diff = e.changedTouches[0].clientX - startX;
   if (Math.abs(diff) < 50) return;
-  const opts = [...monatSelect.options].filter(o => o.value !== "alle" && !o.disabled);
-  if (opts.length === 0) return;
-  const curIdx = opts.findIndex(o => o.value === monatSelect.value);
-  if (diff < 0 && curIdx < opts.length - 1) monatSelect.value = opts[curIdx + 1].value;
-  if (diff > 0 && curIdx > 0) monatSelect.value = opts[curIdx - 1].value;
+  let idx = monatSelect.selectedIndex;
+  if (diff < 0 && idx < monatSelect.options.length - 1) idx++;
+  if (diff > 0 && idx > 0) idx--;
+  monatSelect.selectedIndex = idx;
   ladeFahrten();
 });
 
