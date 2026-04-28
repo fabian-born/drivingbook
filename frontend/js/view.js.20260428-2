@@ -1,9 +1,7 @@
-document.addEventListener("DOMContentLoaded", () => {
-
 const jahrSelect  = document.getElementById("jahrSelect");
 const monatSelect = document.getElementById("monatSelect");
 const tbody       = document.getElementById("fahrtenTabelle");
-const cardList    = document.getElementById("cardList") ?? document.createElement("div");
+const cardList    = document.getElementById("cardList");
 const fahrtartFilter = document.getElementById("fahrtartFilter");
 const csvExportBtn   = document.getElementById("csvExportYear");
 
@@ -451,7 +449,7 @@ function zeigeLoeschModal(index) {
   new bootstrap.Modal(document.getElementById("deleteModal")).show();
 }
 
-document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () => {
+document.getElementById("confirmDeleteBtn").addEventListener("click", async () => {
   const index    = document.getElementById("confirmDeleteIndex").value;
   const monthKey = document.getElementById("confirmDeleteMonthKey").value;
 
@@ -554,5 +552,3 @@ monatSelect.addEventListener("change", ladeFahrten);
 
 fuelleJahre();
 fuelleMonateMitCheck();
-
-}); // DOMContentLoaded
