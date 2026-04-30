@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrierung – Fahrtenbuch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100">
+
+<div class="card shadow-sm" style="width: 100%; max-width: 440px;">
+  <div class="card-body p-4">
+
+    <!-- ── Registrierungsformular ── -->
+    <div id="viewForm">
+      <h3 class="text-center mb-4">📋 Konto erstellen</h3>
+
+      <div id="regError" class="alert alert-danger d-none"></div>
+
+      <div class="mb-3">
+        <label class="form-label">Benutzername</label>
+        <input type="text" id="username" class="form-control" placeholder="z. B. max.mustermann" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Passwort <span class="text-muted small">(min. 8 Zeichen)</span></label>
+        <input type="password" id="password" class="form-control" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Passwort wiederholen</label>
+        <input type="password" id="passwordConfirm" class="form-control" required>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Erstes Fahrzeug <span class="text-muted small">(optional)</span></label>
+        <input type="text" id="vehicleName" class="form-control" placeholder="z. B. VW Golf, Firmenwagen …">
+      </div>
+
+      <button class="btn btn-primary w-100" id="registerBtn">Registrieren</button>
+
+      <p class="text-center text-muted small mt-3 mb-0">
+        Bereits ein Konto? <a href="login.html">Anmelden</a>
+      </p>
+    </div>
+
+    <!-- ── Erfolg: API-Token anzeigen ── -->
+    <div id="viewSuccess" class="d-none">
+      <div class="text-center mb-3">
+        <span style="font-size:2.5rem;">✅</span>
+        <h4 class="mt-2">Konto erstellt!</h4>
+        <p class="text-muted small">Bitte speichere deinen API-Token – er wird nur einmal angezeigt.</p>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">Dein Standard API-Token</label>
+        <div class="input-group">
+          <input type="text" id="tokenDisplay" class="form-control font-monospace" readonly>
+          <button class="btn btn-outline-secondary" id="copyTokenBtn" title="Kopieren">📋</button>
+        </div>
+        <div class="form-text text-warning fw-semibold">
+          ⚠️ Dieser Token wird nur einmal angezeigt. Jetzt kopieren und sicher speichern!
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Angelegtes Fahrzeug</label>
+        <input type="text" id="vehicleDisplay" class="form-control" readonly>
+      </div>
+
+      <a href="index.html" class="btn btn-success w-100">Zum Dashboard →</a>
+    </div>
+
+  </div>
+  <div class="card-footer text-muted text-center small py-2">
+    © <span id="year"></span> Fahrtenbuch
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/register.js"></script>
+<script>document.getElementById("year").innerText = new Date().getFullYear();</script>
+</body>
+</html>

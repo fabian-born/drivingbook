@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Login – Fahrtenbuch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
@@ -26,14 +27,10 @@
         <input type="password" id="password" class="form-control" required>
       </div>
 
-      <button class="btn btn-primary w-100" type="submit">Anmelden</button>
+      <button class="btn btn-primary w-100" type="submit">
+        Anmelden
+      </button>
     </form>
-
-    <hr class="my-3">
-
-    <p class="text-center text-muted small mb-0">
-      Noch kein Konto? <a href="register.html">Jetzt registrieren</a>
-    </p>
 
     <p class="text-muted text-center mt-3 mb-0" style="font-size: 0.85rem;">
       © <span id="year"></span> Fahrtenbuch
@@ -48,3 +45,4 @@
 </script>
 </body>
 </html>
+

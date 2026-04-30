@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <title>Admin – Fahrtenbuch</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="index.html">Fahrtenbuch</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="driving.html">Neue Fahrt</a></li>
+        <li class="nav-item"><a class="nav-link" href="view.html">Fahrten anzeigen</a></li>
+        <li class="nav-item"><a class="nav-link" href="history.html">Jahreshistorie</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="profile.html">Profil</a></li>
+        <li class="nav-item"><a class="nav-link active" href="admin.html">Admin</a></li>
+      </ul>
+      <button id="logoutBtn" class="btn btn-outline-light btn-sm ms-2">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5" style="max-width: 800px;">
+  <h2 class="mb-1">🛠️ Admin-Panel</h2>
+  <p class="text-muted mb-4">Benutzerverwaltung</p>
+
+  <div id="adminAlert" class="d-none mb-3"></div>
+  <div id="adminNoAccess" class="alert alert-danger d-none">
+    ⛔ Kein Zugriff – nur für Administratoren.
+  </div>
+
+  <!-- ── User-Tabelle ─────────────────────────────────────── -->
+  <div class="card shadow-sm mb-4" id="adminPanel">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><span class="mdi mdi-account-group me-1"></span>Alle Benutzer</span>
+      <button class="btn btn-sm btn-outline-primary" id="btnNeuerUser">
+        <span class="mdi mdi-account-plus me-1"></span>Neuer Benutzer
+      </button>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-striped mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>#</th>
+            <th>Benutzername</th>
+            <th>Rolle</th>
+            <th>Erstellt</th>
+          </tr>
+        </thead>
+        <tbody id="userTabelle">
+          <tr><td colspan="4" class="text-muted p-3">Lade…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Neuer User (Admin) -->
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Neuen Benutzer anlegen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="userModalAlert" class="d-none mb-3"></div>
+        <div class="mb-3">
+          <label class="form-label">Benutzername</label>
+          <input type="text" id="newUsername" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Passwort <span class="text-muted small">(mind. 8 Zeichen)</span></label>
+          <input type="password" id="newUserPassword" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fahrzeugname <span class="text-muted small">(optional)</span></label>
+          <input type="text" id="newUserVehicle" class="form-control" placeholder="Fahrzeug 1">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Rolle</label>
+          <select id="newUserRole" class="form-select">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div id="newUserTokenBox" class="d-none">
+          <div class="alert alert-warning">
+            <strong>🔑 API-Token (einmalig):</strong>
+            <div class="input-group mt-2">
+              <input type="text" id="newUserToken" class="form-control font-monospace" readonly>
+              <button class="btn btn-outline-secondary"
+                onclick="navigator.clipboard.writeText(document.getElementById('newUserToken').value).then(()=>alert('Kopiert!'))">
+                <span class="mdi mdi-content-copy"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="userModalFooter">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="btnUserSpeichern">Anlegen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth-check.js"></script>
+<script src="js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/admin.js"></script>
+
+<footer class="bg-dark text-light mt-5">
+  <div class="container py-3 text-center small">
+    © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
+  </div>
+</footer>
+<script>document.getElementById("year").innerText = new Date().getFullYear();</script>
+<script src="js/footer.js"></script>
+</body>
+</html>

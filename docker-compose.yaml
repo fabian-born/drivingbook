@@ -1,18 +1,80 @@
-services:
-  backend:
-    build: ./backend
-    container_name: fahrtenbuch-backend
-    ports:
-      - "3000:3000"         # extern erreichbar (optional)
-    volumes:
-      - ./backend/data:/app/data
-    restart: unless-stopped
+# ============================================================
+# Fahrtenbuch – Docker Compose
+# ============================================================
 
-  frontend:
-    build: ./frontend
-    container_name: fahrtenbuch-frontend
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # PostgreSQL Datenbank
+  # ──────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: fahrtenbuch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-fahrtenbuch}
+      POSTGRES_USER:     ${DB_USER:-fahrtenbuch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fahrtenbuch}
+    volumes:
+      - ./backend/data/db:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fahrtenbuch} -d ${DB_NAME:-fahrtenbuch}"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+    networks:
+      - fahrtenbuch
+
+  # ──────────────────────────────────────────────────────────
+  # Node.js Backend
+  # ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile
+    container_name: fahrtenbuch-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT:        ${BACKEND_PORT:-3000}
+      DB_HOST:     db
+      DB_PORT:     5432
+      DB_NAME:     ${DB_NAME:-fahrtenbuch}
+      DB_USER:     ${DB_USER:-fahrtenbuch}
+      DB_PASSWORD: ${DB_PASSWORD:-fahrtenbuch}
+      JWT_SECRET:  ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
+      JWT_EXPIRES: ${JWT_EXPIRES:-8h}
     ports:
-      - "8080:80"           # Frontend über Port 8080 erreichbar
+      - "${BACKEND_PORT:-3000}:3000"
+    networks:
+      - fahrtenbuch
+
+  # ──────────────────────────────────────────────────────────
+  # Nginx Frontend
+  # ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context:    ./frontend
+      dockerfile: Dockerfile
+    container_name: fahrtenbuch-frontend
     restart: unless-stopped
     depends_on:
       - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - fahrtenbuch
+
+# ────────────────────────────────────────────────────────────
+# Volumes & Netzwerk
+# ────────────────────────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  fahrtenbuch:
+    driver: bridge

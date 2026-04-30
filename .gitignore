@@ -1,2 +1,13 @@
 backend/data/*
 backend/data
+
+# Umgebungsvariablen – niemals einchecken!
+.env
+ 
+# Node
+node_modules/
+npm-debug.log*
+ 
+# Docker
+*.log
+ 
