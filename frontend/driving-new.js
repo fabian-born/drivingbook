@@ -70,4 +70,3 @@
     const month = new Date().toISOString().slice(0,7);
     window.location.href = `${API_BASE_URL}/api/export/json?month=${month}`;
   }
-

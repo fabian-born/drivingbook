@@ -395,8 +395,48 @@ app.get("/api/profile", requireAuth, async (req, res) => {
 // POST /api/fahrt  →  Neue Fahrt speichern
 // Body: { kmstand, ziel, fahrtart, timestamp, vehicle_id? }
 // ────────────────────────────────────────────────────────────
+// ------------------------
+// Hilfsfunktion: GPS-Koordinaten → Adresse (Nominatim)
+// ------------------------
+async function resolveGpsToAddress(ziel) {
+  // Erkennt Formate wie "(49.79948, 8.609279)" oder "49.79948, 8.609279"
+  const match = ziel.match(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/);
+  if (!match) return ziel; // Kein GPS-Format → unverändert zurückgeben
+
+  const lat = match[1];
+  const lon = match[2];
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
+    // node-fetch ist bereits in package.json vorhanden
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Fahrtenbuch/1.0" } // Nominatim verlangt einen User-Agent
+    });
+
+    if (!res.ok) return ziel;
+
+    const data = await res.json();
+    const addr = data.address || {};
+    const strasse  = addr.road || "";
+    const hausnr   = addr.house_number || "";
+    const plz      = addr.postcode || "";
+    const ort      = addr.city || addr.town || addr.village || "";
+
+    const adresse = `${strasse} ${hausnr}, ${plz} ${ort}`.trim().replace(/^,|,$/g, "");
+    return adresse || data.display_name || ziel; // Fallback auf display_name
+  } catch (err) {
+    console.warn("Reverse Geocoding fehlgeschlagen:", err.message);
+    return ziel; // Im Fehlerfall Original behalten
+  }
+}
+
+
+
 app.post("/api/fahrt", requireAuth, async (req, res) => {
-  const { kmstand, ziel, fahrtart, timestamp, vehicle_id } = req.body;
+  // const { kmstand, ziel, fahrtart, timestamp, vehicle_id } = req.body;
+  const { kmstand, fahrtart, timestamp, vehicle_id } = req.body;
+  let ziel = req.body.ziel;
+
 
   if (!kmstand || !ziel || !fahrtart || !timestamp) {
     return res.status(400).json({ error: "Alle Pflichtfelder erforderlich: kmstand, ziel, fahrtart, timestamp" });
@@ -406,6 +446,8 @@ app.post("/api/fahrt", requireAuth, async (req, res) => {
   if (isNaN(ts)) {
     return res.status(400).json({ error: "Ungültiger Timestamp" });
   }
+  ziel = await resolveGpsToAddress(ziel);
+  console.log("📍 Ziel nach Geocoding:", ziel);
 
   // vehicle_id prüfen: gehört es diesem User?
   if (vehicle_id) {
