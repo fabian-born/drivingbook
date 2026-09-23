@@ -1,36 +1,86 @@
+# ============================================================
+# Fahrtenbuch – Homelab-Stack (Traefik)
+#
+# Alles läuft unter https://fahrtenbuch.homelab.fabianborn.net:
+#   /      → frontend (nginx)
+#   /api/  → nginx leitet intern an backend:3000 weiter
+#
+# Benötigt eine .env neben dieser Datei mit mindestens:
+#   FRONTEND_TAG, BACKEND_TAG   Image-Tags aus der CI (z. B. 2026.09.23-ab12cd34)
+#   DB_PASSWORD                 Passwort der Datenbank
+#   JWT_SECRET                  ≥ 32 zufällige Zeichen
+# Optional: ADMIN_USERNAME, ADMIN_PASSWORD, ALLOW_REGISTRATION, JWT_EXPIRES
+# ============================================================
+
 networks:
   frontend:
     external: true
+  fahrtenbuch:
+    driver: bridge
+
 services:
-  backend:
-    image: ghcr.io/fabian-born/fahrtenbuch-backend:dev-3  
-    container_name: fahrtenbuch-backend
-    ports:
-      - "3000:3000"         # extern erreichbar (optional)
+
+  db:
+    image: postgres:16-alpine
+    container_name: fahrtenbuch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-fahrtenbuch}
+      POSTGRES_USER:     ${DB_USER:-fahrtenbuch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD muss gesetzt sein}
     volumes:
-      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/backend/data:/app/data
-    restart: unless-stopped
+      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/db:/var/lib/postgresql/data
+      # init.sql aus dem Repo (backend/init.sql) hierhin kopieren – läuft nur bei leerer DB
+      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fahrtenbuch} -d ${DB_NAME:-fahrtenbuch}"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
     networks:
-      - frontend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.driversbook-backend-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
-      - "traefik.http.routers.driversbook-backend-https.entrypoints=websecure"
-      - "traefik.http.routers.driversbook-backend-https.tls=true"
-      - "traefik.http.routers.driversbook-backend-https.tls.certresolver=hetzner"
+      - fahrtenbuch
+
+  backend:
+    image: ghcr.io/fabian-born/fahrtenbuch-backend:${BACKEND_TAG:?BACKEND_TAG muss gesetzt sein}
+    container_name: fahrtenbuch-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST:            db
+      DB_PORT:            5432
+      DB_NAME:            ${DB_NAME:-fahrtenbuch}
+      DB_USER:            ${DB_USER:-fahrtenbuch}
+      DB_PASSWORD:        ${DB_PASSWORD:?DB_PASSWORD muss gesetzt sein}
+      JWT_SECRET:         ${JWT_SECRET:?JWT_SECRET muss gesetzt sein}
+      JWT_EXPIRES:        ${JWT_EXPIRES:-8h}
+      ADMIN_USERNAME:     ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD:     ${ADMIN_PASSWORD:-}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # Anfragen laufen über Traefik → nginx → backend (2 Proxys)
+      TRUST_PROXY:        "2"
+    volumes:
+      # Alte JSON-Daten, nur für die einmalige Migration (node migrate.js)
+      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/backend/data:/app/data:ro
+    # Kein Port und kein Traefik-Label: nur intern über nginx erreichbar
+    networks:
+      - fahrtenbuch
+
   frontend:
-    image: ghcr.io/fabian-born/fahrtenbuch-frontend:dev-3
+    image: ghcr.io/fabian-born/fahrtenbuch-frontend:${FRONTEND_TAG:?FRONTEND_TAG muss gesetzt sein}
     container_name: fahrtenbuch-frontend
-    ports:
-      - "8080:80"           # Frontend über Port 8080 erreichbar
     restart: unless-stopped
-    networks:
-      - frontend
     depends_on:
       - backend
+    networks:
+      - frontend
+      - fahrtenbuch
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.driversbook-frontend-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
-      - "traefik.http.routers.driversbook-frontend-https.entrypoints=websecure"
-      - "traefik.http.routers.driversbook-frontend-https.tls=true"
-      - "traefik.http.routers.driversbook-frontend-https.tls.certresolver=hetzner"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.driversbook-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
+      - "traefik.http.routers.driversbook-https.entrypoints=websecure"
+      - "traefik.http.routers.driversbook-https.tls=true"
+      - "traefik.http.routers.driversbook-https.tls.certresolver=hetzner"
+      - "traefik.http.services.driversbook.loadbalancer.server.port=80"

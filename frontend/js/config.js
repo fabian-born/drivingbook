@@ -1,5 +1,6 @@
 // js/config.js
-const API_BASE_URL = "https://fahrtenbuch-backend.home.fabianborn.net";
+// Leer = gleiche Origin; nginx im Frontend-Container leitet /api ans Backend weiter
+const API_BASE_URL = "";
 //const API_BASE_URL = "http://192.168.4.249:3000"
 const START_JAHR = 2024;
 

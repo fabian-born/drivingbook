@@ -37,7 +37,8 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || "fahrtenbuch",
 });
 
-// Kommagetrennte Liste erlaubter Frontend-Origins, z. B. "https://fahrtenbuch.example.com"
+// Kommagetrennte Liste erlaubter Frontend-Origins, z. B. "https://fahrtenbuch.example.com".
+// Nur nötig, wenn das Frontend die API von einer anderen Origin aufruft.
 const CORS_ORIGINS = (process.env.CORS_ORIGIN || "")
   .split(",").map(o => o.trim()).filter(Boolean);
 
@@ -55,11 +56,9 @@ if (process.env.TRUST_PROXY) {
 
 app.use(express.json());
 
+// Ohne CORS_ORIGIN keine CORS-Header → Browser erlauben nur Aufrufe von der gleichen Origin
 if (CORS_ORIGINS.length > 0) {
   app.use(cors({ origin: CORS_ORIGINS }));
-} else {
-  console.warn("⚠️  CORS_ORIGIN ist nicht gesetzt – API akzeptiert Anfragen von jeder Origin.");
-  app.use(cors());
 }
 
 // ────────────────────────────────────────────────────────────

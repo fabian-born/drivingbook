@@ -51,7 +51,8 @@ services:
       ADMIN_PASSWORD:     ${ADMIN_PASSWORD:-}
       CORS_ORIGIN:        ${CORS_ORIGIN:-}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      TRUST_PROXY:        ${TRUST_PROXY:-}
+      # Frontend-nginx leitet /api weiter → 1 Proxy vor dem Backend
+      TRUST_PROXY:        ${TRUST_PROXY:-1}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:

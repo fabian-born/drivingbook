@@ -23,9 +23,9 @@ Weitere sicherheitsrelevante Variablen:
 | Variable | Bedeutung |
 |---|---|
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Admin für den ersten Start auf leerer DB. Ohne Passwort wird eines generiert und einmalig geloggt. |
-| `CORS_ORIGIN` | Erlaubte Frontend-Origin(s), kommagetrennt. Leer = alle (Warnung im Log). |
+| `CORS_ORIGIN` | Nur nötig, wenn das Frontend die API von einer anderen Origin aufruft (kommagetrennt). Leer = nur gleiche Origin; das Frontend-nginx leitet `/api` ans Backend weiter. |
 | `ALLOW_REGISTRATION` | `false` deaktiviert die öffentliche Registrierung. |
-| `TRUST_PROXY` | Anzahl Reverse-Proxys (z. B. `1` hinter Traefik) – nötig für korrektes Rate-Limit pro Client-IP. |
+| `TRUST_PROXY` | Anzahl Reverse-Proxys vor dem Backend (`1` = Frontend-nginx, `2` = Traefik + nginx) – nötig für korrektes Rate-Limit pro Client-IP. |
 
 ---
 
