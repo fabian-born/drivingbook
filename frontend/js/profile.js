@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     tbody.innerHTML = tokens.map(t => `
       <tr>
-        <td>${t.label}</td>
+        <td>${escapeHtml(t.label)}</td>
         <td>${t.is_default
           ? '<span class="badge bg-success">Standard</span>'
           : '<span class="badge bg-secondary">Nein</span>'}</td>
@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     tbody.innerHTML = vehicles.map(v => `
       <tr>
-        <td>${v.name}</td>
+        <td>${escapeHtml(v.name)}</td>
         <td class="text-muted small">${new Date(v.created_at).toLocaleString("de-DE")}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-danger delete-vehicle-btn" data-id="${v.id}"

@@ -7,7 +7,7 @@ const authHeaders = () => ({
 function zeigeAlert(text, typ = "success", id = "adminAlert") {
   const box = document.getElementById(id);
   box.className = `alert alert-${typ}`;
-  box.innerHTML = text;
+  box.textContent = text;
   box.classList.remove("d-none");
   setTimeout(() => box.classList.add("d-none"), 5000);
 }
@@ -34,11 +34,11 @@ async function ladeUsers() {
 
   tbody.innerHTML = data.map(u => `
     <tr>
-      <td>${u.id}</td>
-      <td><span class="mdi mdi-account me-1"></span>${u.username}</td>
+      <td>${escapeHtml(u.id)}</td>
+      <td><span class="mdi mdi-account me-1"></span>${escapeHtml(u.username)}</td>
       <td>
         <span class="badge ${u.role === 'admin' ? 'bg-danger' : 'bg-secondary'}">
-          ${u.role}
+          ${escapeHtml(u.role)}
         </span>
       </td>
       <td class="small text-muted">${formatDatum(u.created_at)}</td>

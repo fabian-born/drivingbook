@@ -157,9 +157,9 @@ function renderTabelle() {
     tr.dataset.index = i;
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td contenteditable="true" data-field="kmstand">${f.kmstand}</td>
+      <td contenteditable="true" data-field="kmstand">${escapeHtml(f.kmstand)}</td>
       <td>${diff}</td>
-      <td contenteditable="true" data-field="ziel">${f.ziel}</td>
+      <td contenteditable="true" data-field="ziel">${escapeHtml(f.ziel)}</td>
       <td>
         <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
           <option value="geschäftlich" ${f.fahrtart === "geschäftlich" ? "selected" : ""}>Geschäftlich</option>
@@ -205,10 +205,10 @@ function renderTabelleJahresansicht() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${nr}</td>
-      <td>${f.kmstand}</td>
+      <td>${escapeHtml(f.kmstand)}</td>
       <td>${diff >= 0 ? diff : "–"}</td>
-      <td>${f.ziel}</td>
-      <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${f.fahrtart}</span></td>
+      <td>${escapeHtml(f.ziel)}</td>
+      <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${escapeHtml(f.fahrtart)}</span></td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
       <td></td>`;
     tbody.appendChild(tr);
@@ -270,12 +270,12 @@ function buildCard(f, i, diff, readonly, nr) {
     div.innerHTML = `
       <div class="d-flex justify-content-between align-items-start">
         <div>
-          <span class="card-km">${f.kmstand} km</span>
+          <span class="card-km">${escapeHtml(f.kmstand)} km</span>
           <span class="card-diff ms-2">+${diff >= 0 ? diff : 0} km</span>
         </div>
         ${badge}
       </div>
-      <div class="card-ziel">${f.ziel}</div>
+      <div class="card-ziel">${escapeHtml(f.ziel)}</div>
       <div class="card-meta">#${num} · ${zeitpunkt}</div>`;
   } else {
     div.innerHTML = `
@@ -285,7 +285,7 @@ function buildCard(f, i, diff, readonly, nr) {
 
       <div class="d-flex align-items-center gap-2 mb-2">
         <input type="number" class="form-control form-control-sm card-field-km"
-          data-index="${i}" data-field="kmstand" value="${f.kmstand}" style="width:110px">
+          data-index="${i}" data-field="kmstand" value="${escapeHtml(f.kmstand)}" style="width:110px">
         <span class="card-diff text-muted">+${diff >= 0 ? diff : 0} km</span>
         <select class="form-select form-select-sm ms-auto card-fahrtart" data-index="${i}" style="width:130px">
           <option value="geschäftlich" ${f.fahrtart === "geschäftlich" ? "selected" : ""}>Geschäftlich</option>
@@ -294,7 +294,7 @@ function buildCard(f, i, diff, readonly, nr) {
       </div>
 
       <input type="text" class="form-control form-control-sm mb-2 card-field-ziel"
-        data-index="${i}" data-field="ziel" value="${f.ziel}">
+        data-index="${i}" data-field="ziel" value="${escapeHtml(f.ziel)}">
 
       <input type="datetime-local" class="form-control form-control-sm card-timestamp"
         data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
@@ -496,13 +496,13 @@ function formatMonat(monthKey) {
 }
 
 function setLaden(text = "Lade Daten...") {
-  tbody.innerHTML   = `<tr><td colspan="7">${text}</td></tr>`;
-  cardList.innerHTML = `<p class="text-muted small">${text}</p>`;
+  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
+  cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
 function setLeer(text) {
-  tbody.innerHTML   = `<tr><td colspan="7">${text}</td></tr>`;
-  cardList.innerHTML = `<p class="text-muted small">${text}</p>`;
+  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
+  cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
 function zeigeHinweis(text, typ = "info") {
@@ -515,7 +515,7 @@ function zeigeHinweis(text, typ = "info") {
   }
   const div = document.createElement("div");
   div.className = `alert alert-${typ} alert-dismissible fade show shadow`;
-  div.innerHTML = `${text}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+  div.innerHTML = `${escapeHtml(text)}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
   container.appendChild(div);
   setTimeout(() => div.remove(), 5000);
 }
