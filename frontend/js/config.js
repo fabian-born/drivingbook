@@ -22,3 +22,57 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// Ruft die API auf: setzt den Auth-Header, sendet `body` als JSON und
+// leitet bei abgelaufener Anmeldung (401) zum Login weiter.
+async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
+  const authToken = localStorage.getItem("authToken");
+  const options   = { method, headers: { ...headers } };
+
+  if (authToken) options.headers["Authorization"] = `Bearer ${authToken}`;
+  if (body !== undefined) {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(body);
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, options);
+
+  if (res.status === 401 && authToken) {
+    localStorage.removeItem("authToken");
+    window.location.href = "login.html?expired=1";
+    return new Promise(() => {});  // Weiterverarbeitung abbrechen, Seite wird verlassen
+  }
+  return res;
+}
+
+// Liest die Fehlermeldung aus einer API-Antwort
+async function apiError(res, fallback = "Unbekannter Fehler") {
+  const data = await res.json().catch(() => ({}));
+  return data.error || `${fallback} (${res.status})`;
+}
+
+// Lädt eine Datei mit Auth-Header und bietet sie als Download an
+// (ein normaler Link würde keinen Authorization-Header mitschicken)
+async function downloadDatei(path, dateiname) {
+  try {
+    const res = await apiFetch(path);
+    if (!res.ok) return alert(await apiError(res, "Export fehlgeschlagen"));
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(await res.blob());
+    link.download = dateiname;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  } catch (err) {
+    console.error("Export-Fehler:", err);
+    alert("Export fehlgeschlagen.");
+  }
+}
+
+// PWA: Service Worker für Offline-Nutzung registrieren
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(err =>
+      console.warn("Service Worker konnte nicht registriert werden:", err));
+  });
+}

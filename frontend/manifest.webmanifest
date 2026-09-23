@@ -1,0 +1,16 @@
+{
+  "name": "Fahrtenbuch",
+  "short_name": "Fahrtenbuch",
+  "description": "Fahrten erfassen, auswerten und exportieren – auch offline.",
+  "lang": "de",
+  "start_url": "driving.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#212529",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

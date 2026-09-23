@@ -47,9 +47,7 @@ async function fuelleMonateMitCheck() {
     option.textContent = mm;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
-      });
+      const res = await apiFetch(`/api/export/json?month=${monthKey}`);
       if (!res.ok) {
         option.disabled = true;
       } else {
@@ -92,9 +90,7 @@ async function ladeFahrten() {
   const monthKey = `${jahr}-${monat}`;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
-    });
+    const res = await apiFetch(`/api/export/json?month=${monthKey}`);
     if (!res.ok) {
       setLeer("Keine Daten vorhanden");
       aktuelleFahrten = [];
@@ -115,9 +111,7 @@ async function ladeAlleMonateDesJahres(jahr) {
   for (let m = 1; m <= 12; m++) {
     const monthKey = `${jahr}-${String(m).padStart(2, "0")}`;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${monthKey}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
-      });
+      const res = await apiFetch(`/api/export/json?month=${monthKey}`);
       if (!res.ok) continue;
       aktuelleFahrten.push(...(await res.json()));
     } catch { /* Monat überspringen */ }
@@ -170,7 +164,8 @@ function renderTabelle() {
         <input type="datetime-local" class="form-control form-control-sm timestamp-input"
           data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
       </td>
-      <td class="text-center">
+      <td class="text-center text-nowrap">
+        ${historyButton(f)}
         <button class="btn btn-sm btn-outline-danger delete-btn" data-index="${i}" title="Löschen">
           <span class="mdi mdi-delete"></span>
         </button>
@@ -210,7 +205,7 @@ function renderTabelleJahresansicht() {
       <td>${escapeHtml(f.ziel)}</td>
       <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${escapeHtml(f.fahrtart)}</span></td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
-      <td></td>`;
+      <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -276,7 +271,7 @@ function buildCard(f, i, diff, readonly, nr) {
         ${badge}
       </div>
       <div class="card-ziel">${escapeHtml(f.ziel)}</div>
-      <div class="card-meta">#${num} · ${zeitpunkt}</div>`;
+      <div class="card-meta">#${num} · ${zeitpunkt} ${historyButton(f)}</div>`;
   } else {
     div.innerHTML = `
       <button class="btn btn-sm btn-outline-danger delete-btn btn-delete-card" data-index="${i}" title="Löschen">
@@ -299,7 +294,7 @@ function buildCard(f, i, diff, readonly, nr) {
       <input type="datetime-local" class="form-control form-control-sm card-timestamp"
         data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
 
-      <div class="card-meta mt-1">#${i + 1}</div>`;
+      <div class="card-meta mt-1">#${i + 1} ${historyButton(f)}</div>`;
   }
 
   return div;
@@ -343,6 +338,12 @@ cardList.addEventListener("blur", async e => {
     await speichereFahrt(i);
   }
 }, true);
+
+// Verlauf-Buttons funktionieren auch in der (sonst schreibgeschützten) Jahresansicht
+[cardList, tbody].forEach(el => el.addEventListener("click", e => {
+  const btn = e.target.closest(".history-btn");
+  if (btn) zeigeVerlauf(btn.dataset.id);
+}));
 
 cardList.addEventListener("click", e => {
   if (jahresansicht) return;
@@ -422,16 +423,25 @@ async function speichereFahrt(index, aenderungen) {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/fahrt/${fahrt._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) {
+    let res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "PUT", body });
+
+    // km-Stand passt nicht zu den Nachbarfahrten → nachfragen und ggf. erzwingen
+    if (res.status === 409) {
       const err = await res.json().catch(() => ({}));
-      zeigeHinweis(`Fehler beim Speichern: ${err.error || res.status}`, "danger");
+      if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\nTrotzdem speichern?`)) {
+        res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "PUT", body: { ...body, force: true } });
+      } else {
+        zeigeHinweis(`Nicht gespeichert: ${err.error || res.status}`, "warning");
+        ladeFahrten();  // Anzeige auf gespeicherten Stand zurücksetzen
+        return false;
+      }
+    }
+
+    if (!res.ok) {
+      zeigeHinweis(`Fehler beim Speichern: ${await apiError(res)}`, "danger");
       return false;
     }
+    fahrt.edited = true;
     return true;
   } catch (err) {
     console.error("Speicherfehler:", err);
@@ -456,10 +466,7 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
   const fahrt = aktuelleFahrten[index];
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/fahrt/${fahrt._id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
-    });
+    const res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "DELETE" });
     if (res.ok) {
       aktuelleFahrten.splice(index, 1);
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
@@ -527,7 +534,11 @@ function zeigeHinweis(text, typ = "info") {
 fahrtartFilter.addEventListener("change", renderAll);
 
 csvExportBtn?.addEventListener("click", () => {
-  window.location.href = `${API_BASE_URL}/api/export/csv/year/${jahrSelect.value}`;
+  downloadDatei(`/api/export/csv/year/${jahrSelect.value}`, `fahrten_${jahrSelect.value}.csv`);
+});
+
+document.getElementById("pdfExportYear")?.addEventListener("click", () => {
+  downloadDatei(`/api/export/pdf/year/${jahrSelect.value}`, `fahrtenbuch_${jahrSelect.value}.pdf`);
 });
 
 let startX = 0;
@@ -551,6 +562,71 @@ swipeTarget.addEventListener("touchend", e => {
 
 jahrSelect.addEventListener("change", fuelleMonateMitCheck);
 monatSelect.addEventListener("change", ladeFahrten);
+
+// ═══════════════════════════════════════════════
+// Änderungsprotokoll
+// ═══════════════════════════════════════════════
+
+function historyButton(f) {
+  if (!f.edited) return "";
+  return `<button class="btn btn-sm btn-outline-secondary history-btn" data-id="${escapeHtml(f._id)}"
+            title="Nachträglich geändert – Verlauf anzeigen">
+            <span class="mdi mdi-history"></span>
+          </button>`;
+}
+
+const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug-ID" };
+const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
+const QUELLEN     = { web: "Web", api_token: "API-Token" };
+
+function formatWert(feld, wert) {
+  if (wert == null) return "–";
+  if (feld === "timestamp") return new Date(wert).toLocaleString("de-DE");
+  if (feld === "kmstand")   return `${wert} km`;
+  return String(wert);
+}
+
+// Beschreibt einen Protokolleintrag als HTML (Werte werden maskiert)
+function beschreibeEintrag(e) {
+  if (e.action === "update") {
+    const zeilen = Object.keys(FELD_LABELS)
+      .filter(f => JSON.stringify(e.old_data?.[f]) !== JSON.stringify(e.new_data?.[f]))
+      .map(f => `${FELD_LABELS[f]}: <del>${escapeHtml(formatWert(f, e.old_data?.[f]))}</del>
+                 → <strong>${escapeHtml(formatWert(f, e.new_data?.[f]))}</strong>`);
+    return zeilen.length ? zeilen.join("<br>") : "Gespeichert ohne inhaltliche Änderung";
+  }
+  const d = e.action === "delete" ? e.old_data : e.new_data;
+  return escapeHtml(`${formatWert("timestamp", d.timestamp)} · ${formatWert("kmstand", d.kmstand)} · ${d.fahrtart} · ${d.ziel}`);
+}
+
+function zeigeProtokoll(titel, eintraege, leerText) {
+  document.getElementById("auditModalLabel").textContent = titel;
+  document.getElementById("auditModalBody").innerHTML = eintraege.length === 0
+    ? `<p class="text-muted mb-0">${escapeHtml(leerText)}</p>`
+    : `<ul class="list-group list-group-flush">${eintraege.map(e => `
+        <li class="list-group-item px-0">
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>${escapeHtml(new Date(e.changed_at).toLocaleString("de-DE"))} · ${escapeHtml(QUELLEN[e.source] || e.source)}</span>
+            <span>${e.fahrt_id ? `Fahrt-ID ${escapeHtml(e.fahrt_id)} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
+          </div>
+          <div class="small">${beschreibeEintrag(e)}</div>
+        </li>`).join("")}</ul>`;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("auditModal")).show();
+}
+
+async function zeigeVerlauf(id) {
+  const res = await apiFetch(`/api/fahrt/${id}/history`);
+  if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
+  zeigeProtokoll("Änderungsverlauf der Fahrt", await res.json(), "Keine Einträge.");
+}
+
+document.getElementById("auditYear")?.addEventListener("click", async () => {
+  const jahr = jahrSelect.value;
+  const res  = await apiFetch(`/api/audit?year=${jahr}`);
+  if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
+  zeigeProtokoll(`Änderungsprotokoll ${jahr}`, await res.json(),
+    `Keine nachträglichen Änderungen oder Löschungen in ${jahr}.`);
+});
 
 fuelleJahre();
 fuelleMonateMitCheck();

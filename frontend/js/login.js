@@ -1,19 +1,21 @@
 const form = document.getElementById("loginForm");
 const errorBox = document.getElementById("loginError");
 
+// Weiterleitung von apiFetch nach abgelaufener Anmeldung
+if (new URLSearchParams(location.search).has("expired")) {
+  errorBox.innerText = "Deine Sitzung ist abgelaufen – bitte erneut anmelden.";
+  errorBox.className = "alert alert-warning";
+}
+
 form.addEventListener("submit", async e => {
   e.preventDefault();
-  errorBox.classList.add("d-none");
+  errorBox.className = "alert alert-danger d-none";
 
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
+    const res = await apiFetch("/api/login", { method: "POST", body: { username, password } });
 
     if (res.status === 429) {
       const data = await res.json().catch(() => ({}));

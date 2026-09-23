@@ -1,17 +1,12 @@
 // js/profile.js
 document.addEventListener("DOMContentLoaded", async () => {
 
-  const authHeaders = {
-    "Authorization": `Bearer ${localStorage.getItem("authToken")}`,
-    "Content-Type":  "application/json",
-  };
-
   // ──────────────────────────────────────────────────────────
   // Profil laden
   // ──────────────────────────────────────────────────────────
   async function ladeProfil() {
     try {
-      const res  = await fetch(`${API_BASE_URL}/api/profile`, { headers: authHeaders });
+      const res  = await apiFetch(`/api/profile`);
       const data = await res.json();
 
       document.getElementById("profileUsername").textContent =
@@ -104,9 +99,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     try {
-      const res  = await fetch(`${API_BASE_URL}/api/users/change-password`, {
-        method: "POST", headers: authHeaders,
-        body: JSON.stringify({ currentPassword: current, newPassword: newPw }),
+      const res  = await apiFetch(`/api/users/change-password`, {
+        method: "POST",
+        body: { currentPassword: current, newPassword: newPw },
       });
       const data = await res.json();
 
@@ -146,9 +141,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const is_default = document.getElementById("tokenDefault").checked;
 
     try {
-      const res  = await fetch(`${API_BASE_URL}/api/tokens`, {
-        method: "POST", headers: authHeaders,
-        body: JSON.stringify({ label, is_default }),
+      const res  = await apiFetch(`/api/tokens`, {
+        method: "POST",
+        body: { label, is_default },
       });
       const data = await res.json();
 
@@ -184,8 +179,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!confirm("Token wirklich löschen?")) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tokens/${btn.dataset.id}`, {
-        method: "DELETE", headers: authHeaders,
+      const res = await apiFetch(`/api/tokens/${btn.dataset.id}`, {
+        method: "DELETE",
       });
       if (res.ok) await ladeProfil();
       else alert("Fehler beim Löschen.");
@@ -210,9 +205,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!name) { alert("Bitte einen Namen eingeben."); return; }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/vehicles`, {
-        method: "POST", headers: authHeaders,
-        body: JSON.stringify({ name }),
+      const res = await apiFetch(`/api/vehicles`, {
+        method: "POST",
+        body: { name },
       });
       if (res.ok) {
         document.getElementById("vehicleNameInput").value = "";
@@ -235,8 +230,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!confirm("Fahrzeug wirklich löschen? Fahrten bleiben erhalten.")) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/vehicles/${btn.dataset.id}`, {
-        method: "DELETE", headers: authHeaders,
+      const res = await apiFetch(`/api/vehicles/${btn.dataset.id}`, {
+        method: "DELETE",
       });
       if (res.ok) await ladeProfil();
       else alert("Fehler beim Löschen.");

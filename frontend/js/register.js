@@ -30,10 +30,9 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
   btn.textContent = "Wird erstellt …";
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/register`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ username, password, vehicleName }),
+    const res = await apiFetch("/api/register", {
+      method: "POST",
+      body:   { username, password, vehicleName },
     });
 
     const data = await res.json();

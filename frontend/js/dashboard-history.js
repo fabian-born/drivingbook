@@ -3,9 +3,6 @@
 let chartInstanzHistory = null;
 
 async function ladeHistoryDashboard(jahr) {
-  const token = localStorage.getItem("authToken");
-  const headers = { "Authorization": `Bearer ${token}` };
-
   let monatsKm = {};
   let gesamtKm = 0;
   let monatsTabelle = [];
@@ -19,7 +16,7 @@ async function ladeHistoryDashboard(jahr) {
   for (let m = 1; m <= 12; m++) {
     const month = `${jahr}-${String(m).padStart(2, "0")}`;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/export/json?month=${month}`, { headers });
+      const res = await apiFetch(`/api/export/json?month=${month}`);
       if (!res.ok) continue;
       const fahrten = await res.json();
       if (fahrten.length === 0) continue;

@@ -10,25 +10,21 @@ let monatsPrivat = {};
 let monatsGeschaeft = {};
 let gesamtKm = 0;
 let monatsTabelle = [];
-let prevEndKm = 56510;
+let prevEndKm = null;   // Startwert = erste Fahrt des Jahres
 let totalPrivat = 0;
 let totalGeschaeft = 0;
 
-const token = localStorage.getItem("authToken");
-const headers = {
-    "Authorization": `Bearer ${token}`
-};
 
 for (let m = 1; m <= 12; m++) {
     const month = `${aktuellesJahr}-${String(m).padStart(2, "0")}`;
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/export/json?month=${month}`, { headers });
+        const res = await apiFetch(`/api/export/json?month=${month}`);
         if (!res.ok) continue;
         const fahrten = await res.json();
         if (fahrten.length === 0) continue;
 
-        const startKm = prevEndKm;
+        const startKm = prevEndKm ?? parseInt(fahrten[0].kmstand, 10);
         const endKm = parseInt(fahrten[fahrten.length - 1].kmstand, 10);
         const diff = endKm - startKm;
 

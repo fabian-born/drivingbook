@@ -1,8 +1,4 @@
 // js/admin.js
-const authHeaders = () => ({
-  "Content-Type":  "application/json",
-  "Authorization": `Bearer ${localStorage.getItem("authToken")}`
-});
 
 function zeigeAlert(text, typ = "success", id = "adminAlert") {
   const box = document.getElementById(id);
@@ -21,7 +17,7 @@ function formatDatum(iso) {
 // ── User-Tabelle laden ───────────────────────────────────────
 
 async function ladeUsers() {
-  const res = await fetch(`${API_BASE_URL}/api/users`, { headers: authHeaders() });
+  const res = await apiFetch(`/api/users`);
 
   if (res.status === 403) {
     document.getElementById("adminPanel").classList.add("d-none");
@@ -79,10 +75,9 @@ async function erstelleUser() {
 
   // Admin nutzt /api/users statt /api/register, um Rolle setzen zu können
   // Fahrzeug + Token werden danach separat angelegt
-  const res  = await fetch(`${API_BASE_URL}/api/users`, {
+  const res  = await apiFetch(`/api/users`, {
     method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({ username, password, role })
+    body: { username, password, role }
   });
   const data = await res.json();
 
@@ -94,10 +89,9 @@ async function erstelleUser() {
   // Fahrzeug anlegen (mit dem neuen User-Token geht das nicht direkt,
   // daher rufen wir den neuen /api/admin/users/:id/setup Endpoint auf)
   if (vehicleName) {
-    await fetch(`${API_BASE_URL}/api/admin/users/${data.id}/vehicle`, {
+    await apiFetch(`/api/admin/users/${data.id}/vehicle`, {
       method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({ name: vehicleName })
+      body: { name: vehicleName }
     });
   }
 
