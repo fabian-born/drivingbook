@@ -1,11 +1,10 @@
 -- ============================================================
--- Fahrtenbuch – Datenbankinitialisierung
--- PostgreSQL
+-- 001 – Grundschema
+-- Alle Anweisungen sind idempotent (IF NOT EXISTS), damit die
+-- Migration auch auf Datenbanken läuft, die noch per init.sql
+-- angelegt wurden.
 -- ============================================================
 
--- ────────────────────────────────────────────────────────────
--- Erweiterungen
--- ────────────────────────────────────────────────────────────
 -- ────────────────────────────────────────────────────────────
 -- Tabelle: users
 -- ────────────────────────────────────────────────────────────
@@ -72,9 +71,3 @@ CREATE INDEX IF NOT EXISTS idx_fahrten_user_timestamp
 -- Index für Fahrzeug-Abfragen
 CREATE INDEX IF NOT EXISTS idx_fahrten_vehicle
     ON fahrten (vehicle_id);
-
--- ────────────────────────────────────────────────────────────
--- Admin-User
--- Wird beim ersten Start vom Backend angelegt (ADMIN_USERNAME /
--- ADMIN_PASSWORD aus der Umgebung, sonst Zufallspasswort im Log).
--- ────────────────────────────────────────────────────────────
