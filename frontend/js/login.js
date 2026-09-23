@@ -15,6 +15,13 @@ form.addEventListener("submit", async e => {
       body: JSON.stringify({ username, password })
     });
 
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      errorBox.innerText = `❌ ${data.error || "Zu viele Anmeldeversuche – bitte später erneut versuchen"}`;
+      errorBox.classList.remove("d-none");
+      return;
+    }
+
     if (!res.ok) {
       throw new Error("Login fehlgeschlagen");
     }

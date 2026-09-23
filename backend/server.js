@@ -19,8 +19,15 @@ const { Pool } = pg;
 // Konfiguration (Umgebungsvariablen)
 // ────────────────────────────────────────────────────────────
 const PORT        = process.env.PORT        || 3000;
-const JWT_SECRET  = process.env.JWT_SECRET  || "CHANGE_ME_IN_PRODUCTION";
+const JWT_SECRET  = process.env.JWT_SECRET;
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "8h";
+
+// Ohne sicheres Secret könnte jeder gültige (Admin-)JWTs fälschen
+if (!JWT_SECRET || JWT_SECRET.length < 32 || JWT_SECRET.includes("CHANGE_ME")) {
+  console.error("❌ JWT_SECRET fehlt oder ist unsicher (mind. 32 zufällige Zeichen erforderlich).");
+  console.error("   Generieren mit: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
+  process.exit(1);
+}
 
 const pool = new Pool({
   host:     process.env.DB_HOST     || "db",
@@ -30,20 +37,89 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || "fahrtenbuch",
 });
 
-// Verbindung beim Start prüfen
-pool.connect()
-  .then(client => {
-    console.log("✅ Datenbankverbindung erfolgreich");
-    client.release();
-  })
-  .catch(err => {
-    console.error("❌ Datenbankverbindung fehlgeschlagen:", err.message);
-    process.exit(1);
-  });
+// Kommagetrennte Liste erlaubter Frontend-Origins, z. B. "https://fahrtenbuch.example.com"
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || "")
+  .split(",").map(o => o.trim()).filter(Boolean);
+
+// Registrierung ist standardmäßig erlaubt; ALLOW_REGISTRATION=false schaltet sie ab
+const ALLOW_REGISTRATION = process.env.ALLOW_REGISTRATION !== "false";
 
 const app = express();
+
+// Hinter einem Reverse-Proxy (Traefik, nginx) muss TRUST_PROXY gesetzt sein,
+// sonst sehen alle Clients für das Rate-Limit dieselbe IP (die des Proxys)
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set("trust proxy", Number.isInteger(hops) ? hops : process.env.TRUST_PROXY);
+}
+
 app.use(express.json());
-app.use(cors());
+
+if (CORS_ORIGINS.length > 0) {
+  app.use(cors({ origin: CORS_ORIGINS }));
+} else {
+  console.warn("⚠️  CORS_ORIGIN ist nicht gesetzt – API akzeptiert Anfragen von jeder Origin.");
+  app.use(cors());
+}
+
+// ────────────────────────────────────────────────────────────
+// Rate-Limit (In-Memory, pro Prozess)
+// ────────────────────────────────────────────────────────────
+function createLimiter({ max, windowMs }) {
+  const hits = new Map();
+
+  // Abgelaufene Einträge regelmäßig entfernen
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of hits) {
+      if (entry.resetAt <= now) hits.delete(key);
+    }
+  }, windowMs).unref();
+
+  return {
+    blocked(key) {
+      const entry = hits.get(key);
+      return !!entry && entry.resetAt > Date.now() && entry.count >= max;
+    },
+    hit(key) {
+      const now = Date.now();
+      let entry = hits.get(key);
+      if (!entry || entry.resetAt <= now) {
+        entry = { count: 0, resetAt: now + windowMs };
+        hits.set(key, entry);
+      }
+      entry.count++;
+    },
+    reset(key) {
+      hits.delete(key);
+    },
+  };
+}
+
+// Fehlgeschlagene Logins: 10 pro 15 Minuten je IP + Benutzername
+const loginLimiter    = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
+// Registrierungen: 5 pro Stunde je IP
+const registerLimiter = createLimiter({ max: 5,  windowMs: 60 * 60 * 1000 });
+
+// ────────────────────────────────────────────────────────────
+// API-Tokens
+// In der DB wird nur der SHA-256-Hash gespeichert; der Klartext
+// wird genau einmal bei der Erstellung zurückgegeben.
+// ────────────────────────────────────────────────────────────
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function createApiToken(db, userId, label, isDefault) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const result = await db.query(
+    `INSERT INTO api_tokens (user_id, token_hash, label, is_default)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, label, is_default, created_at`,
+    [userId, hashToken(token), label, isDefault]
+  );
+  return { ...result.rows[0], token };
+}
 
 // ────────────────────────────────────────────────────────────
 // Auth-Middleware
@@ -80,8 +156,8 @@ async function requireAuth(req, res, next) {
 
     // ── Versuch 2: API-Token aus DB ────────────────────────
     const result = await pool.query(
-      `SELECT user_id FROM api_tokens WHERE token = $1`,
-      [rawToken]
+      `SELECT user_id FROM api_tokens WHERE token_hash = $1`,
+      [hashToken(rawToken)]
     );
 
     if (result.rows.length === 0) {
@@ -128,22 +204,26 @@ app.post("/api/login", async (req, res) => {
     return res.status(400).json({ error: "Benutzername und Passwort erforderlich" });
   }
 
+  const limitKey = `${req.ip}|${String(username).toLowerCase()}`;
+  if (loginLimiter.blocked(limitKey)) {
+    return res.status(429).json({ error: "Zu viele fehlgeschlagene Anmeldeversuche – bitte später erneut versuchen" });
+  }
+
   try {
     const result = await pool.query(
       `SELECT id, password, role FROM users WHERE username = $1`,
       [username]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Ungültige Zugangsdaten" });
-    }
-
     const user  = result.rows[0];
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = user && await bcrypt.compare(password, user.password);
 
     if (!valid) {
+      loginLimiter.hit(limitKey);
       return res.status(401).json({ error: "Ungültige Zugangsdaten" });
     }
+
+    loginLimiter.reset(limitKey);
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
@@ -155,26 +235,6 @@ app.post("/api/login", async (req, res) => {
 
   } catch (err) {
     console.error("Login-Fehler:", err);
-    return res.status(500).json({ error: "Interner Fehler" });
-  }
-});
-
-// ────────────────────────────────────────────────────────────
-// GET /api/tokens/:id/reveal  →  Token-Wert einmalig anzeigen
-// Gibt den echten Token-String zurück (nur für eigene Tokens)
-// ────────────────────────────────────────────────────────────
-app.get("/api/tokens/:id/reveal", requireAuth, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT token, label FROM api_tokens WHERE id = $1 AND user_id = $2`,
-      [req.params.id, req.userId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Token nicht gefunden" });
-    }
-    return res.json(result.rows[0]);
-  } catch (err) {
-    console.error("Token-Reveal-Fehler:", err);
     return res.status(500).json({ error: "Interner Fehler" });
   }
 });
@@ -613,8 +673,6 @@ app.post("/api/tokens", requireAuth, async (req, res) => {
   const label      = req.body.label?.trim() || "API Token";
   const is_default = req.body.is_default === true;
 
-  const newToken = crypto.randomBytes(32).toString("hex");
-
   try {
     // Wenn neuer Token Default sein soll → alten Default entfernen
     if (is_default) {
@@ -624,15 +682,9 @@ app.post("/api/tokens", requireAuth, async (req, res) => {
       );
     }
 
-    const result = await pool.query(
-      `INSERT INTO api_tokens (user_id, token, label, is_default)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, label, is_default, created_at`,
-      [req.userId, newToken, label, is_default]
-    );
-
     // Token nur bei Erstellung einmalig zurückgeben
-    return res.status(201).json({ ...result.rows[0], token: newToken });
+    const created = await createApiToken(pool, req.userId, label, is_default);
+    return res.status(201).json(created);
 
   } catch (err) {
     console.error("Fehler beim Erstellen des Tokens:", err);
@@ -685,13 +737,9 @@ app.post("/api/users", requireAuth, async (req, res) => {
     );
 
     // Default-Token für neuen User
-    const newToken = crypto.randomBytes(32).toString("hex");
-    await pool.query(
-      `INSERT INTO api_tokens (user_id, token, label, is_default) VALUES ($1, $2, $3, TRUE)`,
-      [result.rows[0].id, newToken, "Default"]
-    );
+    const { token } = await createApiToken(pool, result.rows[0].id, "Default", true);
 
-    return res.status(201).json({ ...result.rows[0], default_token: newToken });
+    return res.status(201).json({ ...result.rows[0], default_token: token });
 
   } catch (err) {
     if (err.code === "23505") {
@@ -763,6 +811,14 @@ app.post("/api/users/change-password", requireAuth, async (req, res) => {
 // POST /api/register  →  Neuen User registrieren
 // Body: { username, password, vehicleName? }  (vehicle_name wird ebenfalls akzeptiert)
 app.post("/api/register", async (req, res) => {
+  if (!ALLOW_REGISTRATION) {
+    return res.status(403).json({ error: "Registrierung ist deaktiviert" });
+  }
+  if (registerLimiter.blocked(req.ip)) {
+    return res.status(429).json({ error: "Zu viele Registrierungen – bitte später erneut versuchen" });
+  }
+  registerLimiter.hit(req.ip);
+
   const { username, password } = req.body;
   const vehicleName = req.body.vehicleName ?? req.body.vehicle_name;
 
@@ -786,12 +842,7 @@ app.post("/api/register", async (req, res) => {
     const user = userResult.rows[0];
 
     // Default API-Token
-    const newToken = crypto.randomBytes(32).toString("hex");
-    await client.query(
-      `INSERT INTO api_tokens (user_id, token, label, is_default)
-       VALUES ($1, $2, 'Default', TRUE)`,
-      [user.id, newToken]
-    );
+    const { token: newToken } = await createApiToken(client, user.id, "Default", true);
 
     // Standard-Fahrzeug
     const vName = vehicleName?.trim() || "Fahrzeug 1";
@@ -907,10 +958,133 @@ app.post("/api/admin/users/:id/vehicle", requireAuth, async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────
+// Migration: API-Tokens von Klartext auf SHA-256-Hash umstellen
+// Läuft nur, solange die alte Spalte "token" noch existiert.
+// Bestehende Tokens funktionieren danach weiter, können aber
+// nicht mehr im Klartext ausgelesen werden.
+// ────────────────────────────────────────────────────────────
+async function migrateApiTokensToHash() {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE  table_schema = current_schema()
+       AND  table_name   = 'api_tokens'
+       AND  column_name  = 'token'`
+  );
+  if (rows.length === 0) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Früher per init.sql angelegte, öffentlich bekannte Tokens widerrufen
+    const revoked = await client.query(
+      `DELETE FROM api_tokens WHERE token LIKE 'fahrtenbuch-default-token-CHANGE-ME-%'`
+    );
+
+    await client.query(`ALTER TABLE api_tokens ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64)`);
+
+    const tokens = await client.query(`SELECT id, token FROM api_tokens`);
+    for (const t of tokens.rows) {
+      await client.query(
+        `UPDATE api_tokens SET token_hash = $1 WHERE id = $2`,
+        [hashToken(t.token), t.id]
+      );
+    }
+
+    await client.query(`ALTER TABLE api_tokens DROP COLUMN token`);
+    await client.query(`ALTER TABLE api_tokens ALTER COLUMN token_hash SET NOT NULL`);
+    await client.query(
+      `ALTER TABLE api_tokens ADD CONSTRAINT api_tokens_token_hash_key UNIQUE (token_hash)`
+    );
+
+    await client.query("COMMIT");
+
+    console.log(`🔐 ${tokens.rowCount} API-Token(s) auf Hash-Speicherung umgestellt.`);
+    if (revoked.rowCount > 0) {
+      console.warn(`🔑 ${revoked.rowCount} vorhersagbare(r) Default-Token widerrufen – bei Bedarf im Profil neu erstellen.`);
+    }
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Sichere Startwerte
+// - Leere DB: Admin mit ADMIN_PASSWORD (oder Zufallspasswort) anlegen
+// - Warnen, falls der Admin noch das Passwort "admin" hat
+// ────────────────────────────────────────────────────────────
+async function ensureSecureDefaults() {
+  await migrateApiTokensToHash();
+
+  const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM users`);
+
+  if (rows[0].count === 0) {
+    const username = process.env.ADMIN_USERNAME?.trim() || "admin";
+    const password = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString("base64url");
+    const hash     = await bcrypt.hash(password, 12);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const userResult = await client.query(
+        `INSERT INTO users (username, password, role) VALUES ($1, $2, 'admin') RETURNING id`,
+        [username, hash]
+      );
+      const userId = userResult.rows[0].id;
+      await createApiToken(client, userId, "Default", true);
+      await client.query(
+        `INSERT INTO vehicles (user_id, name) VALUES ($1, 'Fahrzeug 1')`,
+        [userId]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    console.log(`👤 Admin-User "${username}" angelegt.`);
+    if (!process.env.ADMIN_PASSWORD) {
+      console.log(`   Generiertes Passwort: ${password}`);
+      console.log("   Bitte nach dem ersten Login ändern – es wird nicht erneut angezeigt.");
+    }
+  }
+
+  const admin = await pool.query(`SELECT password FROM users WHERE username = 'admin'`);
+  if (admin.rows.length && await bcrypt.compare("admin", admin.rows[0].password)) {
+    console.warn("⚠️  Der User \"admin\" hat noch das Standardpasswort \"admin\" – bitte sofort ändern!");
+  }
+}
+
+// ────────────────────────────────────────────────────────────
 // Server starten
 // ────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 Backend läuft auf http://localhost:${PORT}`);
-  console.log(`   JWT_EXPIRES : ${JWT_EXPIRES}`);
-  console.log(`   DB_HOST     : ${process.env.DB_HOST || "db"}`);
-});
+async function start() {
+  try {
+    const client = await pool.connect();
+    client.release();
+    console.log("✅ Datenbankverbindung erfolgreich");
+  } catch (err) {
+    console.error("❌ Datenbankverbindung fehlgeschlagen:", err.message);
+    process.exit(1);
+  }
+
+  try {
+    await ensureSecureDefaults();
+  } catch (err) {
+    console.error("❌ Initialisierung fehlgeschlagen:", err);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend läuft auf http://localhost:${PORT}`);
+    console.log(`   JWT_EXPIRES : ${JWT_EXPIRES}`);
+    console.log(`   DB_HOST     : ${process.env.DB_HOST || "db"}`);
+  });
+}
+
+start();

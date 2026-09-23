@@ -45,8 +45,13 @@ services:
       DB_NAME:     ${DB_NAME:-fahrtenbuch}
       DB_USER:     ${DB_USER:-fahrtenbuch}
       DB_PASSWORD: ${DB_PASSWORD:-fahrtenbuch}
-      JWT_SECRET:  ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION}
+      JWT_SECRET:  ${JWT_SECRET:?JWT_SECRET muss in .env gesetzt sein}
       JWT_EXPIRES: ${JWT_EXPIRES:-8h}
+      ADMIN_USERNAME:     ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD:     ${ADMIN_PASSWORD:-}
+      CORS_ORIGIN:        ${CORS_ORIGIN:-}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      TRUST_PROXY:        ${TRUST_PROXY:-}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     networks:

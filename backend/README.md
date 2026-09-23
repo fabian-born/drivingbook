@@ -12,23 +12,20 @@
 ```bash
 cp .env.example .env
 ```
-Dann `.env` öffnen und **alle CHANGE_ME-Werte** ersetzen.
-
-### 1b. Admin-Passwort & JWT-Secret generieren
+Dann `.env` öffnen und **alle CHANGE_ME-Werte** ersetzen. Pflicht ist mindestens
+`JWT_SECRET` (≥ 32 zufällige Zeichen) – ohne startet das Backend nicht:
 ```bash
-cd backend
-npm install
-node setup-helper.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
-Das Script gibt aus:
-- einen fertigen `JWT_SECRET` → in `.env` eintragen
-- einen bcrypt-Hash für das Admin-Passwort
 
-Den Hash in `backend/init.sql` eintragen (Zeile mit `'$2b$12$...'` ersetzen):
-```sql
-INSERT INTO users (username, password, role)
-VALUES ('admin', '<DEIN_HASH_HIER>', 'admin')
-```
+Weitere sicherheitsrelevante Variablen:
+
+| Variable | Bedeutung |
+|---|---|
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Admin für den ersten Start auf leerer DB. Ohne Passwort wird eines generiert und einmalig geloggt. |
+| `CORS_ORIGIN` | Erlaubte Frontend-Origin(s), kommagetrennt. Leer = alle (Warnung im Log). |
+| `ALLOW_REGISTRATION` | `false` deaktiviert die öffentliche Registrierung. |
+| `TRUST_PROXY` | Anzahl Reverse-Proxys (z. B. `1` hinter Traefik) – nötig für korrektes Rate-Limit pro Client-IP. |
 
 ---
 
@@ -40,7 +37,17 @@ docker compose up -d --build
 
 Beim ersten Start:
 - PostgreSQL initialisiert sich automatisch mit `init.sql`
-- Admin-User + Default-API-Token + Fahrzeug werden angelegt
+- Das Backend legt den Admin-User + Default-API-Token + Fahrzeug an
+
+Sicherheitsverhalten beim Start:
+- API-Tokens werden nur als SHA-256-Hash gespeichert. Bestehende Datenbanken
+  werden automatisch migriert; vorhandene Tokens funktionieren weiter, können
+  aber nicht mehr angezeigt werden.
+- Der früher per `init.sql` angelegte, vorhersagbare Token
+  `fahrtenbuch-default-token-CHANGE-ME-*` wird widerrufen.
+- Hat der User `admin` noch das Passwort `admin`, erscheint eine Warnung.
+- Login: max. 10 Fehlversuche pro 15 Minuten (je IP + Benutzername),
+  Registrierung: max. 5 pro Stunde je IP.
 
 Logs prüfen:
 ```bash
