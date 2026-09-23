@@ -1,26 +1,43 @@
 #!/usr/bin/env bash
 # ============================================================
-# Fahrtenbuch – Prod-Datenbank in die lokale Dev-DB einspielen
+# Fahrtenbuch – Prod-Datenbank in die Dev-DB einspielen
 #
 #   ./scripts/pull-prod-db.sh                 frischer Dump per SSH
-#   ./scripts/pull-prod-db.sh backup.sql.gz   vorhandenes Tages-Backup
+#   ./scripts/pull-prod-db.sh backup.sql.gz   vorhandenes Tages-Backup (lokale Datei)
+#
+# Das Script kann auf jedem Rechner laufen, der per SSH auf beide Hosts kommt.
+# Docker wird auf dem Dev-Host per sudo aufgerufen.
 #
 # Umgebungsvariablen:
 #   PROD_HOST   SSH-Ziel des Prod-Hosts (Standard: docker-host-01)
+#   DEV_HOST    SSH-Ziel des Dev-Hosts  (Standard: marder)
 #   DB_NAME     Datenbankname           (Standard: fahrtenbuch)
 #   DB_USER     Datenbank-User          (Standard: fahrtenbuch)
 #
-# ACHTUNG: Die lokale Dev-Datenbank wird komplett ersetzt!
+# ACHTUNG: Die Dev-Datenbank auf $DEV_HOST wird komplett ersetzt!
 # ============================================================
 set -euo pipefail
 
 PROD_HOST="${PROD_HOST:-docker-host-01}"
+DEV_HOST="${DEV_HOST:-marder}"
 DB_NAME="${DB_NAME:-fahrtenbuch}"
 DB_USER="${DB_USER:-fahrtenbuch}"
 CONTAINER="fahrtenbuch-db"
+STOP_CONTAINERS=(fahrtenbuch-backend fahrtenbuch-backup)
 BACKUP_FILE="${1:-}"
 
-cd "$(dirname "$0")/.."
+# docker auf dem Dev-Host ausführen
+dev_docker() {
+  ssh "$DEV_HOST" sudo docker "$(printf '%q ' "$@")"
+}
+
+# Schutz: niemals die Prod-Datenbank überschreiben
+prod_name="$(ssh "$PROD_HOST" hostname)"
+dev_name="$(ssh "$DEV_HOST" hostname)"
+if [[ "$prod_name" == "$dev_name" ]]; then
+  echo "DEV_HOST ($DEV_HOST) und PROD_HOST ($PROD_HOST) sind derselbe Rechner ($dev_name) – Abbruch." >&2
+  exit 1
+fi
 
 # Dump landet in einem temporären Verzeichnis und wird am Ende gelöscht
 tmp="$(mktemp -d)"
@@ -37,26 +54,26 @@ elif [[ ! -f "$BACKUP_FILE" ]]; then
   exit 1
 fi
 
-read -r -p "Lokale Datenbank '$DB_NAME' wird ersetzt. Fortfahren? [y/N] " answer
+read -r -p "Datenbank '$DB_NAME' auf $dev_name wird ersetzt. Fortfahren? [y/N] " answer
 [[ "$answer" =~ ^[yYjJ]$ ]] || { echo "Abgebrochen."; exit 1; }
 
-echo "→ Stoppe Backend und Backup …"
-docker compose stop backend backup
+echo "→ Stoppe Backend und Backup auf $dev_name …"
+dev_docker stop "${STOP_CONTAINERS[@]}"
 
 echo "→ Lege Datenbank neu an …"
-docker exec "$CONTAINER" dropdb   -U "$DB_USER" --if-exists --force "$DB_NAME"
-docker exec "$CONTAINER" createdb -U "$DB_USER" "$DB_NAME"
+dev_docker exec "$CONTAINER" dropdb   -U "$DB_USER" --if-exists --force "$DB_NAME"
+dev_docker exec "$CONTAINER" createdb -U "$DB_USER" "$DB_NAME"
 
 echo "→ Spiele Dump ein …"
 if [[ -z "$BACKUP_FILE" ]]; then
-  docker exec -i "$CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" \
+  dev_docker exec -i "$CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" \
     --no-owner --no-privileges < "$tmp/prod.dump"
 else
   gunzip -c "$BACKUP_FILE" \
-    | docker exec -i "$CONTAINER" psql -q -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
+    | dev_docker exec -i "$CONTAINER" psql -q -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
 fi
 
-echo "→ Starte Stack …"
-docker compose up -d
+echo "→ Starte Backend und Backup …"
+dev_docker start "${STOP_CONTAINERS[@]}"
 
-echo "✓ Fertig – Dev-DB enthält jetzt die Prod-Daten."
+echo "✓ Fertig – Dev-DB auf $dev_name enthält jetzt die Prod-Daten."
