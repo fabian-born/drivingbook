@@ -2,7 +2,7 @@
 
 ## Voraussetzungen
 - Docker + Docker Compose
-- Node.js 20+ (nur für `setup-helper.js`)
+- Node.js 20+ (nur für lokale Entwicklung und Tests)
 
 ---
 
@@ -26,6 +26,8 @@ Weitere sicherheitsrelevante Variablen:
 | `CORS_ORIGIN` | Nur nötig, wenn das Frontend die API von einer anderen Origin aufruft (kommagetrennt). Leer = nur gleiche Origin; das Frontend-nginx leitet `/api` ans Backend weiter. |
 | `ALLOW_REGISTRATION` | `false` deaktiviert die öffentliche Registrierung. |
 | `TRUST_PROXY` | Anzahl Reverse-Proxys vor dem Backend (`1` = Frontend-nginx, `2` = Traefik + nginx) – nötig für korrektes Rate-Limit pro Client-IP. |
+| `NOMINATIM_EMAIL` | Kontaktadresse für das Reverse-Geocoding über OpenStreetMap (empfohlen). `GEOCODING=false` schaltet es ab. |
+| `BACKUP_KEEP_DAYS` | Aufbewahrungsdauer der täglichen Backups (Standard 14). |
 
 ---
 
@@ -35,9 +37,12 @@ Weitere sicherheitsrelevante Variablen:
 docker compose up -d --build
 ```
 
-Beim ersten Start:
-- PostgreSQL initialisiert sich automatisch mit `init.sql`
-- Das Backend legt den Admin-User + Default-API-Token + Fahrzeug an
+Beim Start:
+- Das Backend spielt alle noch fehlenden Migrationen aus `backend/migrations/` ein
+  (Tabelle `schema_migrations` merkt sich den Stand). Das funktioniert auch mit
+  Datenbanken, die noch mit der alten `init.sql` angelegt wurden.
+- Auf einer leeren Datenbank legt es den Admin-User + Default-API-Token + Fahrzeug an.
+- Das Frontend ist erst erreichbar, wenn `/api/health` des Backends antwortet.
 
 Sicherheitsverhalten beim Start:
 - API-Tokens werden nur als SHA-256-Hash gespeichert. Bestehende Datenbanken
@@ -60,20 +65,29 @@ docker compose logs -f backend
 
 ```
 .
-├── docker-compose.yml
-├── .env                  ← nicht in Git!
+├── docker-compose.yaml        ← lokal
+├── stack-compose.yml          ← Homelab (Traefik)
+├── .env                       ← nicht in Git!
 ├── .env.example
-├── .gitignore
 ├── backend/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── server.js
-│   ├── init.sql
-│   └── setup-helper.js
+│   ├── server.js              ← Start: Konfiguration, Migrationen, Server
+│   ├── migrate.js             ← einmaliger Import alter JSON-Dateien
+│   ├── migrations/            ← SQL-Migrationen (001_…, 002_…, …)
+│   ├── src/
+│   │   ├── app.js             ← Express-App
+│   │   ├── config.js, db.js, http.js, schemas.js, bootstrap.js
+│   │   ├── middleware/auth.js
+│   │   ├── lib/               ← Tokens, Rate-Limit, Geocoding, CSV, PDF, Plausibilität/Audit
+│   │   └── routes/            ← auth, account, admin, fahrten, export
+│   └── test/                  ← API-Tests (node:test + supertest)
 └── frontend/
-    ├── Dockerfile
-    └── ...
+    ├── *.html, js/, icons/
+    ├── manifest.webmanifest, sw.js   ← PWA / Offline
+    └── _config/nginx.conf     ← leitet /api ans Backend weiter
 ```
+
+Neue Schemaänderungen als nächste nummerierte Datei in `backend/migrations/`
+ablegen (z. B. `004_….sql`). Bereits angewendete Dateien nicht mehr ändern.
 
 ---
 
@@ -114,11 +128,16 @@ DELETE /api/tokens/:id      # Token löschen
 | Methode | Route | Beschreibung |
 |---------|-------|--------------|
 | POST | `/api/login` | Login → JWT |
+| POST | `/api/register` | Registrierung (abschaltbar) |
+| GET  | `/api/health` | Healthcheck |
 | POST | `/api/fahrt` | Fahrt speichern |
-| GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats |
-| GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
 | PUT  | `/api/fahrt/:id` | Fahrt bearbeiten (Teil-Update; neuer `timestamp` verschiebt ggf. den Monat) |
 | DELETE | `/api/fahrt/:id` | Fahrt löschen |
+| GET  | `/api/fahrt/:id/history` | Änderungsverlauf einer Fahrt |
+| GET  | `/api/audit?year=YYYY` | Änderungen und Löschungen eines Jahres |
+| GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |
+| GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
+| GET  | `/api/export/pdf/year/:year` | PDF-Fahrtenbuch eines Jahres inkl. Änderungsprotokoll |
 | GET  | `/api/vehicles` | Fahrzeuge des Users |
 | POST | `/api/vehicles` | Fahrzeug anlegen |
 | DELETE | `/api/vehicles/:id` | Fahrzeug löschen |
@@ -146,6 +165,15 @@ curl -X POST https://deine-domain.de/api/fahrt \
   }'
 ```
 
+**km-Plausibilität:** Ist der km-Stand kleiner als bei der vorherigen oder größer
+als bei der folgenden Fahrt desselben Fahrzeugs, antwortet die API mit
+`409` und `"code": "KM_PLAUSIBILITY"`. Mit `"force": true` im Body wird trotzdem
+gespeichert.
+
+**Änderungsprotokoll:** Jede Anlage, Änderung und Löschung einer Fahrt wird mit
+altem und neuem Stand sowie der Quelle (`web` oder `api_token`) in
+`fahrten_audit` festgehalten. Gelöschte Fahrten bleiben dort nachvollziehbar.
+
 ---
 
 ## 7. Datenbank-Zugriff (Wartung)
@@ -162,7 +190,8 @@ SELECT id, username, role, created_at FROM users;
 -- API-Tokens eines Users
 SELECT id, label, is_default, created_at FROM api_tokens WHERE user_id = 1;
 
--- Passwort zurücksetzen (Hash vorher mit setup-helper.js generieren)
+-- Passwort zurücksetzen: Hash erzeugen mit
+--   docker exec fahrtenbuch-backend node -e "import('bcrypt').then(b=>b.default.hash(process.argv[1],12).then(console.log))" 'NeuesPasswort'
 UPDATE users SET password = '<HASH>' WHERE username = 'admin';
 ```
 
@@ -170,10 +199,46 @@ UPDATE users SET password = '<HASH>' WHERE username = 'admin';
 
 ## 8. Backup
 
-```bash
-# Datenbank sichern
-docker exec fahrtenbuch-db pg_dump -U fahrtenbuch fahrtenbuch > backup_$(date +%Y%m%d).sql
+Der Container `fahrtenbuch-backup` sichert die Datenbank täglich als
+`fahrtenbuch_<datum>.sql.gz` (lokal nach `backend/data/backups/`, im Homelab nach
+`…/fahrtenbuch/backups/`) und löscht Dateien, die älter als `BACKUP_KEEP_DAYS` sind.
+Die Backups liegen auf demselben Host – für echte Sicherheit zusätzlich extern kopieren.
 
-# Wiederherstellen
-cat backup_20260429.sql | docker exec -i fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch
+```bash
+# Sofort ein zusätzliches Backup erstellen
+docker exec fahrtenbuch-db pg_dump -U fahrtenbuch --no-owner fahrtenbuch | gzip > backup_$(date +%Y%m%d).sql.gz
+
+# Wiederherstellen (in eine leere Datenbank)
+docker compose stop backend
+docker exec fahrtenbuch-db psql -U fahrtenbuch -d postgres -c "DROP DATABASE fahrtenbuch" -c "CREATE DATABASE fahrtenbuch"
+gunzip -c backup_20260429.sql.gz | docker exec -i fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch
+docker compose start backend
 ```
+
+---
+
+## 9. Tests
+
+Die API-Tests brauchen eine PostgreSQL-Instanz. **Achtung:** Das Schema `public`
+der angegebenen Datenbank wird dabei komplett geleert – nie gegen die echte DB laufen lassen.
+
+```bash
+docker run -d --rm --name fb-test-db -e POSTGRES_PASSWORD=test -p 127.0.0.1:55432:5432 postgres:16-alpine
+cd backend && npm ci
+DB_HOST=127.0.0.1 DB_PORT=55432 DB_USER=postgres DB_NAME=postgres DB_PASSWORD=test npm test
+```
+
+In der CI laufen die Tests automatisch vor jedem Backend-Build.
+
+---
+
+## 10. App auf dem Handy (PWA)
+
+Das Frontend lässt sich im Browser über „Zum Startbildschirm hinzufügen“
+installieren. Seiten und Skripte werden gecacht; auf der Seite „Neue Fahrt“ können
+Fahrten auch **ohne Verbindung** erfasst werden. Sie werden lokal gespeichert und
+automatisch übertragen, sobald wieder eine Verbindung besteht (oder per
+„Jetzt senden“). Der Standort-Button trägt offline die GPS-Koordinaten ein; das
+Backend wandelt sie beim Übertragen in eine Adresse um.
+
+PWA-Funktionen erfordern HTTPS (oder `localhost`).
