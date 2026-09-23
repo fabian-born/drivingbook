@@ -399,64 +399,64 @@ async function handleTimestampChange(index, localVal) {
   const neuerMonthKey  = monthKeyFromISO(neuesTimestamp);
   if (!neuerMonthKey) return;
 
+  const gespeichert = await speichereFahrt(index, { timestamp: neuesTimestamp });
+  if (!gespeichert) return;
+
+  aktuelleFahrten[index].timestamp = neuesTimestamp;
   if (neuerMonthKey !== alterMonthKey) {
-    const fahrtMitNeuemTimestamp = { ...aktuelleFahrten[index], timestamp: neuesTimestamp };
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/fahrt/move`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-        body: JSON.stringify({ fromMonth: alterMonthKey, index: Number(index), fahrt: fahrtMitNeuemTimestamp })
-      });
-      if (res.ok) {
-        aktuelleFahrten.splice(index, 1);
-        renderAll();
-        zeigeHinweis(`Fahrt wurde nach ${neuerMonthKey} verschoben.`, "info");
-      } else {
-        const err = await res.json();
-        zeigeHinweis(`Fehler beim Verschieben: ${err.error}`, "danger");
-      }
-    } catch (err) {
-      zeigeHinweis("Fehler beim Verschieben.", "danger");
-    }
-  } else {
-    aktuelleFahrten[index].timestamp = neuesTimestamp;
-    await speichereFahrt(index);
+    // Fahrt gehört jetzt zu einem anderen Monat → aus der Ansicht entfernen
+    aktuelleFahrten.splice(index, 1);
+    renderAll();
+    zeigeHinweis(`Fahrt wurde nach ${neuerMonthKey} verschoben.`, "info");
   }
 }
 
-async function speichereFahrt(index) {
-  const monthKey = `${jahrSelect.value}-${monatSelect.value}`;
+// Speichert Änderungen einer Fahrt per ID. Ohne `aenderungen` werden
+// die bearbeitbaren Felder aus aktuelleFahrten[index] gesendet.
+async function speichereFahrt(index, aenderungen) {
+  const fahrt = aktuelleFahrten[index];
+  const body  = aenderungen ?? {
+    kmstand:  fahrt.kmstand,
+    ziel:     fahrt.ziel,
+    fahrtart: fahrt.fahrtart,
+  };
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/fahrt/${monthKey}/${index}`, {
+    const res = await fetch(`${API_BASE_URL}/api/fahrt/${fahrt._id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      body: JSON.stringify(aktuelleFahrten[index])
+      body: JSON.stringify(body)
     });
-    if (!res.ok) zeigeHinweis("Fehler beim Speichern.", "danger");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      zeigeHinweis(`Fehler beim Speichern: ${err.error || res.status}`, "danger");
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("Speicherfehler:", err);
+    zeigeHinweis("Fehler beim Speichern.", "danger");
+    return false;
   }
 }
 
 function zeigeLoeschModal(index) {
   const fahrt    = aktuelleFahrten[index];
   const zeitpunkt = new Date(fahrt.timestamp).toLocaleString("de-DE");
-  const monthKey  = `${jahrSelect.value}-${monatSelect.value}`;
 
   document.getElementById("confirmDeleteInfo").textContent =
     `#${parseInt(index) + 1} · ${fahrt.kmstand} km · ${fahrt.ziel} · ${fahrt.fahrtart} · ${zeitpunkt}`;
-  document.getElementById("confirmDeleteIndex").value    = index;
-  document.getElementById("confirmDeleteMonthKey").value = monthKey;
+  document.getElementById("confirmDeleteIndex").value = index;
 
   new bootstrap.Modal(document.getElementById("deleteModal")).show();
 }
 
 document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () => {
-  const index    = document.getElementById("confirmDeleteIndex").value;
-  const monthKey = document.getElementById("confirmDeleteMonthKey").value;
+  const index = document.getElementById("confirmDeleteIndex").value;
+  const fahrt = aktuelleFahrten[index];
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/fahrt/${monthKey}/${index}`, {
+    const res = await fetch(`${API_BASE_URL}/api/fahrt/${fahrt._id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     });

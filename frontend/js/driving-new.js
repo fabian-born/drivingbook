@@ -61,13 +61,41 @@
     });
   }
 
+  // Lädt eine Datei mit Auth-Header und bietet sie als Download an
+  // (window.location.href würde keinen Authorization-Header mitschicken)
+  async function downloadDatei(url, dateiname) {
+    try {
+      const res = await fetch(url, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("authToken")}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return alert(err.error || "Export fehlgeschlagen.");
+      }
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(await res.blob());
+      link.download = dateiname;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    } catch (err) {
+      console.error("Export-Fehler:", err);
+      alert("Export fehlgeschlagen.");
+    }
+  }
+
+  // Aktueller Monat in lokaler Zeit (toISOString wäre UTC)
+  function aktuellerMonat() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
   function downloadCSV() {
-    const month = new Date().toISOString().slice(0,7);
-    window.location.href = `${API_BASE_URL}/api/export/csv?month=${month}`;
+    const jahr = new Date().getFullYear();
+    downloadDatei(`${API_BASE_URL}/api/export/csv/year/${jahr}`, `fahrten_${jahr}.csv`);
   }
 
   function downloadJSON() {
-    const month = new Date().toISOString().slice(0,7);
-    window.location.href = `${API_BASE_URL}/api/export/json?month=${month}`;
+    const month = aktuellerMonat();
+    downloadDatei(`${API_BASE_URL}/api/export/json?month=${month}`, `fahrten_${month}.json`);
   }
 

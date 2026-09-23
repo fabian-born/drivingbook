@@ -6,7 +6,7 @@ form.addEventListener("submit", async e => {
   errorBox.classList.add("d-none");
 
   const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const password = document.getElementById("password").value;
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/login`, {

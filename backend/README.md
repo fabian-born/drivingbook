@@ -117,9 +117,8 @@ DELETE /api/tokens/:id      # Token löschen
 | POST | `/api/fahrt` | Fahrt speichern |
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats |
 | GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
-| PUT  | `/api/fahrt/:month/:index` | Fahrt bearbeiten |
-| DELETE | `/api/fahrt/:month/:index` | Fahrt löschen |
-| POST | `/api/fahrt/move` | Fahrt in anderen Monat verschieben |
+| PUT  | `/api/fahrt/:id` | Fahrt bearbeiten (Teil-Update; neuer `timestamp` verschiebt ggf. den Monat) |
+| DELETE | `/api/fahrt/:id` | Fahrt löschen |
 | GET  | `/api/vehicles` | Fahrzeuge des Users |
 | POST | `/api/vehicles` | Fahrzeug anlegen |
 | DELETE | `/api/vehicles/:id` | Fahrzeug löschen |

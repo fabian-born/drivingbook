@@ -183,17 +183,6 @@ async function requireAuth(req, res, next) {
 }
 
 // ────────────────────────────────────────────────────────────
-// Hilfsfunktion: Monat aus ISO-Timestamp → "YYYY-MM"
-// ────────────────────────────────────────────────────────────
-function monthKeyFromISO(isoString) {
-  const d = new Date(isoString);
-  if (isNaN(d)) return null;
-  const y  = d.getFullYear();
-  const m  = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
-}
-
-// ────────────────────────────────────────────────────────────
 // POST /api/login  →  JWT zurückgeben
 // ────────────────────────────────────────────────────────────
 app.post("/api/login", async (req, res) => {
@@ -283,40 +272,97 @@ async function resolveGpsToAddress(ziel) {
 
 
 
-app.post("/api/fahrt", requireAuth, async (req, res) => {
-  // const { kmstand, ziel, fahrtart, timestamp, vehicle_id } = req.body;
-  const { kmstand, fahrtart, timestamp, vehicle_id } = req.body;
-  let ziel = req.body.ziel;
+// ------------------------
+// Hilfsfunktion: Fahrt-Felder validieren
+// partial = true → alle Felder optional (für PUT)
+// Gibt { values } mit den übergebenen, bereinigten Feldern zurück
+// oder { error } mit einer Fehlermeldung.
+// ------------------------
+const FAHRTARTEN = ["privat", "geschäftlich"];
+const MAX_KMSTAND = 2147483647;  // Obergrenze von PostgreSQL INTEGER
 
+function validateFahrt(body, { partial = false } = {}) {
+  const values = {};
+  const has = key => body[key] !== undefined;
 
-  if (!kmstand || !ziel || !fahrtart || !timestamp) {
-    return res.status(400).json({ error: "Alle Pflichtfelder erforderlich: kmstand, ziel, fahrtart, timestamp" });
+  if (!partial || has("kmstand")) {
+    const km = Number(body.kmstand);
+    if (!["number", "string"].includes(typeof body.kmstand) || body.kmstand === ""
+        || !Number.isInteger(km) || km < 0 || km > MAX_KMSTAND) {
+      return { error: "kmstand muss eine ganze Zahl ≥ 0 sein" };
+    }
+    values.kmstand = km;
   }
 
-  const ts = new Date(timestamp);
-  if (isNaN(ts)) {
-    return res.status(400).json({ error: "Ungültiger Timestamp" });
+  if (!partial || has("ziel")) {
+    if (typeof body.ziel !== "string" || !body.ziel.trim()) {
+      return { error: "ziel darf nicht leer sein" };
+    }
+    if (body.ziel.length > 500) {
+      return { error: "ziel darf höchstens 500 Zeichen lang sein" };
+    }
+    values.ziel = body.ziel.trim();
   }
-  ziel = await resolveGpsToAddress(ziel);
-  console.log("📍 Ziel nach Geocoding:", ziel);
 
-  // vehicle_id prüfen: gehört es diesem User?
-  if (vehicle_id) {
-    const vCheck = await pool.query(
-      `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2`,
-      [vehicle_id, req.userId]
-    );
-    if (vCheck.rows.length === 0) {
-      return res.status(403).json({ error: "Fahrzeug nicht gefunden oder keine Berechtigung" });
+  if (!partial || has("fahrtart")) {
+    if (!FAHRTARTEN.includes(body.fahrtart)) {
+      return { error: `fahrtart muss einer der Werte sein: ${FAHRTARTEN.join(", ")}` };
+    }
+    values.fahrtart = body.fahrtart;
+  }
+
+  if (!partial || has("timestamp")) {
+    const ts = new Date(body.timestamp);
+    if (!["number", "string"].includes(typeof body.timestamp) || isNaN(ts)) {
+      return { error: "Ungültiger Timestamp" };
+    }
+    values.timestamp = ts.toISOString();
+  }
+
+  // vehicle_id ist immer optional; null entfernt die Zuordnung
+  if (has("vehicle_id")) {
+    if (body.vehicle_id === null) {
+      values.vehicle_id = null;
+    } else {
+      const vid = Number(body.vehicle_id);
+      if (!Number.isInteger(vid) || vid <= 0) {
+        return { error: "Ungültige vehicle_id" };
+      }
+      values.vehicle_id = vid;
     }
   }
 
+  return { values };
+}
+
+async function vehicleBelongsToUser(vehicleId, userId) {
+  const result = await pool.query(
+    `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2`,
+    [vehicleId, userId]
+  );
+  return result.rows.length > 0;
+}
+
+app.post("/api/fahrt", requireAuth, async (req, res) => {
+  const { values, error } = validateFahrt(req.body);
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
   try {
+    // vehicle_id prüfen: gehört es diesem User?
+    if (values.vehicle_id != null && !(await vehicleBelongsToUser(values.vehicle_id, req.userId))) {
+      return res.status(403).json({ error: "Fahrzeug nicht gefunden oder keine Berechtigung" });
+    }
+
+    values.ziel = await resolveGpsToAddress(values.ziel);
+    console.log("📍 Ziel nach Geocoding:", values.ziel);
+
     const result = await pool.query(
       `INSERT INTO fahrten (user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [req.userId, vehicle_id || null, kmstand, ziel, fahrtart, ts.toISOString()]
+      [req.userId, values.vehicle_id ?? null, values.kmstand, values.ziel, values.fahrtart, values.timestamp]
     );
 
     console.log(`✅ Fahrt gespeichert (ID: ${result.rows[0].id}, User: ${req.userId})`);
@@ -363,9 +409,8 @@ app.get("/api/export/json", requireAuth, async (req, res) => {
     }
 
     // Rückgabeformat kompatibel mit bisherigem Frontend
-    const fahrten = result.rows.map((r, i) => ({
-      _id:          r.id,
-      _index:       i,            // wird für PUT/DELETE gebraucht
+    const fahrten = result.rows.map(r => ({
+      _id:          r.id,         // wird für PUT/DELETE gebraucht
       kmstand:      r.kmstand,
       ziel:         r.ziel,
       fahrtart:     r.fahrtart,
@@ -385,6 +430,14 @@ app.get("/api/export/json", requireAuth, async (req, res) => {
 // ────────────────────────────────────────────────────────────
 // GET /api/export/csv/year/:year
 // ────────────────────────────────────────────────────────────
+// Textfeld für CSV: in Anführungszeichen, " verdoppelt; führende
+// Formelzeichen werden neutralisiert (Excel-Formel-Injection)
+function csvField(value) {
+  let text = String(value ?? "");
+  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 app.get("/api/export/csv/year/:year", requireAuth, async (req, res) => {
   const { year } = req.params;
 
@@ -398,7 +451,7 @@ app.get("/api/export/csv/year/:year", requireAuth, async (req, res) => {
          f.kmstand,
          f.ziel,
          f.fahrtart,
-         f.timestamp,
+         TO_CHAR(f.timestamp AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY HH24:MI') AS zeitpunkt,
          v.name AS vehicle_name
        FROM   fahrten f
        LEFT JOIN vehicles v ON v.id = f.vehicle_id
@@ -410,7 +463,7 @@ app.get("/api/export/csv/year/:year", requireAuth, async (req, res) => {
 
     let csv = "KM Stand;Ziel;Fahrtart;Zeitpunkt;Fahrzeug\n";
     result.rows.forEach(f => {
-      csv += `${f.kmstand};"${f.ziel}";${f.fahrtart};${f.timestamp};"${f.vehicle_name || ""}"\n`;
+      csv += [f.kmstand, csvField(f.ziel), f.fahrtart, f.zeitpunkt, csvField(f.vehicle_name)].join(";") + "\n";
     });
 
     res.header("Content-Type", "text/csv; charset=utf-8");
@@ -424,72 +477,49 @@ app.get("/api/export/csv/year/:year", requireAuth, async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────
-// PUT /api/fahrt/:month/:index
-// Fahrt bearbeiten – index bezieht sich auf die _index-Position
-// aus dem JSON-Export (0-basiert, sortiert nach timestamp)
+// PUT /api/fahrt/:id  →  Fahrt bearbeiten
+// Body: beliebige Teilmenge von { kmstand, ziel, fahrtart, timestamp, vehicle_id }
+// Ein neuer timestamp verschiebt die Fahrt ggf. in einen anderen Monat.
 // ────────────────────────────────────────────────────────────
-app.put("/api/fahrt/:month/:index", requireAuth, async (req, res) => {
-  const { month, index } = req.params;
-  const { kmstand, ziel, fahrtart, timestamp, vehicle_id } = req.body;
+app.put("/api/fahrt/:id", requireAuth, async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: "Ungültige Fahrt-ID" });
+  }
 
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return res.status(400).json({ error: "Ungültiges Monatsformat (YYYY-MM)" });
+  const { values, error } = validateFahrt(req.body, { partial: true });
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
+  const fields = Object.keys(values);  // nur Whitelist-Felder aus validateFahrt
+  if (fields.length === 0) {
+    return res.status(400).json({ error: "Keine Felder zum Aktualisieren angegeben" });
   }
 
   try {
-    // Fahrt per Monat + Index (Position in der sortierten Liste) ermitteln
-    const listResult = await pool.query(
-      `SELECT id FROM fahrten
-       WHERE  user_id = $1
-         AND  TO_CHAR(timestamp AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') = $2
-       ORDER  BY timestamp ASC`,
-      [req.userId, month]
-    );
-
-    const idx = parseInt(index);
-    if (idx < 0 || idx >= listResult.rows.length) {
-      return res.status(404).json({ error: "Eintrag nicht gefunden" });
+    if (values.vehicle_id != null && !(await vehicleBelongsToUser(values.vehicle_id, req.userId))) {
+      return res.status(403).json({ error: "Fahrzeug nicht gefunden oder keine Berechtigung" });
     }
 
-    const fahrtId = listResult.rows[idx].id;
-
-    // Timestamp validieren
-    const ts = timestamp ? new Date(timestamp) : null;
-    if (timestamp && isNaN(ts)) {
-      return res.status(400).json({ error: "Ungültiger Timestamp" });
+    if (values.ziel !== undefined) {
+      values.ziel = await resolveGpsToAddress(values.ziel);
     }
 
-    // vehicle_id prüfen
-    if (vehicle_id) {
-      const vCheck = await pool.query(
-        `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2`,
-        [vehicle_id, req.userId]
-      );
-      if (vCheck.rows.length === 0) {
-        return res.status(403).json({ error: "Fahrzeug nicht gefunden oder keine Berechtigung" });
-      }
-    }
-
-    await pool.query(
+    const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
+    const result = await pool.query(
       `UPDATE fahrten
-       SET kmstand    = COALESCE($1, kmstand),
-           ziel       = COALESCE($2, ziel),
-           fahrtart   = COALESCE($3, fahrtart),
-           timestamp  = COALESCE($4, timestamp),
-           vehicle_id = COALESCE($5, vehicle_id)
-       WHERE id = $6 AND user_id = $7`,
-      [
-        kmstand    || null,
-        ziel       || null,
-        fahrtart   || null,
-        ts?.toISOString() || null,
-        vehicle_id || null,
-        fahrtId,
-        req.userId,
-      ]
+       SET    ${setClause}
+       WHERE  id = $${fields.length + 1} AND user_id = $${fields.length + 2}
+       RETURNING id, kmstand, ziel, fahrtart, timestamp, vehicle_id,
+                 TO_CHAR(timestamp AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') AS month`,
+      [...fields.map(f => values[f]), req.params.id, req.userId]
     );
 
-    return res.json({ message: "Fahrt aktualisiert" });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Fahrt nicht gefunden" });
+    }
+
+    return res.json({ message: "Fahrt aktualisiert", fahrt: result.rows[0] });
 
   } catch (err) {
     console.error("Fehler beim Aktualisieren:", err);
@@ -498,94 +528,27 @@ app.put("/api/fahrt/:month/:index", requireAuth, async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────
-// DELETE /api/fahrt/:month/:index
+// DELETE /api/fahrt/:id
 // ────────────────────────────────────────────────────────────
-app.delete("/api/fahrt/:month/:index", requireAuth, async (req, res) => {
-  const { month, index } = req.params;
-
-  if (!/^\d{4}-\d{2}$/.test(month)) {
-    return res.status(400).json({ error: "Ungültiges Monatsformat (YYYY-MM)" });
+app.delete("/api/fahrt/:id", requireAuth, async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ error: "Ungültige Fahrt-ID" });
   }
 
   try {
-    const listResult = await pool.query(
-      `SELECT id FROM fahrten
-       WHERE  user_id = $1
-         AND  TO_CHAR(timestamp AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') = $2
-       ORDER  BY timestamp ASC`,
-      [req.userId, month]
+    const result = await pool.query(
+      `DELETE FROM fahrten WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.userId]
     );
 
-    const idx = parseInt(index);
-    if (idx < 0 || idx >= listResult.rows.length) {
-      return res.status(404).json({ error: "Eintrag nicht gefunden" });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Fahrt nicht gefunden" });
     }
-
-    const fahrtId = listResult.rows[idx].id;
-
-    await pool.query(
-      `DELETE FROM fahrten WHERE id = $1 AND user_id = $2`,
-      [fahrtId, req.userId]
-    );
 
     return res.json({ message: "Fahrt gelöscht" });
 
   } catch (err) {
     console.error("Fehler beim Löschen:", err);
-    return res.status(500).json({ error: "Interner Fehler" });
-  }
-});
-
-// ────────────────────────────────────────────────────────────
-// POST /api/fahrt/move
-// Fahrt in anderen Monat verschieben
-// Body: { fromMonth, index, fahrt }
-// ────────────────────────────────────────────────────────────
-app.post("/api/fahrt/move", requireAuth, async (req, res) => {
-  const { fromMonth, index, fahrt } = req.body;
-
-  if (!fromMonth || index === undefined || !fahrt?.timestamp) {
-    return res.status(400).json({ error: "fromMonth, index und fahrt.timestamp erforderlich" });
-  }
-
-  const neuesTimestamp = new Date(fahrt.timestamp);
-  if (isNaN(neuesTimestamp)) {
-    return res.status(400).json({ error: "Ungültiger Timestamp in fahrt" });
-  }
-
-  const toMonth = monthKeyFromISO(neuesTimestamp.toISOString());
-  if (fromMonth === toMonth) {
-    return res.status(400).json({ error: "Quell- und Zielmonat sind identisch – bitte PUT verwenden" });
-  }
-
-  try {
-    // Fahrt-ID ermitteln
-    const listResult = await pool.query(
-      `SELECT id FROM fahrten
-       WHERE  user_id = $1
-         AND  TO_CHAR(timestamp AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') = $2
-       ORDER  BY timestamp ASC`,
-      [req.userId, fromMonth]
-    );
-
-    const idx = parseInt(index);
-    if (idx < 0 || idx >= listResult.rows.length) {
-      return res.status(404).json({ error: "Eintrag nicht gefunden" });
-    }
-
-    const fahrtId = listResult.rows[idx].id;
-
-    // Nur Timestamp aktualisieren → Monat ändert sich dadurch automatisch
-    await pool.query(
-      `UPDATE fahrten SET timestamp = $1 WHERE id = $2 AND user_id = $3`,
-      [neuesTimestamp.toISOString(), fahrtId, req.userId]
-    );
-
-    console.log(`✅ Fahrt ${fahrtId} von ${fromMonth} nach ${toMonth} verschoben`);
-    return res.json({ message: `Fahrt von ${fromMonth} nach ${toMonth} verschoben`, toMonth });
-
-  } catch (err) {
-    console.error("Fehler beim Verschieben:", err);
     return res.status(500).json({ error: "Interner Fehler" });
   }
 });
