@@ -61,8 +61,50 @@ jobs:
 
           docker push ghcr.io/${{ github.repository_owner }}/fahrtenbuch-frontend:${{ needs.detect-changes.outputs.image_tag }}
 
-  backend:
+  backend-test:
     needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB:       fahrtenbuch_test
+          POSTGRES_USER:     fahrtenbuch
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fahrtenbuch -d fahrtenbuch_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+        env:
+          DB_HOST:     127.0.0.1
+          DB_PORT:     5432
+          DB_NAME:     fahrtenbuch_test
+          DB_USER:     fahrtenbuch
+          DB_PASSWORD: test
+
+  backend:
+    needs: [detect-changes, backend-test]
     if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
 
