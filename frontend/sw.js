@@ -13,7 +13,7 @@ const APP_SHELL = [
   "./",
   "index.html", "driving.html", "view.html", "history.html",
   "profile.html", "auto.html", "admin.html", "login.html", "register.html",
-  "js/config.js", "js/auth-check.js", "js/footer.js", "js/fahrzeug.js", "js/offline.js",
+  "js/nav.js", "js/config.js", "js/auth-check.js", "js/footer.js", "js/fahrzeug.js", "js/offline.js",
   "js/dashboard.js", "js/dashboard-history.js", "js/driving-new.js",
   "js/view.js", "js/profile.js", "js/auto.js", "js/admin.js", "js/login.js", "js/register.js",
   "drivingbooklogo.png", "manifest.webmanifest", "release.ver",
