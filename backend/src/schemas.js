@@ -38,6 +38,12 @@ export const monthQuery = z.object({
   vehicle: vehicleFilter,
 });
 
+export const yearQuery = z.object({
+  year: z.string({ error: "Query-Parameter 'year' erforderlich (YYYY)" })
+    .regex(/^\d{4}$/, { error: "Query-Parameter 'year' erforderlich (YYYY)" }).transform(Number),
+  vehicle: vehicleFilter,
+});
+
 export const auditQuery = z.object({
   year: z.string().regex(/^\d{4}$/, { error: "Query-Parameter 'year' erforderlich (YYYY)" }).transform(Number),
   vehicle: vehicleFilter,

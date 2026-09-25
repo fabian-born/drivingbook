@@ -5,58 +5,19 @@ const aktuellerMonat = `${aktuellesJahr}-${String(new Date().getMonth() + 1).pad
 let chartInstanz = null;
 
 async function ladeDashboard() {
-let monatsKm = {};
-let monatsPrivat = {};
-let monatsGeschaeft = {};
-let gesamtKm = 0;
-let monatsTabelle = [];
-let prevEndKm = null;   // Startwert = erste Fahrt des Jahres
-let totalPrivat = 0;
-let totalGeschaeft = 0;
+// Eine Abfrage fürs ganze Jahr; Strecken rechnet das Backend (ab dem letzten km-Stand des Vorjahres)
+const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${aktuellesJahr}`));
+if (!res.ok) return console.warn("Dashboard:", await apiError(res));
+const { monate, summe } = await res.json();
 
-
-for (let m = 1; m <= 12; m++) {
-    const month = `${aktuellesJahr}-${String(m).padStart(2, "0")}`;
-
-    try {
-        const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${month}`));
-        if (!res.ok) continue;
-        const fahrten = await res.json();
-        if (fahrten.length === 0) continue;
-
-        const startKm = prevEndKm ?? parseInt(fahrten[0].kmstand, 10);
-        const endKm = parseInt(fahrten[fahrten.length - 1].kmstand, 10);
-        const diff = endKm - startKm;
-
-        prevEndKm = endKm;
-
-        monatsKm[month] = diff;
-        gesamtKm += diff;
-
-        let privat = 0, geschaeft = 0;
-        for (let i = 0; i < fahrten.length; i++) {
-            let kmDelta;
-            if (i === 0) {
-                kmDelta = parseInt(fahrten[0].kmstand, 10) - startKm;
-            } else {
-                kmDelta = parseInt(fahrten[i].kmstand, 10) - parseInt(fahrten[i - 1].kmstand, 10);
-            }
-
-            if (fahrten[i].fahrtart.toLowerCase() === "privat") privat += kmDelta;
-            else geschaeft += kmDelta;
-        }
-
-        monatsPrivat[month] = privat;
-        monatsGeschaeft[month] = geschaeft;
-
-        monatsTabelle.push({ month, startKm, endKm, diff, privat, geschaeft });
-        totalPrivat += privat;
-        totalGeschaeft += geschaeft;
-
-    } catch (e) {
-        console.warn("Kein Monat:", month);
-    }
-}
+const monatsTabelle = monate.map(m => ({
+    month: m.monat, startKm: m.start_km, endKm: m.end_km,
+    diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich,
+}));
+const monatsKm       = Object.fromEntries(monatsTabelle.map(m => [m.month, m.diff]));
+const gesamtKm       = summe.gesamt;
+const totalPrivat    = summe.privat;
+const totalGeschaeft = summe.geschaeftlich;
 
 document.getElementById("kmProMonat").innerText =
     (monatsKm[aktuellerMonat] ?? 0).toFixed(1);

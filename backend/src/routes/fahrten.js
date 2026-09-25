@@ -6,8 +6,9 @@ import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
+import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
-import { auditQuery, fahrtCreate, fahrtUpdate, idParam } from "../schemas.js";
+import { auditQuery, fahrtCreate, fahrtUpdate, idParam, yearQuery } from "../schemas.js";
 
 const RETURNING = `id, kmstand, ziel, fahrtart, timestamp, vehicle_id`;
 
@@ -150,6 +151,31 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       throw new HttpError(404, "Keine Protokolleinträge für diese Fahrt");
     }
     return res.json(result.rows);
+  }));
+
+  // GET /api/fahrten?year=YYYY[&vehicle=CODE]  →  Fahrten eines Jahres mit Strecken,
+  // Monatsübersicht und Jahressumme (eine Abfrage statt zwölf Monatsexporte)
+  router.get("/fahrten", requireAuth, asyncHandler(async (req, res) => {
+    const { year, vehicle } = parse(yearQuery, req.query);
+    const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
+    const fahrten = await jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: config.timezone });
+
+    return res.json({
+      year,
+      ...fasseZusammen(fahrten),
+      fahrten: fahrten.map(f => ({
+        _id:          f.id,          // wie /api/export/json
+        kmstand:      f.kmstand,
+        strecke:      f.strecke,
+        ziel:         f.ziel,
+        fahrtart:     f.fahrtart,
+        timestamp:    f.timestamp,
+        monat:        f.monat,
+        vehicle_id:   f.vehicle_id,
+        vehicle_name: f.vehicle_name,
+        edited:       f.edited,
+      })),
+    });
   }));
 
   // GET /api/audit?year=YYYY[&vehicle=CODE]  →  Änderungen und Löschungen an Fahrten eines Jahres

@@ -3,55 +3,28 @@
 let chartInstanzHistory = null;
 
 async function ladeHistoryDashboard(jahr) {
-  let monatsKm = {};
-  let gesamtKm = 0;
-  let monatsTabelle = [];
-  let prevEndKm = null;
-  let totalPrivat = 0;
-  let totalGeschaeft = 0;
-
   document.getElementById("historyLoading").classList.remove("d-none");
   document.getElementById("historyContent").classList.add("d-none");
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
 
-  for (let m = 1; m <= 12; m++) {
-    const month = `${jahr}-${String(m).padStart(2, "0")}`;
-    try {
-      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${month}`));
-      if (!res.ok) continue;
-      const fahrten = await res.json();
-      if (fahrten.length === 0) continue;
-
-      const startKm = prevEndKm !== null
-        ? prevEndKm
-        : parseInt(fahrten[0].kmstand, 10);
-
-      const endKm = parseInt(fahrten[fahrten.length - 1].kmstand, 10);
-      const diff = endKm - startKm;
-      prevEndKm = endKm;
-
-      monatsKm[month] = diff;
-      gesamtKm += diff;
-
-      let privat = 0, geschaeft = 0;
-      for (let i = 0; i < fahrten.length; i++) {
-        let kmDelta = i === 0
-          ? parseInt(fahrten[0].kmstand, 10) - startKm
-          : parseInt(fahrten[i].kmstand, 10) - parseInt(fahrten[i - 1].kmstand, 10);
-        if (kmDelta < 0) kmDelta = 0;
-
-        if (fahrten[i].fahrtart.toLowerCase() === "privat") privat += kmDelta;
-        else geschaeft += kmDelta;
-      }
-
-      monatsTabelle.push({ month, startKm, endKm, diff, privat, geschaeft });
-      totalPrivat += privat;
-      totalGeschaeft += geschaeft;
-
-    } catch (e) {
-      console.warn("Kein Monat:", month);
+  // Eine Abfrage fürs ganze Jahr; Strecken rechnet das Backend (ab dem letzten km-Stand des Vorjahres)
+  let monatsTabelle = [], summe = { gesamt: 0, privat: 0, geschaeftlich: 0 };
+  try {
+    const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${jahr}`));
+    if (res.ok) {
+      const daten = await res.json();
+      summe = daten.summe;
+      monatsTabelle = daten.monate.map(m => ({
+        month: m.monat, startKm: m.start_km, endKm: m.end_km,
+        diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich,
+      }));
     }
+  } catch (e) {
+    console.warn("Jahreshistorie:", e);
   }
+  const gesamtKm       = summe.gesamt;
+  const totalPrivat    = summe.privat;
+  const totalGeschaeft = summe.geschaeftlich;
 
   document.getElementById("historyLoading").classList.add("d-none");
   document.getElementById("historyContent").classList.remove("d-none");

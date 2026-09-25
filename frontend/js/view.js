@@ -34,104 +34,75 @@ function fuelleJahre() {
   }
 }
 
-// ----------------- Monate prüfen & aktuellen Monat vorauswählen -----------------
+// ----------------- Fahrten des Jahres laden (eine Abfrage) -----------------
+// Liefert alle Fahrten des gewählten Jahres inkl. Strecke; Monate werden lokal gefiltert
+let jahresFahrten = [];
+
+async function ladeJahr() {
+  const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${jahrSelect.value}`));
+  if (!res.ok) throw new Error(await apiError(res));
+  jahresFahrten = (await res.json()).fahrten;
+}
+
+// ----------------- Monate füllen & aktuellen Monat vorauswählen -----------------
 async function fuelleMonateMitCheck() {
-  const jahr         = jahrSelect.value;
+  const jahr           = jahrSelect.value;
   const aktuellesJahr  = new Date().getFullYear();
   const aktuellerMonat = String(new Date().getMonth() + 1).padStart(2, "0");
-  monatSelect.innerHTML = "";
 
-  // "Alle Monate" Option ganz oben
-  const alleOption = document.createElement("option");
-  alleOption.value = "alle";
-  alleOption.textContent = "Alle Monate";
-  monatSelect.appendChild(alleOption);
-
-  let aktiverMonat = null;
-
-  for (let m = 1; m <= 12; m++) {
-    const mm       = String(m).padStart(2, "0");
-    const monthKey = `${jahr}-${mm}`;
-    const option   = document.createElement("option");
-    option.value   = mm;
-    option.textContent = mm;
-
-    try {
-      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
-      if (!res.ok) {
-        option.disabled = true;
-      } else {
-        // Aktuelles Jahr → aktuellen Monat bevorzugen
-        if (String(jahr) === String(aktuellesJahr) && mm === aktuellerMonat) {
-          aktiverMonat = mm;
-        } else if (!aktiverMonat) {
-          aktiverMonat = mm;
-        }
-      }
-    } catch {
-      option.disabled = true;
-    }
-    monatSelect.appendChild(option);
+  setLaden();
+  try {
+    await ladeJahr();
+  } catch {
+    setLeer("Fehler beim Laden");
+    return;
   }
+
+  const monateMitDaten = new Set(jahresFahrten.map(f => f.monat.slice(5)));
+  monatSelect.innerHTML = `<option value="alle">Alle Monate</option>` +
+    Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))
+      .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${mm}</option>`)
+      .join("");
+
+  // Aktuelles Jahr → aktuellen Monat bevorzugen, sonst den ersten mit Daten
+  const aktiverMonat = String(jahr) === String(aktuellesJahr) && monateMitDaten.has(aktuellerMonat)
+    ? aktuellerMonat
+    : [...monateMitDaten].sort()[0];
 
   if (aktiverMonat) {
     monatSelect.value = aktiverMonat;
-    jahresansicht = false;
-    ladeFahrten();
+    zeigeAuswahl();
   } else {
+    aktuelleFahrten = [];
     setLeer("Keine Daten für dieses Jahr");
   }
 }
 
-// ----------------- Fahrten laden -----------------
-async function ladeFahrten() {
-  const jahr  = jahrSelect.value;
+// ----------------- Gewählten Monat (oder alle) aus den Jahresdaten anzeigen -----------------
+function zeigeAuswahl() {
   const monat = monatSelect.value;
-  if (!jahr || !monat) return;
-
-  if (monat === "alle") {
-    jahresansicht = true;
-    await ladeAlleMonateDesJahres(jahr);
-    return;
-  }
-
-  jahresansicht = false;
-  setLaden();
-  const monthKey = `${jahr}-${monat}`;
-
-  try {
-    const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
-    if (!res.ok) {
-      setLeer("Keine Daten vorhanden");
-      aktuelleFahrten = [];
-      return;
-    }
-    aktuelleFahrten = await res.json();
-    renderAll();
-  } catch {
-    setLeer("Fehler beim Laden");
-  }
-}
-
-// ----------------- Alle Monate des Jahres laden -----------------
-async function ladeAlleMonateDesJahres(jahr) {
-  setLaden("Lade Jahresdaten...");
-  aktuelleFahrten = [];
-
-  for (let m = 1; m <= 12; m++) {
-    const monthKey = `${jahr}-${String(m).padStart(2, "0")}`;
-    try {
-      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
-      if (!res.ok) continue;
-      aktuelleFahrten.push(...(await res.json()));
-    } catch { /* Monat überspringen */ }
-  }
+  jahresansicht   = monat === "alle";
+  aktuelleFahrten = jahresansicht
+    ? [...jahresFahrten]
+    : jahresFahrten.filter(f => f.monat === `${jahrSelect.value}-${monat}`);
 
   if (aktuelleFahrten.length === 0) {
-    setLeer(`Keine Daten für ${jahr} vorhanden`);
+    setLeer(jahresansicht ? `Keine Daten für ${jahrSelect.value} vorhanden` : "Keine Daten vorhanden");
     return;
   }
   renderAll();
+}
+
+// ----------------- Fahrten neu vom Server laden (Auswahl bleibt) -----------------
+async function ladeFahrten() {
+  if (!jahrSelect.value || !monatSelect.value) return;
+  try {
+    await ladeJahr();
+  } catch {
+    setLeer("Fehler beim Laden");
+    return;
+  }
+  zeigeAuswahl();
 }
 
 // ----------------- Render-Dispatcher -----------------
@@ -155,7 +126,7 @@ function renderTabelle() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
+    const diff = f.strecke ?? 0;
 
     const tr = document.createElement("tr");
     tr.dataset.index = i;
@@ -206,7 +177,7 @@ function renderTabelleJahresansicht() {
     }
 
     nr++;
-    const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
+    const diff = f.strecke ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${nr}</td>
@@ -230,7 +201,7 @@ function renderCards() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
+    const diff = f.strecke ?? 0;
     cardList.appendChild(buildCard(f, i, diff, false));
   });
 }
@@ -255,7 +226,7 @@ function renderCardsJahresansicht() {
     }
 
     nr++;
-    const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
+    const diff = f.strecke ?? 0;
     cardList.appendChild(buildCard(f, i, diff, true, nr));
   });
 }
@@ -415,9 +386,8 @@ async function handleTimestampChange(index, localVal) {
 
   aktuelleFahrten[index].timestamp = neuesTimestamp;
   if (neuerMonthKey !== alterMonthKey) {
-    // Fahrt gehört jetzt zu einem anderen Monat → aus der Ansicht entfernen
-    aktuelleFahrten.splice(index, 1);
-    renderAll();
+    // Fahrt gehört jetzt zu einem anderen Monat → Jahresdaten und Strecken neu laden
+    await ladeFahrten();
     zeigeHinweis(`Fahrt wurde nach ${neuerMonthKey} verschoben.`, "info");
   }
 }
@@ -478,9 +448,8 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
   try {
     const res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "DELETE" });
     if (res.ok) {
-      aktuelleFahrten.splice(index, 1);
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
-      renderAll();
+      await ladeFahrten();  // Strecke der Folgefahrt ändert sich mit
     } else {
       alert("Fehler beim Löschen!");
     }
@@ -563,7 +532,7 @@ swipeTarget.addEventListener("touchend", e => {
   const curIdx = opts.findIndex(o => o.value === monatSelect.value);
   if (diff < 0 && curIdx < opts.length - 1) monatSelect.value = opts[curIdx + 1].value;
   if (diff > 0 && curIdx > 0)               monatSelect.value = opts[curIdx - 1].value;
-  ladeFahrten();
+  zeigeAuswahl();
 });
 
 // ═══════════════════════════════════════════════
@@ -571,7 +540,7 @@ swipeTarget.addEventListener("touchend", e => {
 // ═══════════════════════════════════════════════
 
 jahrSelect.addEventListener("change", fuelleMonateMitCheck);
-monatSelect.addEventListener("change", ladeFahrten);
+monatSelect.addEventListener("change", zeigeAuswahl);
 
 // ═══════════════════════════════════════════════
 // Änderungsprotokoll

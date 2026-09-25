@@ -135,6 +135,7 @@ DELETE /api/tokens/:id      # Token löschen
 | DELETE | `/api/fahrt/:id` | Fahrt löschen |
 | GET  | `/api/fahrt/:id/history` | Änderungsverlauf einer Fahrt |
 | GET  | `/api/audit?year=YYYY` | Änderungen und Löschungen eines Jahres |
+| GET  | `/api/fahrten?year=YYYY` | Fahrten eines Jahres mit Strecke je Fahrt, Monatsübersicht und Jahressumme |
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |
 | GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
 | GET  | `/api/export/pdf/year/:year` | PDF-Fahrtenbuch eines Jahres inkl. Änderungsprotokoll |

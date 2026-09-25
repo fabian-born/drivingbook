@@ -85,3 +85,45 @@ describe("Export", () => {
     assert.equal((await t.http().get("/api/export/pdf/year/2026")).status, 401);
   });
 });
+
+describe("Jahresfahrten", () => {
+  let t, user;
+  const post = body => t.http().post("/api/fahrt").set(user).send({ ziel: "Ziel", fahrtart: "privat", ...body });
+
+  before(async () => {
+    t = await setup();
+    user = await t.registerUser("jahr");
+    await post({ kmstand: 900,  timestamp: "2025-11-01T08:00:00Z" });
+    await post({ kmstand: 1000, timestamp: "2025-12-31T20:00:00Z" });
+    await post({ kmstand: 1100, timestamp: "2026-01-02T08:00:00Z", fahrtart: "geschäftlich" });
+    await post({ kmstand: 1150, timestamp: "2026-01-20T08:00:00Z" });
+    await post({ kmstand: 1400, timestamp: "2026-03-05T08:00:00Z", fahrtart: "geschäftlich" });
+    const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    await post({ kmstand: 50, timestamp: "2026-01-10T08:00:00Z", vehicle_code: zweit.code });
+  });
+  after(() => t.close());
+
+  it("liefert Strecken, Monate und Summe über den Jahreswechsel hinweg", async () => {
+    const res = await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.fahrten.map(f => f.strecke), [100, 50, 250]);
+    assert.deepEqual(res.body.monate, [
+      { monat: "2026-01", start_km: 1000, end_km: 1150, fahrten: 2, gesamt: 150, privat: 50, geschaeftlich: 100 },
+      { monat: "2026-03", start_km: 1150, end_km: 1400, fahrten: 1, gesamt: 250, privat: 0, geschaeftlich: 250 },
+    ]);
+    assert.deepEqual(res.body.summe, { fahrten: 3, gesamt: 400, privat: 50, geschaeftlich: 350 });
+    assert.ok(res.body.fahrten[0]._id);
+  });
+
+  it("rechnet ohne Fahrzeugfilter je Fahrzeug getrennt", async () => {
+    const res = await t.http().get("/api/fahrten?year=2026").set(user);
+    assert.equal(res.body.fahrten.length, 4);
+    assert.equal(res.body.fahrten.find(f => f.kmstand === 50).strecke, null);  // erste Fahrt des Zweitwagens
+    assert.equal(res.body.summe.gesamt, 400);
+  });
+
+  it("validiert das Jahr", async () => {
+    assert.equal((await t.http().get("/api/fahrten").set(user)).status, 400);
+    assert.deepEqual((await t.http().get("/api/fahrten?year=2030").set(user)).body.fahrten, []);
+  });
+});

@@ -6,6 +6,7 @@
 import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { steuerVergleich } from "../lib/steuer.js";
+import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { idParam, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
@@ -67,24 +68,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
          WHERE  user_id = $1 AND vehicle_id = $2`,
         [req.userId, id]
       ),
-      // Strecke je Fahrt = Differenz zum vorherigen km-Stand desselben Fahrzeugs
-      // (auch über den Jahreswechsel); Rückschritte zählen nicht
-      pool.query(
-        `WITH strecken AS (
-           SELECT fahrtart, timestamp,
-                  GREATEST(kmstand - LAG(kmstand) OVER (ORDER BY timestamp, id), 0) AS km
-           FROM   fahrten
-           WHERE  user_id = $1 AND vehicle_id = $2
-         )
-         SELECT COUNT(*)::int                                                AS fahrten,
-                COALESCE(SUM(km) FILTER (WHERE fahrtart = 'privat'), 0)::int       AS privat,
-                COALESCE(SUM(km) FILTER (WHERE fahrtart = 'geschäftlich'), 0)::int AS geschaeftlich,
-                COALESCE(SUM(km), 0)::int                                    AS gesamt
-         FROM   strecken
-         WHERE  timestamp >= make_timestamptz($3, 1, 1, 0, 0, 0, $4)
-           AND  timestamp <  make_timestamptz($3 + 1, 1, 1, 0, 0, 0, $4)`,
-        [req.userId, id, year, tz]
-      ),
+      jahresFahrten(pool, { userId: req.userId, year, vehicleId: id, timezone: tz }),
       pool.query(
         `SELECT total_costs::float8 AS total_costs, depreciation::float8 AS depreciation,
                 commute_km::float8 AS commute_km, months, tax_rate::float8 AS tax_rate, updated_at
@@ -93,7 +77,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       ),
     ]);
 
-    const km = jahr.rows[0];
+    const km = fasseZusammen(jahr).summe;
     return res.json({
       vehicle,
       year,
