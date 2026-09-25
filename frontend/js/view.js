@@ -15,7 +15,7 @@ let vehicleById   = new Map();
 // ----------------- Fahrzeuge (Zuordnungs-Dropdown) -----------------
 // Angezeigt werden nur Fahrten des aktiven Fahrzeugs (siehe fahrzeug.js).
 async function ladeVehicles() {
-  await fahrzeugBereit;
+  await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
   vehicles    = alleFahrzeuge;
   vehicleById = new Map(vehicles.map(v => [v.id, v]));
 }
@@ -680,6 +680,20 @@ document.getElementById("auditYear")?.addEventListener("click", async () => {
 ladeVehicles().then(() => {
   fuelleJahre();
   fuelleMonateMitCheck();
+  document.addEventListener("fahrtenNachgereicht", aktualisiereNachSync);
 });
+
+// Nach dem Nachreichen offline erfasster Fahrten neu laden – aber nicht mitten
+// in einer Bearbeitung, sonst ginge die Eingabe verloren
+function aktualisiereNachSync() {
+  const bearbeitung = [tbody, cardList].some(el => el.contains(document.activeElement));
+  if (bearbeitung) {
+    document.activeElement.addEventListener("blur", () => setTimeout(aktualisiereNachSync, 500), { once: true });
+    return;
+  }
+  // Leere Ansicht → Monatsliste neu prüfen (der Monat war evtl. noch deaktiviert)
+  if (aktuelleFahrten.length === 0) fuelleMonateMitCheck();
+  else ladeFahrten();
+}
 
 }); // DOMContentLoaded

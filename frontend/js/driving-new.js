@@ -1,8 +1,6 @@
 // js/driving-new.js
-// Neue Fahrt erfassen – auch offline: Fahrten ohne Verbindung werden
-// lokal zwischengespeichert und automatisch nachgereicht.
-
-const WARTESCHLANGE_KEY = "offlineFahrten";
+// Neue Fahrt erfassen – auch offline: Fahrten ohne Verbindung landen in der
+// Warteschlange (offline.js) und werden automatisch nachgereicht.
 
 // ── Fahrzeug ─────────────────────────────────────────────────
 // Neue Fahrten gehören immer zum aktiven Fahrzeug aus der Navigation.
@@ -58,84 +56,10 @@ function zeigeStatus(text, typ = "success") {
 
 // ── Offline-Warteschlange ────────────────────────────────────
 
-function ladeWarteschlange() {
-  try {
-    return JSON.parse(localStorage.getItem(WARTESCHLANGE_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function speichereWarteschlange(liste) {
-  localStorage.setItem(WARTESCHLANGE_KEY, JSON.stringify(liste));
-  aktualisiereOfflineHinweis();
-}
-
-function aktualisiereOfflineHinweis() {
-  const anzahl = ladeWarteschlange().length;
-  const box    = document.getElementById("offlineHinweis");
-  box.classList.toggle("d-none", anzahl === 0);
+function aktualisiereOfflineHinweis(anzahl) {
+  document.getElementById("offlineHinweis").classList.toggle("d-none", anzahl === 0);
   document.getElementById("offlineAnzahl").textContent =
     anzahl === 1 ? "1 Fahrt wartet" : `${anzahl} Fahrten warten`;
-}
-
-// Sendet eine Fahrt; fragt bei unplausiblem km-Stand nach.
-// Ergebnis: "ok" | "abgelehnt" (Nutzer hat abgebrochen) | "fehler" (Validierung o. ä.)
-// Netzwerkfehler werden als Exception weitergereicht.
-async function sendeFahrt(fahrt, hinweis = "") {
-  let res = await apiFetch("/api/fahrt", { method: "POST", body: fahrt });
-
-  if (res.status === 409) {
-    const err = await res.json().catch(() => ({}));
-    if (err.code !== "KM_PLAUSIBILITY") return { status: "fehler", meldung: err.error };
-    if (!confirm(`${hinweis}${err.error}\n\nTrotzdem speichern?`)) return { status: "abgelehnt" };
-    res = await apiFetch("/api/fahrt", { method: "POST", body: { ...fahrt, force: true } });
-  }
-
-  if (!res.ok) return { status: "fehler", meldung: await apiError(res, "Fehler beim Speichern") };
-  return { status: "ok" };
-}
-
-let syncLaeuft = false;
-
-// Reicht offline erfasste Fahrten der Reihe nach ein
-async function synchronisiere() {
-  if (syncLaeuft || !navigator.onLine) return;
-  syncLaeuft = true;
-
-  try {
-    let liste = ladeWarteschlange();
-    let gesendet = 0;
-
-    while (liste.length > 0) {
-      const fahrt = liste[0];
-      const datum = new Date(fahrt.timestamp).toLocaleString("de-DE");
-      let ergebnis;
-      try {
-        ergebnis = await sendeFahrt(fahrt, `Offline erfasste Fahrt vom ${datum}:\n`);
-      } catch {
-        break;  // wieder offline → später erneut versuchen
-      }
-
-      if (ergebnis.status !== "ok") {
-        if (ergebnis.status === "fehler") {
-          zeigeStatus(`Offline erfasste Fahrt vom ${datum} konnte nicht gespeichert werden: ${ergebnis.meldung}`, "danger");
-        }
-        break;  // bleibt in der Warteschlange
-      }
-
-      liste = liste.slice(1);
-      speichereWarteschlange(liste);
-      gesendet++;
-    }
-
-    if (gesendet > 0) {
-      zeigeStatus(`✅ ${gesendet} offline erfasste Fahrt(en) nachträglich gespeichert.`);
-    }
-  } finally {
-    syncLaeuft = false;
-    aktualisiereOfflineHinweis();
-  }
 }
 
 // ── Erfassen ─────────────────────────────────────────────────
@@ -146,7 +70,7 @@ function formularLeeren() {
 }
 
 function inWarteschlange(fahrt) {
-  speichereWarteschlange([...ladeWarteschlange(), fahrt]);
+  inWarteschlangeAufnehmen(fahrt);
   formularLeeren();
   zeigeStatus("📴 Keine Verbindung – Fahrt lokal gespeichert. Sie wird automatisch übertragen, sobald du wieder online bist.", "warning");
 }
@@ -203,10 +127,15 @@ function downloadJSON() {
 
 // ── Start ────────────────────────────────────────────────────
 
-window.addEventListener("online", synchronisiere);
+// Meldungen der Warteschlange im Formular statt als Hinweis oben rechts anzeigen
+document.addEventListener("warteschlange", e => {
+  e.preventDefault();
+  zeigeStatus(e.detail.text, e.detail.typ);
+});
+document.addEventListener("warteschlangeGeaendert", e => aktualisiereOfflineHinweis(e.detail.anzahl));
+
 document.addEventListener("DOMContentLoaded", () => {
-  aktualisiereOfflineHinweis();
+  aktualisiereOfflineHinweis(eigeneWartende().length);
   document.getElementById("syncJetzt").addEventListener("click", synchronisiere);
   zeigeFahrzeug();
-  synchronisiere();
 });

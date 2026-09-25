@@ -141,4 +141,7 @@ chartInstanz = new Chart(document.getElementById("kmChart"), {
 
 }
 
-fahrzeugBereit.then(ladeDashboard);
+Promise.all([fahrzeugBereit, ersteSynchronisierung]).then(() => {
+    ladeDashboard();
+    document.addEventListener("fahrtenNachgereicht", ladeDashboard);
+});

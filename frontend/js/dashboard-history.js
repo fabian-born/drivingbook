@@ -12,7 +12,7 @@ async function ladeHistoryDashboard(jahr) {
 
   document.getElementById("historyLoading").classList.remove("d-none");
   document.getElementById("historyContent").classList.add("d-none");
-  await fahrzeugBereit;
+  await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
 
   for (let m = 1; m <= 12; m++) {
     const month = `${jahr}-${String(m).padStart(2, "0")}`;
@@ -233,6 +233,9 @@ function initHistory() {
   document.getElementById("historyPDFExport")?.addEventListener("click", druckeSeite);
 
   jahrSelect.addEventListener("change", () => ladeHistoryDashboard(jahrSelect.value));
+  ersteSynchronisierung.then(() => document.addEventListener("fahrtenNachgereicht", () => {
+    if (jahrSelect.value) ladeHistoryDashboard(jahrSelect.value);
+  }));
 
   if (jahrSelect.options.length > 0) {
     ladeHistoryDashboard(jahrSelect.value);
