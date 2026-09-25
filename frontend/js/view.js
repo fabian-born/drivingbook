@@ -12,31 +12,12 @@ let jahresansicht   = false;
 let vehicles      = [];
 let vehicleById   = new Map();
 
-// ----------------- Fahrzeuge (Zuordnungs-Dropdown) -----------------
+// ----------------- Fahrzeuge (Namen im Änderungsprotokoll) -----------------
 // Angezeigt werden nur Fahrten des aktiven Fahrzeugs (siehe fahrzeug.js).
 async function ladeVehicles() {
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
   vehicles    = alleFahrzeuge;
   vehicleById = new Map(vehicles.map(v => [v.id, v]));
-}
-
-// Hängt eine Fahrt an ein anderes Fahrzeug um; sie verschwindet dann aus dieser Ansicht
-async function handleVehicleChange(index, code) {
-  const gespeichert = await speichereFahrt(index, { vehicle_code: code });
-  if (!gespeichert || code === aktivesFahrzeug?.code) return;
-
-  const vehicle = vehicles.find(v => v.code === code);
-  aktuelleFahrten.splice(index, 1);
-  renderAll();
-  zeigeHinweis(`Fahrt wurde dem Fahrzeug „${vehicle?.name ?? code}“ zugeordnet.`, "info");
-}
-
-// Baut die Optionsliste für das editierbare Fahrzeug-Dropdown einer Fahrt
-function vehicleOptions(vehicleId) {
-  const aktuellerCode = vehicleById.get(vehicleId)?.code;
-  return vehicles.map(v =>
-    `<option value="${escapeHtml(v.code)}" ${v.code === aktuellerCode ? "selected" : ""}>${escapeHtml(v.name)}</option>`
-  ).join("");
 }
 
 // ----------------- Hilfsfunktion: ist gerade Mobile? -----------------
@@ -190,11 +171,6 @@ function renderTabelle() {
         </select>
       </td>
       <td>
-        <select class="form-select form-select-sm vehicle-select" data-index="${i}">
-          ${vehicleOptions(f.vehicle_id)}
-        </select>
-      </td>
-      <td>
         <input type="datetime-local" class="form-control form-control-sm timestamp-input"
           data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
       </td>
@@ -223,7 +199,7 @@ function renderTabelleJahresansicht() {
       nr = 0;
       const trH = document.createElement("tr");
       trH.className = "table-dark";
-      trH.innerHTML = `<td colspan="8" class="fw-bold small">
+      trH.innerHTML = `<td colspan="7" class="fw-bold small">
         <span class="mdi mdi-calendar-month me-1"></span>${formatMonat(monat)}
       </td>`;
       tbody.appendChild(trH);
@@ -238,7 +214,6 @@ function renderTabelleJahresansicht() {
       <td>${diff >= 0 ? diff : "–"}</td>
       <td>${escapeHtml(f.ziel)}</td>
       <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${escapeHtml(f.fahrtart)}</span></td>
-      <td>${escapeHtml(f.vehicle_name || "–")}</td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
@@ -306,7 +281,7 @@ function buildCard(f, i, diff, readonly, nr) {
         ${badge}
       </div>
       <div class="card-ziel">${escapeHtml(f.ziel)}</div>
-      <div class="card-meta">#${num} · ${escapeHtml(f.vehicle_name || "Kein Fahrzeug")} · ${zeitpunkt} ${historyButton(f)}</div>`;
+      <div class="card-meta">#${num} · ${zeitpunkt} ${historyButton(f)}</div>`;
   } else {
     div.innerHTML = `
       <button class="btn btn-sm btn-outline-danger delete-btn btn-delete-card" data-index="${i}" title="Löschen">
@@ -325,10 +300,6 @@ function buildCard(f, i, diff, readonly, nr) {
 
       <input type="text" class="form-control form-control-sm mb-2 card-field-ziel"
         data-index="${i}" data-field="ziel" value="${escapeHtml(f.ziel)}">
-
-      <select class="form-select form-select-sm mb-2 card-vehicle" data-index="${i}">
-        ${vehicleOptions(f.vehicle_id)}
-      </select>
 
       <input type="datetime-local" class="form-control form-control-sm card-timestamp"
         data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
@@ -359,11 +330,6 @@ cardList.addEventListener("change", async e => {
     const localVal = e.target.value;
     if (!localVal) return;
     await handleTimestampChange(i, localVal);
-  }
-
-  // Fahrzeug-Dropdown
-  if (e.target.classList.contains("card-vehicle")) {
-    await handleVehicleChange(e.target.dataset.index, e.target.value);
   }
 });
 
@@ -424,10 +390,6 @@ tbody.addEventListener("change", async e => {
     const i = e.target.dataset.index;
     if (!e.target.value) return;
     await handleTimestampChange(i, e.target.value);
-  }
-
-  if (e.target.classList.contains("vehicle-select")) {
-    await handleVehicleChange(e.target.dataset.index, e.target.value);
   }
 });
 
@@ -551,12 +513,12 @@ function formatMonat(monthKey) {
 }
 
 function setLaden(text = "Lade Daten...") {
-  tbody.innerHTML   = `<tr><td colspan="8">${escapeHtml(text)}</td></tr>`;
+  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
 function setLeer(text) {
-  tbody.innerHTML   = `<tr><td colspan="8">${escapeHtml(text)}</td></tr>`;
+  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
