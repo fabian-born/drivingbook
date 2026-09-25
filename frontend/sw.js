@@ -5,9 +5,10 @@
 //   eigene Dateien    → Netzwerk zuerst, offline aus dem Cache
 //   CDN (versioniert) → Cache zuerst
 //
-// Beim Ändern der Liste APP_SHELL die Versionsnummer erhöhen.
+// CACHE setzt der Git-Hook (.githooks/pre-commit) automatisch auf die
+// Frontend-Version; neue Dateien in APP_SHELL eintragen.
 
-const CACHE = "fahrtenbuch-v4";
+const CACHE = "fahrtenbuch-2026.09.25.13";
 
 const APP_SHELL = [
   "./",

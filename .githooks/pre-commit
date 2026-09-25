@@ -25,5 +25,12 @@ for dir in frontend backend; do
 
   echo "$next" > "$file"
   git add "$file"
+
+  # Service Worker: Cache-Name = Frontend-Version → neue Version lädt frische Dateien
+  if [[ "$dir" == frontend && -f frontend/sw.js ]]; then
+    sed -i.bak "s/^const CACHE = \".*\";/const CACHE = \"fahrtenbuch-$next\";/" frontend/sw.js
+    rm -f frontend/sw.js.bak
+    git add frontend/sw.js
+  fi
   echo "🔖 $dir: ${current:-–} → $next"
 done
