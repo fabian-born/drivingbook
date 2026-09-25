@@ -30,7 +30,7 @@ export function authRoutes({ pool, config }) {
   router.post("/login", asyncHandler(async (req, res) => {
     const { username, password } = parse(loginBody, req.body);
 
-    const limitKey = `${req.ip}|${username.toLowerCase()}`;
+    const limitKey = `${req.ip}|${username}`;
     if (loginLimiter.blocked(limitKey)) {
       throw new HttpError(429, "Zu viele fehlgeschlagene Anmeldeversuche – bitte später erneut versuchen");
     }

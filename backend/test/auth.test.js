@@ -57,6 +57,20 @@ describe("Login & Registrierung", () => {
     assert.equal(res.body.vehicle.name, "Polo");
   });
 
+  it("speichert Benutzernamen klein und meldet sich unabhängig von Groß-/Kleinschreibung an", async () => {
+    const admin = await t.login();
+    const created = await t.http().post("/api/users").set(admin).send({ username: "  GrossKlein ", password: "password123" });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.username, "grossklein");
+
+    const res = await t.http().post("/api/login").send({ username: "GROSSKLEIN", password: "password123" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.username, "grossklein");
+
+    const dup = await t.http().post("/api/users").set(admin).send({ username: "grossKLEIN", password: "password123" });
+    assert.equal(dup.status, 409);
+  });
+
   it("meldet doppelte Benutzernamen und zu kurze Passwörter", async () => {
     const dup = await t.http().post("/api/register").send({ username: "fabian", password: "password123" });
     assert.equal(dup.status, 409);

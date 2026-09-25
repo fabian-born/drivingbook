@@ -6,6 +6,7 @@ import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
+import { vehicleIdByCode } from "../lib/vehicles.js";
 import { auditQuery, fahrtCreate, fahrtUpdate, idParam } from "../schemas.js";
 
 const RETURNING = `id, kmstand, ziel, fahrtart, timestamp, vehicle_id`;
@@ -26,15 +27,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       return result.rows[0]?.id ?? null;
     }
     if (code === null) return null;
-
-    const result = await pool.query(
-      `SELECT id FROM vehicles WHERE code = $1 AND user_id = $2`,
-      [code, userId]
-    );
-    if (result.rows.length === 0) {
-      throw new HttpError(404, "Fahrzeug-Code nicht gefunden oder keine Berechtigung");
-    }
-    return result.rows[0].id;
+    return vehicleIdByCode(pool, userId, code);
   }
 
   // POST /api/fahrt  →  Neue Fahrt speichern
@@ -159,9 +152,10 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     return res.json(result.rows);
   }));
 
-  // GET /api/audit?year=YYYY  →  Änderungen und Löschungen an Fahrten eines Jahres
+  // GET /api/audit?year=YYYY[&vehicle=CODE]  →  Änderungen und Löschungen an Fahrten eines Jahres
   router.get("/audit", requireAuth, asyncHandler(async (req, res) => {
-    const { year } = parse(auditQuery, req.query);
+    const { year, vehicle } = parse(auditQuery, req.query);
+    const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
     const result = await pool.query(
       `SELECT fahrt_id, action, old_data, new_data, source, changed_at
        FROM   fahrten_audit
@@ -171,8 +165,9 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
                 EXTRACT(YEAR FROM ((old_data->>'timestamp')::timestamptz AT TIME ZONE $3)),
                 EXTRACT(YEAR FROM ((new_data->>'timestamp')::timestamptz AT TIME ZONE $3))
               )
+         AND  ($4::int IS NULL OR $4 IN ((old_data->>'vehicle_id')::int, (new_data->>'vehicle_id')::int))
        ORDER  BY changed_at DESC, id DESC`,
-      [req.userId, year, config.timezone]
+      [req.userId, year, config.timezone, vehicleId]
     );
     return res.json(result.rows);
   }));

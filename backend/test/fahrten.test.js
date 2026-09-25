@@ -1,5 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { setup } from "./helpers.js";
 
 const fahrt = (kmstand, timestamp, extra = {}) =>
@@ -163,9 +164,46 @@ describe("Änderungsprotokoll", () => {
     assert.equal(res.body[0].source, "api_token");
   });
 
+  it("filtert das Jahresprotokoll nach Fahrzeug", async () => {
+    const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    const mit1 = await t.http().get(`/api/audit?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    const mit2 = await t.http().get(`/api/audit?year=2026&vehicle=${zweites.code}`).set(user);
+    assert.equal(mit1.body.length, 2);
+    assert.deepEqual(mit2.body, []);
+  });
+
   it("zeigt fremde Protokolle nicht", async () => {
     const other = await t.registerUser("neugierig");
     assert.equal((await t.http().get(`/api/fahrt/${id}/history`).set(other)).status, 404);
     assert.deepEqual((await t.http().get("/api/audit?year=2026").set(other)).body, []);
+  });
+});
+
+describe("Migration 006: Fahrten dem Fahrzeug 7VKWR8 zuordnen", () => {
+  let t;
+  before(async () => { t = await setup(); });
+  after(() => t.close());
+
+  it("ordnet alle Fahrten des Besitzers zu und lässt andere User unberührt", async () => {
+    const owner = await t.registerUser("besitzer");
+    const other = await t.registerUser("anderer");
+    const zweit = (await t.http().post("/api/vehicles").set(owner).send({ name: "Zweitwagen" })).body;
+    await t.pool.query(`UPDATE vehicles SET code = '7VKWR8' WHERE id = $1`, [owner.vehicle.id]);
+
+    await t.http().post("/api/fahrt").set(owner).send(fahrt(10, "2026-03-01T08:00:00Z", { vehicle_code: null })).expect(200);
+    await t.http().post("/api/fahrt").set(owner).send(fahrt(20, "2026-03-02T08:00:00Z", { vehicle_code: zweit.code })).expect(200);
+    await t.http().post("/api/fahrt").set(other).send(fahrt(30, "2026-03-03T08:00:00Z", { vehicle_code: null })).expect(200);
+
+    const sql = fs.readFileSync(new URL("../migrations/006_fahrten_fahrzeug_7VKWR8.sql", import.meta.url), "utf8");
+    await t.pool.query(sql);
+
+    const rows = (await t.pool.query(
+      `SELECT u.username, f.vehicle_id FROM fahrten f JOIN users u ON u.id = f.user_id ORDER BY f.kmstand`
+    )).rows;
+    assert.deepEqual(rows, [
+      { username: "besitzer", vehicle_id: owner.vehicle.id },
+      { username: "besitzer", vehicle_id: owner.vehicle.id },
+      { username: "anderer",  vehicle_id: null },
+    ]);
   });
 });

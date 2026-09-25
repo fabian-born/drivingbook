@@ -1,7 +1,7 @@
 // js/register.js
 document.getElementById("registerBtn").addEventListener("click", async () => {
   const errorBox        = document.getElementById("regError");
-  const username        = document.getElementById("username").value.trim();
+  const username        = document.getElementById("username").value.trim().toLowerCase();
   const password        = document.getElementById("password").value;
   const passwordConfirm = document.getElementById("passwordConfirm").value;
   const vehicleName     = document.getElementById("vehicleName").value.trim();
@@ -45,6 +45,8 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
 
     // JWT speichern → User direkt eingeloggt
     localStorage.setItem("authToken", data.token);
+    localStorage.removeItem("aktivesFahrzeug");
+    localStorage.removeItem("fahrzeuge");
 
     // Erfolgsansicht mit Token
     document.getElementById("viewForm").classList.add("d-none");

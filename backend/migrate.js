@@ -48,7 +48,7 @@ function parseArgs() {
   };
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--user":    opts.user      = args[++i];       break;
+      case "--user":    opts.user      = args[++i]?.toLowerCase(); break;
       case "--dir":     opts.dir       = args[++i];       break;
       case "--vehicle": opts.vehicleId = parseInt(args[++i]); break;
       case "--dry-run": opts.dryRun    = true;            break;

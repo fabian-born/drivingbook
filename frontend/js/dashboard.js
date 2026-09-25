@@ -19,7 +19,7 @@ for (let m = 1; m <= 12; m++) {
     const month = `${aktuellesJahr}-${String(m).padStart(2, "0")}`;
 
     try {
-        const res = await apiFetch(`/api/export/json?month=${month}`);
+        const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${month}`));
         if (!res.ok) continue;
         const fahrten = await res.json();
         if (fahrten.length === 0) continue;
@@ -141,4 +141,4 @@ chartInstanz = new Chart(document.getElementById("kmChart"), {
 
 }
 
-ladeDashboard();
+fahrzeugBereit.then(ladeDashboard);

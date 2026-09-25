@@ -26,13 +26,21 @@ export const yearParam = z.object({
   year: z.string().regex(/^\d{4}$/, { error: "Ungültiges Jahr" }).transform(Number),
 });
 
+// ?vehicle=CODE schränkt Abfragen auf ein Fahrzeug ein; ohne Angabe: alle Fahrzeuge
+const vehicleFilter = z.string().trim().toUpperCase()
+  .regex(/^[A-Z0-9]{6}$/, { error: "Ungültiger Fahrzeug-Code" }).optional();
+
+export const vehicleQuery = z.object({ vehicle: vehicleFilter });
+
 export const monthQuery = z.object({
   month: z.string({ error: "Query-Parameter 'month' erforderlich (YYYY-MM)" })
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Query-Parameter 'month' erforderlich (YYYY-MM)" }),
+  vehicle: vehicleFilter,
 });
 
 export const auditQuery = z.object({
   year: z.string().regex(/^\d{4}$/, { error: "Query-Parameter 'year' erforderlich (YYYY)" }).transform(Number),
+  vehicle: vehicleFilter,
 });
 
 // ── Fahrten ──────────────────────────────────────────────────
@@ -73,10 +81,12 @@ const PASSWORD_MSG = "Passwort muss mindestens 8 Zeichen haben";
 // bcrypt verarbeitet höchstens 72 Byte; längere Eingaben sind nutzlos
 const password = z.string({ error: PASSWORD_MSG }).min(8, { error: PASSWORD_MSG })
   .max(72, { error: "Passwort darf höchstens 72 Zeichen haben" });
-const username = text("Benutzername und Passwort erforderlich", 100);
+// Benutzernamen werden immer klein geschrieben gespeichert und verglichen
+const username = text("Benutzername und Passwort erforderlich", 100).toLowerCase();
 
 export const loginBody = z.object({
-  username: z.string({ error: "Benutzername und Passwort erforderlich" }).min(1, { error: "Benutzername und Passwort erforderlich" }),
+  username: z.string({ error: "Benutzername und Passwort erforderlich" }).trim().toLowerCase()
+    .min(1, { error: "Benutzername und Passwort erforderlich" }),
   password: z.string({ error: "Benutzername und Passwort erforderlich" }).min(1, { error: "Benutzername und Passwort erforderlich" }),
 });
 

@@ -138,6 +138,9 @@ DELETE /api/tokens/:id      # Token löschen
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |
 | GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
 | GET  | `/api/export/pdf/year/:year` | PDF-Fahrtenbuch eines Jahres inkl. Änderungsprotokoll |
+
+Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE`) und liefern dann
+nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
 | GET  | `/api/vehicles` | Fahrzeuge des Users |
 | POST | `/api/vehicles` | Fahrzeug anlegen |
 | DELETE | `/api/vehicles/:id` | Fahrzeug löschen |

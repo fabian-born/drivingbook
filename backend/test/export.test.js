@@ -52,6 +52,35 @@ describe("Export", () => {
     assert.equal(res.body.subarray(0, 5).toString(), "%PDF-");
   });
 
+  it("schränkt Exporte auf ein Fahrzeug ein", async () => {
+    const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    await post({ kmstand: 10, ziel: "Zweitwagen", fahrtart: "privat", timestamp: "2026-01-15T08:00:00Z", vehicle_code: zweites.code });
+
+    const alle  = await t.http().get("/api/export/json?month=2026-01").set(user);
+    const nur2  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${zweites.code.toLowerCase()}`).set(user);
+    const nur1  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(alle.body.length, 2);
+    assert.deepEqual(nur2.body.map(f => f.ziel), ["Zweitwagen"]);
+    assert.equal(nur1.body.length, 1);
+    assert.notEqual(nur1.body[0].ziel, "Zweitwagen");
+
+    const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${zweites.code}`).set(user);
+    assert.equal(csv.text.replace(/^\uFEFF/, "").trim().split("\n").length, 2);  // Kopf + 1 Fahrt
+
+    const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${zweites.code}`).set(user).buffer(true).parse(binary);
+    assert.equal(pdf.status, 200);
+
+    const leer = await t.http().get(`/api/export/json?month=2026-02&vehicle=${zweites.code}`).set(user);
+    assert.equal(leer.status, 404);
+  });
+
+  it("lehnt fremde und ungültige Fahrzeug-Codes ab", async () => {
+    const fremd = await t.registerUser("export-fremd");
+    assert.equal((await t.http().get(`/api/export/json?month=2026-01&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
+    assert.equal((await t.http().get("/api/export/json?month=2026-01&vehicle=xx").set(user)).status, 400);
+    assert.equal((await t.http().get(`/api/audit?year=2026&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
+  });
+
   it("verlangt Anmeldung", async () => {
     assert.equal((await t.http().get("/api/export/pdf/year/2026")).status, 401);
   });

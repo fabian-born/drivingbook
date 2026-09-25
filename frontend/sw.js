@@ -7,13 +7,13 @@
 //
 // Beim Ändern der Liste APP_SHELL die Versionsnummer erhöhen.
 
-const CACHE = "fahrtenbuch-v1";
+const CACHE = "fahrtenbuch-v2";
 
 const APP_SHELL = [
   "./",
   "index.html", "driving.html", "view.html", "history.html",
   "profile.html", "admin.html", "login.html", "register.html",
-  "js/config.js", "js/auth-check.js", "js/footer.js",
+  "js/config.js", "js/auth-check.js", "js/footer.js", "js/fahrzeug.js",
   "js/dashboard.js", "js/dashboard-history.js", "js/driving-new.js",
   "js/view.js", "js/profile.js", "js/admin.js", "js/login.js", "js/register.js",
   "drivingbooklogo.png", "manifest.webmanifest", "release.ver",

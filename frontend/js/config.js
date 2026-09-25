@@ -9,6 +9,8 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 logoutBtn?.addEventListener("click", () => {
   localStorage.removeItem("authToken");
+  localStorage.removeItem("aktivesFahrzeug");
+  localStorage.removeItem("fahrzeuge");
   window.location.href = "login.html";
 });
 

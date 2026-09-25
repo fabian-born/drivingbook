@@ -12,11 +12,12 @@ async function ladeHistoryDashboard(jahr) {
 
   document.getElementById("historyLoading").classList.remove("d-none");
   document.getElementById("historyContent").classList.add("d-none");
+  await fahrzeugBereit;
 
   for (let m = 1; m <= 12; m++) {
     const month = `${jahr}-${String(m).padStart(2, "0")}`;
     try {
-      const res = await apiFetch(`/api/export/json?month=${month}`);
+      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${month}`));
       if (!res.ok) continue;
       const fahrten = await res.json();
       if (fahrten.length === 0) continue;
@@ -226,7 +227,7 @@ function initHistory() {
   }
 
   document.getElementById("historyCSVExport")?.addEventListener("click", () => {
-    window.location.href = `${API_BASE_URL}/api/export/csv/year/${jahrSelect.value}`;
+    downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `fahrten_${jahrSelect.value}.csv`);
   });
 
   document.getElementById("historyPDFExport")?.addEventListener("click", druckeSeite);

@@ -34,7 +34,7 @@ export function loadConfig(env = process.env) {
     },
 
     admin: {
-      username: env.ADMIN_USERNAME?.trim() || "admin",
+      username: env.ADMIN_USERNAME?.trim().toLowerCase() || "admin",
       password: env.ADMIN_PASSWORD || null,
     },
 

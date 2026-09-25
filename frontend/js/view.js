@@ -5,7 +5,6 @@ const monatSelect = document.getElementById("monatSelect");
 const tbody       = document.getElementById("fahrtenTabelle");
 const cardList    = document.getElementById("cardList") ?? document.createElement("div");
 const fahrtartFilter = document.getElementById("fahrtartFilter");
-const vehicleFilter  = document.getElementById("vehicleFilter");
 const csvExportBtn   = document.getElementById("csvExportYear");
 
 let aktuelleFahrten = [];
@@ -13,45 +12,31 @@ let jahresansicht   = false;
 let vehicles      = [];
 let vehicleById   = new Map();
 
-// ----------------- Fahrzeuge laden (Filter + Zuordnungs-Dropdown) -----------------
+// ----------------- Fahrzeuge (Zuordnungs-Dropdown) -----------------
+// Angezeigt werden nur Fahrten des aktiven Fahrzeugs (siehe fahrzeug.js).
 async function ladeVehicles() {
-  try {
-    const res = await apiFetch("/api/vehicles");
-    if (!res.ok) return;
-    vehicles    = await res.json();
-    vehicleById = new Map(vehicles.map(v => [v.id, v]));
-  } catch {
-    vehicles = [];
-  }
-
-  vehicleFilter.innerHTML = `
-    <option value="alle">Alle Fahrzeuge</option>
-    <option value="kein">Kein Fahrzeug</option>
-    ${vehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("")}`;
+  await fahrzeugBereit;
+  vehicles    = alleFahrzeuge;
+  vehicleById = new Map(vehicles.map(v => [v.id, v]));
 }
 
-// Ändert die Fahrzeug-Zuordnung einer Fahrt (code === "" → kein Fahrzeug)
+// Hängt eine Fahrt an ein anderes Fahrzeug um; sie verschwindet dann aus dieser Ansicht
 async function handleVehicleChange(index, code) {
-  const gespeichert = await speichereFahrt(index, { vehicle_code: code || null });
-  if (!gespeichert) return;
+  const gespeichert = await speichereFahrt(index, { vehicle_code: code });
+  if (!gespeichert || code === aktivesFahrzeug?.code) return;
 
   const vehicle = vehicles.find(v => v.code === code);
-  aktuelleFahrten[index].vehicle_id   = vehicle?.id ?? null;
-  aktuelleFahrten[index].vehicle_name = vehicle?.name ?? null;
+  aktuelleFahrten.splice(index, 1);
+  renderAll();
+  zeigeHinweis(`Fahrt wurde dem Fahrzeug „${vehicle?.name ?? code}“ zugeordnet.`, "info");
 }
 
 // Baut die Optionsliste für das editierbare Fahrzeug-Dropdown einer Fahrt
 function vehicleOptions(vehicleId) {
-  const aktuellerCode = vehicleId != null ? (vehicleById.get(vehicleId)?.code ?? "") : "";
-  return `
-    <option value="" ${aktuellerCode === "" ? "selected" : ""}>Kein Fahrzeug</option>
-    ${vehicles.map(v => `<option value="${v.code}" ${v.code === aktuellerCode ? "selected" : ""}>${escapeHtml(v.name)}</option>`).join("")}`;
-}
-
-function passtVehicleFilter(f) {
-  if (vehicleFilter.value === "alle") return true;
-  if (vehicleFilter.value === "kein") return f.vehicle_id == null;
-  return String(f.vehicle_id) === vehicleFilter.value;
+  const aktuellerCode = vehicleById.get(vehicleId)?.code;
+  return vehicles.map(v =>
+    `<option value="${escapeHtml(v.code)}" ${v.code === aktuellerCode ? "selected" : ""}>${escapeHtml(v.name)}</option>`
+  ).join("");
 }
 
 // ----------------- Hilfsfunktion: ist gerade Mobile? -----------------
@@ -91,7 +76,7 @@ async function fuelleMonateMitCheck() {
     option.textContent = mm;
 
     try {
-      const res = await apiFetch(`/api/export/json?month=${monthKey}`);
+      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
       if (!res.ok) {
         option.disabled = true;
       } else {
@@ -134,7 +119,7 @@ async function ladeFahrten() {
   const monthKey = `${jahr}-${monat}`;
 
   try {
-    const res = await apiFetch(`/api/export/json?month=${monthKey}`);
+    const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
     if (!res.ok) {
       setLeer("Keine Daten vorhanden");
       aktuelleFahrten = [];
@@ -155,7 +140,7 @@ async function ladeAlleMonateDesJahres(jahr) {
   for (let m = 1; m <= 12; m++) {
     const monthKey = `${jahr}-${String(m).padStart(2, "0")}`;
     try {
-      const res = await apiFetch(`/api/export/json?month=${monthKey}`);
+      const res = await apiFetch(mitFahrzeug(`/api/export/json?month=${monthKey}`));
       if (!res.ok) continue;
       aktuelleFahrten.push(...(await res.json()));
     } catch { /* Monat überspringen */ }
@@ -189,7 +174,6 @@ function renderTabelle() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    if (!passtVehicleFilter(f)) return;
     const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
 
     const tr = document.createElement("tr");
@@ -232,7 +216,6 @@ function renderTabelleJahresansicht() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    if (!passtVehicleFilter(f)) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -272,7 +255,6 @@ function renderCards() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    if (!passtVehicleFilter(f)) return;
     const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
     cardList.appendChild(buildCard(f, i, diff, false));
   });
@@ -286,7 +268,6 @@ function renderCardsJahresansicht() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
-    if (!passtVehicleFilter(f)) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -599,14 +580,13 @@ function zeigeHinweis(text, typ = "info") {
 // ═══════════════════════════════════════════════
 
 fahrtartFilter.addEventListener("change", renderAll);
-vehicleFilter.addEventListener("change", renderAll);
 
 csvExportBtn?.addEventListener("click", () => {
-  downloadDatei(`/api/export/csv/year/${jahrSelect.value}`, `fahrten_${jahrSelect.value}.csv`);
+  downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `fahrten_${jahrSelect.value}.csv`);
 });
 
 document.getElementById("pdfExportYear")?.addEventListener("click", () => {
-  downloadDatei(`/api/export/pdf/year/${jahrSelect.value}`, `fahrtenbuch_${jahrSelect.value}.pdf`);
+  downloadDatei(mitFahrzeug(`/api/export/pdf/year/${jahrSelect.value}`), `fahrtenbuch_${jahrSelect.value}.pdf`);
 });
 
 let startX = 0;
@@ -691,7 +671,7 @@ async function zeigeVerlauf(id) {
 
 document.getElementById("auditYear")?.addEventListener("click", async () => {
   const jahr = jahrSelect.value;
-  const res  = await apiFetch(`/api/audit?year=${jahr}`);
+  const res  = await apiFetch(mitFahrzeug(`/api/audit?year=${jahr}`));
   if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
   zeigeProtokoll(`Änderungsprotokoll ${jahr}`, await res.json(),
     `Keine nachträglichen Änderungen oder Löschungen in ${jahr}.`);

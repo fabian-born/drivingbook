@@ -5,6 +5,7 @@
 // ============================================================
 
 import crypto from "crypto";
+import { HttpError } from "../http.js";
 
 // Ohne 0/O/1/I zur besseren Lesbarkeit
 const CODE_CHARS  = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -36,4 +37,18 @@ export async function createVehicle(db, userId, name, isDefault) {
       throw err;
     }
   }
+}
+
+// Liefert die interne ID eines Fahrzeugs des Users anhand seines Codes
+// (undefined → null, d. h. keine Einschränkung). Fremde/unbekannte Codes → 404.
+export async function vehicleIdByCode(db, userId, code) {
+  if (code === undefined) return null;
+  const result = await db.query(
+    `SELECT id FROM vehicles WHERE code = $1 AND user_id = $2`,
+    [code, userId]
+  );
+  if (result.rows.length === 0) {
+    throw new HttpError(404, "Fahrzeug-Code nicht gefunden oder keine Berechtigung");
+  }
+  return result.rows[0].id;
 }
