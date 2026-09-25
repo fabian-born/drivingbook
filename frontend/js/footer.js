@@ -1,15 +1,15 @@
 // js/footer.js
+// Zeigt Frontend- und Backend-Version (beide werden beim Commit automatisch hochgezählt)
 async function ladeVersion() {
-  try {
-    const res = await fetch("release.ver", { cache: "no-store" });
-    if (!res.ok) throw new Error("Version nicht gefunden");
+  const [frontend, backend] = await Promise.all([
+    fetch("release.ver", { cache: "no-store" })
+      .then(res => res.ok ? res.text() : "dev").then(v => v.trim()).catch(() => "dev"),
+    fetch(`${API_BASE_URL}/api/health`, { cache: "no-store" })
+      .then(res => res.json()).then(data => data.version).catch(() => null),
+  ]);
 
-    const version = (await res.text()).trim();
-    document.getElementById("appVersion").innerText = version;
-  } catch (err) {
-    console.warn("Keine Versionsdatei gefunden");
-    document.getElementById("appVersion").innerText = "dev";
-  }
+  document.getElementById("appVersion").innerText =
+    backend ? `${frontend} · Backend ${backend}` : frontend;
 }
 
 document.addEventListener("DOMContentLoaded", ladeVersion);

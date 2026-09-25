@@ -96,7 +96,8 @@ describe("Login & Registrierung", () => {
 
   it("meldet Gesundheit über /api/health", async () => {
     const res = await t.http().get("/api/health");
-    assert.deepEqual(res.body, { status: "ok" });
+    assert.equal(res.body.status, "ok");
+    assert.match(res.body.version, /^(\d{4}\.\d{2}\.\d{2}\.\d+|dev)$/);
   });
 
   it("sendet ohne CORS_ORIGIN keine CORS-Header", async () => {

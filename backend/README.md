@@ -249,3 +249,16 @@ automatisch übertragen, sobald wieder eine Verbindung besteht (oder per
 Backend wandelt sie beim Übertragen in eine Adresse um.
 
 PWA-Funktionen erfordern HTTPS (oder `localhost`).
+
+## Versionierung
+
+Frontend und Backend haben getrennte Versionen im Schema `JJJJ.MM.TT.N`
+(`frontend/release.ver`, `backend/release.ver`). Ein Git-Hook zählt sie beim
+Commit automatisch hoch, sobald sich im jeweiligen Ordner etwas ändert.
+Einmalig pro Klon aktivieren:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Die Backend-Version liefert `GET /api/health`; der Footer zeigt beide Versionen.

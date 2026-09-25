@@ -2,6 +2,7 @@
 // Express-App (ohne Serverstart, damit sie in Tests nutzbar ist)
 // ============================================================
 
+import fs      from "fs";
 import express from "express";
 import cors    from "cors";
 import { asyncHandler, errorHandler, HttpError } from "./http.js";
@@ -12,6 +13,15 @@ import { accountRoutes } from "./routes/account.js";
 import { adminRoutes } from "./routes/admin.js";
 import { fahrtenRoutes } from "./routes/fahrten.js";
 import { exportRoutes } from "./routes/export.js";
+
+// Version aus release.ver (wird beim Commit automatisch hochgezählt)
+export const VERSION = (() => {
+  try {
+    return fs.readFileSync(new URL("../release.ver", import.meta.url), "utf8").trim();
+  } catch {
+    return "dev";
+  }
+})();
 
 export function createApp({ pool, config, geocode = createGeocoder(config.geocoding) }) {
   const app = express();
@@ -33,7 +43,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   // GET /api/health  →  für Container-Healthchecks
   app.get("/api/health", asyncHandler(async (req, res) => {
     await pool.query("SELECT 1");
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: VERSION });
   }));
 
   app.use("/api", authRoutes(deps));

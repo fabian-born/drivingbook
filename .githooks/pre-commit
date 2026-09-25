@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# ============================================================
+# Zählt die Version von frontend/ bzw. backend/ hoch, sobald der
+# Commit dort etwas ändert. Schema: JJJJ.MM.TT.N (N zählt pro Tag).
+# Aktivieren (einmalig pro Klon): git config core.hooksPath .githooks
+# ============================================================
+set -euo pipefail
+
+today="$(date +%Y.%m.%d)"
+
+for dir in frontend backend; do
+  file="$dir/release.ver"
+
+  # Nur hochzählen, wenn außer der Versionsdatei selbst etwas geändert wurde
+  if ! git diff --cached --name-only -- "$dir" | grep -qvx "$file"; then
+    continue
+  fi
+
+  current="$(cat "$file" 2>/dev/null || true)"
+  if [[ "$current" == "$today".* ]]; then
+    next="$today.$(( ${current##*.} + 1 ))"
+  else
+    next="$today.1"
+  fi
+
+  echo "$next" > "$file"
+  git add "$file"
+  echo "🔖 $dir: ${current:-–} → $next"
+done

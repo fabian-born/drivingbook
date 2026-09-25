@@ -7,7 +7,7 @@
 import { loadConfig } from "./src/config.js";
 import { createPool, runMigrations, waitForDatabase } from "./src/db.js";
 import { ensureAdmin } from "./src/bootstrap.js";
-import { createApp } from "./src/app.js";
+import { createApp, VERSION } from "./src/app.js";
 
 async function start() {
   let config;
@@ -31,7 +31,7 @@ async function start() {
   }
 
   const server = createApp({ pool, config }).listen(config.port, () => {
-    console.log(`🚀 Backend läuft auf http://localhost:${config.port}`);
+    console.log(`🚀 Backend ${VERSION} läuft auf http://localhost:${config.port}`);
     console.log(`   JWT_EXPIRES : ${config.jwtExpires}`);
     console.log(`   DB_HOST     : ${config.db.host}`);
   });
