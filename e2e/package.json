@@ -1,0 +1,12 @@
+{
+  "name": "fahrtenbuch-e2e",
+  "private": true,
+  "description": "Browser-Tests für Frontend + Backend (Playwright)",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

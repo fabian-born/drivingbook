@@ -11,3 +11,7 @@ npm-debug.log*
 # Docker
 *.log
  
+
+# Browser-Tests (Playwright)
+e2e/test-results/
+e2e/playwright-report/
