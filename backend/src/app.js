@@ -13,6 +13,7 @@ import { accountRoutes } from "./routes/account.js";
 import { adminRoutes } from "./routes/admin.js";
 import { fahrtenRoutes } from "./routes/fahrten.js";
 import { exportRoutes } from "./routes/export.js";
+import { vehicleRoutes } from "./routes/vehicles.js";
 
 // Version aus release.ver (wird beim Commit automatisch hochgezählt)
 export const VERSION = (() => {
@@ -51,6 +52,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   app.use("/api", adminRoutes(deps));
   app.use("/api", fahrtenRoutes(deps));
   app.use("/api", exportRoutes(deps));
+  app.use("/api", vehicleRoutes(deps));
 
   app.use("/api", (req, res, next) => next(new HttpError(404, "Endpunkt nicht gefunden")));
   app.use(errorHandler);

@@ -19,7 +19,9 @@ export function accountRoutes({ pool, requireAuth }) {
     [userId]
   );
   const listVehicles = userId => pool.query(
-    `SELECT id, name, code, is_default, created_at FROM vehicles
+    `SELECT id, name, code, is_default, created_at, license_plate,
+            list_price::float8 AS list_price, drive_type
+     FROM vehicles
      WHERE user_id = $1 ORDER BY is_default DESC, id ASC`,
     [userId]
   );

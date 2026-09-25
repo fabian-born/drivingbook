@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         new Date(data.user.created_at).toLocaleString("de-DE");
 
       renderTokenTabelle(data.tokens);
-      renderVehicleTabelle(data.vehicles);
 
     } catch (err) {
       console.error("Profil-Ladefehler:", err);
@@ -43,32 +42,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         <td class="text-end">
           <button class="btn btn-sm btn-outline-danger delete-token-btn" data-id="${t.id}"
             title="Token löschen">
-            <span class="mdi mdi-delete"></span>
-          </button>
-        </td>
-      </tr>`).join("");
-  }
-
-  // ──────────────────────────────────────────────────────────
-  // Fahrzeug-Tabelle rendern
-  // ──────────────────────────────────────────────────────────
-  function renderVehicleTabelle(vehicles) {
-    const tbody = document.getElementById("vehicleTabelle");
-    if (!vehicles.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-muted p-3">Keine Fahrzeuge vorhanden.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = vehicles.map(v => `
-      <tr>
-        <td>${escapeHtml(v.name)}</td>
-        <td><code>${escapeHtml(v.code)}</code></td>
-        <td>${v.is_default
-          ? '<span class="badge bg-success">Standard</span>'
-          : `<button class="btn btn-sm btn-outline-secondary set-default-vehicle-btn" data-id="${v.id}">Als Standard</button>`}</td>
-        <td class="text-muted small">${new Date(v.created_at).toLocaleString("de-DE")}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-danger delete-vehicle-btn" data-id="${v.id}"
-            title="Fahrzeug löschen">
             <span class="mdi mdi-delete"></span>
           </button>
         </td>
@@ -184,75 +157,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const res = await apiFetch(`/api/tokens/${btn.dataset.id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) await ladeProfil();
-      else alert("Fehler beim Löschen.");
-    } catch { alert("Netzwerkfehler."); }
-  });
-
-  // ──────────────────────────────────────────────────────────
-  // Fahrzeug anlegen
-  // ──────────────────────────────────────────────────────────
-  document.getElementById("newVehicleBtn").addEventListener("click", () => {
-    document.getElementById("newVehicleForm").classList.remove("d-none");
-    document.getElementById("newVehicleBtn").classList.add("d-none");
-  });
-
-  document.getElementById("cancelVehicleBtn").addEventListener("click", () => {
-    document.getElementById("newVehicleForm").classList.add("d-none");
-    document.getElementById("newVehicleBtn").classList.remove("d-none");
-  });
-
-  document.getElementById("createVehicleBtn").addEventListener("click", async () => {
-    const name       = document.getElementById("vehicleNameInput").value.trim();
-    const is_default = document.getElementById("vehicleDefault").checked;
-    if (!name) { alert("Bitte einen Namen eingeben."); return; }
-
-    try {
-      const res = await apiFetch(`/api/vehicles`, {
-        method: "POST",
-        body: { name, is_default },
-      });
-      if (res.ok) {
-        document.getElementById("vehicleNameInput").value = "";
-        document.getElementById("vehicleDefault").checked = false;
-        document.getElementById("newVehicleForm").classList.add("d-none");
-        document.getElementById("newVehicleBtn").classList.remove("d-none");
-        await ladeProfil();
-      } else {
-        const d = await res.json();
-        alert(d.error || "Fehler beim Anlegen.");
-      }
-    } catch { alert("Netzwerkfehler."); }
-  });
-
-  // ──────────────────────────────────────────────────────────
-  // Fahrzeug als Standard setzen (Event-Delegation)
-  // ──────────────────────────────────────────────────────────
-  document.getElementById("vehicleTabelle").addEventListener("click", async e => {
-    const btn = e.target.closest(".set-default-vehicle-btn");
-    if (!btn) return;
-
-    try {
-      const res = await apiFetch(`/api/vehicles/${btn.dataset.id}/default`, {
-        method: "PATCH",
-      });
-      if (res.ok) await ladeProfil();
-      else alert("Fehler beim Setzen des Standard-Fahrzeugs.");
-    } catch { alert("Netzwerkfehler."); }
-  });
-
-  // ──────────────────────────────────────────────────────────
-  // Fahrzeug löschen (Event-Delegation)
-  // ──────────────────────────────────────────────────────────
-  document.getElementById("vehicleTabelle").addEventListener("click", async e => {
-    const btn = e.target.closest(".delete-vehicle-btn");
-    if (!btn) return;
-    if (!confirm("Fahrzeug wirklich löschen? Fahrten bleiben erhalten.")) return;
-
-    try {
-      const res = await apiFetch(`/api/vehicles/${btn.dataset.id}`, {
         method: "DELETE",
       });
       if (res.ok) await ladeProfil();

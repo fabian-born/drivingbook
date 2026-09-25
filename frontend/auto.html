@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <title>Auto-Info – Fahrtenbuch</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#212529">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
+  <style>
+    .kennzahl       { font-size: 1.35rem; font-weight: 600; }
+    .kennzahl-label { font-size: .8rem; color: var(--bs-secondary-color); }
+    .methode.gewinner { border-color: var(--bs-success) !important; box-shadow: 0 0 0 .15rem rgba(25,135,84,.25); }
+    .break-even { position: relative; height: 1.25rem; }
+    .break-even .marker { position: absolute; top: -.35rem; bottom: -.35rem; width: 3px; background: var(--bs-dark); }
+  </style>
+</head>
+<body class="bg-light d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#"><img src="drivingbooklogo.png" height="50px" ></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Menü öffnen">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="driving.html">Neue Fahrt</a></li>
+        <li class="nav-item"><a class="nav-link" href="view.html">Fahrten anzeigen</a></li>
+        <li class="nav-item"><a class="nav-link" href="history.html">Jahreshistorie</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Profil</a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="profile.html">Konto</a></li>
+            <li><a class="dropdown-item" href="auto.html">Auto-Info</a></li>
+            <li class="nav-admin d-none"><hr class="dropdown-divider"></li>
+            <li class="nav-admin d-none"><a class="dropdown-item" href="admin.html">Admin</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button id="logoutBtn" class="btn btn-outline-light btn-sm ms-2">Logout</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4 flex-fill" style="max-width: 900px;">
+
+  <div id="keinFahrzeug" class="alert alert-info d-none">
+    Du hast noch kein Fahrzeug. Lege unten unter „Meine Fahrzeuge“ eins an.
+  </div>
+
+  <div id="autoInhalt" class="d-none">
+    <!-- Kopf -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h2 class="mb-0"><span class="mdi mdi-car me-2"></span><span id="autoName">–</span></h2>
+      <span id="autoKennzeichen" class="badge text-bg-light border fs-6 d-none"></span>
+      <span class="ms-auto small text-muted">
+        Code für API/Home Assistant: <code id="autoCode">–</code>
+        <button class="btn btn-sm btn-link p-0 ms-1" id="copyCodeBtn" title="Code kopieren">📋</button>
+      </span>
+    </div>
+    <p class="small text-muted">Das Fahrzeug wechselst du oben in der Navigation.</p>
+
+    <!-- Kennzahlen -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><span class="mdi mdi-chart-box-outline me-2"></span>Kennzahlen</span>
+        <select id="jahrSelect" class="form-select form-select-sm w-auto" aria-label="Jahr"></select>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-6 col-md-3"><div class="kennzahl" id="kzKmAktuell">–</div><div class="kennzahl-label">aktueller km-Stand</div></div>
+          <div class="col-6 col-md-3"><div class="kennzahl" id="kzKmJahr">–</div><div class="kennzahl-label">km im Jahr</div></div>
+          <div class="col-6 col-md-3"><div class="kennzahl" id="kzPrivat">–</div><div class="kennzahl-label">davon privat</div></div>
+          <div class="col-6 col-md-3"><div class="kennzahl" id="kzFahrten">–</div><div class="kennzahl-label">Fahrten im Jahr</div></div>
+        </div>
+        <p class="small text-muted mb-0 mt-3" id="kzZeitraum"></p>
+      </div>
+    </div>
+
+    <!-- Fahrzeugdaten -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header"><span class="mdi mdi-card-text-outline me-2"></span>Fahrzeugdaten</div>
+      <div class="card-body">
+        <div id="datenAlert" class="alert d-none"></div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="fdName" class="form-label small">Name</label>
+            <input type="text" id="fdName" class="form-control form-control-sm" maxlength="100">
+          </div>
+          <div class="col-md-6">
+            <label for="fdKennzeichen" class="form-label small">Kennzeichen</label>
+            <input type="text" id="fdKennzeichen" class="form-control form-control-sm" maxlength="20" placeholder="z. B. B-XY 123" style="text-transform: uppercase">
+          </div>
+          <div class="col-md-6">
+            <label for="fdListenpreis" class="form-label small">Bruttolistenpreis (€)</label>
+            <input type="number" id="fdListenpreis" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <div class="form-text">Inländischer Listenpreis bei Erstzulassung inkl. Sonderausstattung und USt.</div>
+          </div>
+          <div class="col-md-6">
+            <label for="fdAntrieb" class="form-label small">Antrieb</label>
+            <select id="fdAntrieb" class="form-select form-select-sm">
+              <option value="verbrenner">Verbrenner – 1 %</option>
+              <option value="hybrid">Plug-in-Hybrid – 0,5 %</option>
+              <option value="elektro">Elektro – 0,25 %</option>
+              <option value="elektro_teuer">Elektro über Preisgrenze – 0,5 %</option>
+            </select>
+            <div class="form-text">Welcher Satz gilt, hängt u. a. vom Anschaffungsdatum und Listenpreis ab.</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-primary mt-3" id="datenSpeichernBtn">Fahrzeugdaten speichern</button>
+      </div>
+    </div>
+
+    <!-- Steuervergleich -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header"><span class="mdi mdi-scale-balance me-2"></span>1-%-Regel oder Fahrtenbuch? <span id="vgJahr"></span></div>
+      <div class="card-body">
+        <div id="kostenAlert" class="alert d-none"></div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label for="kGesamt" class="form-label small">Gesamtkosten im Jahr (€)</label>
+            <input type="number" id="kGesamt" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <div class="form-text">Kraftstoff/Strom, Versicherung, Steuer, Wartung, Reparaturen, AfA bzw. Leasing.</div>
+          </div>
+          <div class="col-md-4">
+            <label for="kAfa" class="form-label small">davon AfA / Leasing (€)</label>
+            <input type="number" id="kAfa" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <div class="form-text">Zählt bei E-Autos und Hybriden nur anteilig.</div>
+          </div>
+          <div class="col-md-4">
+            <label for="kArbeitsweg" class="form-label small">Entfernung Wohnung–Arbeit (km)</label>
+            <input type="number" id="kArbeitsweg" class="form-control form-control-sm" min="0" step="0.1" inputmode="decimal">
+            <div class="form-text">Einfache Strecke; 0,03 % je km bei der 1-%-Regel.</div>
+          </div>
+          <div class="col-md-4">
+            <label for="kMonate" class="form-label small">Monate genutzt</label>
+            <input type="number" id="kMonate" class="form-control form-control-sm" min="1" max="12" step="1" value="12">
+          </div>
+          <div class="col-md-4">
+            <label for="kSteuersatz" class="form-label small">Grenzsteuersatz (%) <span class="text-muted">optional</span></label>
+            <input type="number" id="kSteuersatz" class="form-control form-control-sm" min="0" max="60" step="0.1" inputmode="decimal">
+            <div class="form-text">Für die geschätzte Steuerersparnis.</div>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button class="btn btn-sm btn-primary w-100" id="kostenSpeichernBtn">Berechnen &amp; speichern</button>
+          </div>
+        </div>
+
+        <div id="vgHinweis" class="alert alert-light border mt-4 mb-0 d-none"></div>
+
+        <div id="vgErgebnis" class="d-none mt-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="card h-100 border methode" id="vgPauschal">
+                <div class="card-body">
+                  <h6 class="card-title">1-%-Regel</h6>
+                  <div class="kennzahl" id="vgPauschalSumme">–</div>
+                  <div class="small text-muted" id="vgPauschalDetail"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card h-100 border methode" id="vgFahrtenbuch">
+                <div class="card-body">
+                  <h6 class="card-title">Fahrtenbuch</h6>
+                  <div class="kennzahl" id="vgFahrtenbuchSumme">–</div>
+                  <div class="small text-muted" id="vgFahrtenbuchDetail"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="vgEmpfehlung" class="alert mt-3 mb-3"></div>
+
+          <div id="vgBreakEvenBox">
+            <div class="small mb-2" id="vgBreakEvenText"></div>
+            <div class="break-even progress" role="img" id="vgBreakEvenBalken">
+              <div class="progress-bar bg-success" id="vgBreakEvenZone"></div>
+              <div class="marker" id="vgPrivatMarker" title="Dein Privatanteil"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-muted mt-1"><span>0 % privat</span><span>100 %</span></div>
+          </div>
+        </div>
+
+        <p class="small text-muted mt-3 mb-0">
+          Vereinfachte Schätzung des zu versteuernden Privatanteils (geldwerter Vorteil bzw. Entnahme) – keine Steuerberatung.
+          Beim Fahrtenbuch zählen Fahrten zur Arbeit nur mit, wenn sie als privat erfasst sind.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meine Fahrzeuge -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><span class="mdi mdi-car-multiple me-2"></span>Meine Fahrzeuge</span>
+      <button class="btn btn-sm btn-success" id="newVehicleBtn">
+        <span class="mdi mdi-plus me-1"></span>Neues Fahrzeug
+      </button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0 align-middle">
+          <thead class="table-dark">
+            <tr><th>Name</th><th>Kennzeichen</th><th>Code</th><th>Standard</th><th></th></tr>
+          </thead>
+          <tbody id="vehicleTabelle">
+            <tr><td colspan="5" class="text-muted p-3">Lade …</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer d-none" id="newVehicleForm">
+      <div class="input-group input-group-sm mb-2">
+        <input type="text" id="vehicleNameInput" class="form-control" placeholder="Name des Fahrzeugs" maxlength="100">
+        <button class="btn btn-success" id="createVehicleBtn">Anlegen</button>
+        <button class="btn btn-secondary" id="cancelVehicleBtn">Abbrechen</button>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="vehicleDefault">
+        <label class="form-check-label small" for="vehicleDefault">Als Standard-Fahrzeug setzen</label>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/auth-check.js"></script>
+<script src="js/config.js"></script>
+<script src="js/fahrzeug.js"></script>
+<script src="js/offline.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<script src="js/auto.js"></script>
+
+<footer class="bg-dark text-light mt-5">
+  <div class="container py-3 text-center small">
+    © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
+  </div>
+</footer>
+<script>document.getElementById("year").innerText = new Date().getFullYear();</script>
+<script src="js/footer.js"></script>
+</body>
+</html>

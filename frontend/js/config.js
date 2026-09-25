@@ -15,6 +15,30 @@ logoutBtn?.addEventListener("click", () => {
 });
 
 
+// Inhalt des JWT (nur lesen, keine Prüfung – die macht das Backend)
+function tokenPayload() {
+  try {
+    const payload = localStorage.getItem("authToken").split(".")[1];
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    return null;
+  }
+}
+
+// Navigation: aktuelle Seite markieren, Admin-Einträge nur für Admins zeigen
+(function initNavigation() {
+  const seite = location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll(".navbar-nav a[href]").forEach(link => {
+    if (link.getAttribute("href") !== seite) return;
+    link.classList.add("active");
+    link.setAttribute("aria-current", "page");
+    link.closest(".dropdown")?.querySelector(".dropdown-toggle").classList.add("active");
+  });
+  if (tokenPayload()?.role === "admin") {
+    document.querySelectorAll(".nav-admin").forEach(el => el.classList.remove("d-none"));
+  }
+})();
+
 // Maskiert HTML-Sonderzeichen, bevor Daten per innerHTML eingefügt werden
 function escapeHtml(value) {
   return String(value ?? "")

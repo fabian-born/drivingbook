@@ -8,14 +8,8 @@
 
 const WARTESCHLANGE_KEY = "offlineFahrten";
 
-// User-ID aus dem JWT (nur lesen, keine Prüfung – die macht das Backend)
 function angemeldeterUser() {
-  try {
-    const payload = localStorage.getItem("authToken").split(".")[1];
-    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).userId ?? null;
-  } catch {
-    return null;
-  }
+  return tokenPayload()?.userId ?? null;
 }
 
 function ladeWarteschlange() {
