@@ -116,3 +116,16 @@ describe("Registrierung deaktiviert", () => {
     assert.equal(res.status, 403);
   });
 });
+
+describe("Eindeutige Benutzernamen in der Datenbank", () => {
+  let t;
+  before(async () => { t = await setup(); });
+  after(() => t.close());
+
+  it("verhindert Namen, die sich nur in Groß-/Kleinschreibung unterscheiden", async () => {
+    await assert.rejects(
+      t.pool.query(`INSERT INTO users (username, password) VALUES ('ADMIN', 'x')`),
+      err => err.code === "23505"
+    );
+  });
+});
