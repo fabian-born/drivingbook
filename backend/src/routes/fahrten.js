@@ -13,22 +13,36 @@ const RETURNING = `id, kmstand, ziel, fahrtart, timestamp, vehicle_id`;
 export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   const router = express.Router();
 
-  async function assertVehicleOwned(vehicleId, userId) {
-    if (vehicleId == null) return;
+  // Löst einen vehicle_code zur internen vehicle_id auf.
+  // code === undefined → nicht angegeben: Default-Fahrzeug des Users (oder null, falls keins)
+  // code === null      → explizit kein Fahrzeug
+  // code === "ABC123"  → muss ein Fahrzeug des Users sein
+  async function resolveVehicleId(code, userId) {
+    if (code === undefined) {
+      const result = await pool.query(
+        `SELECT id FROM vehicles WHERE user_id = $1 AND is_default = TRUE`,
+        [userId]
+      );
+      return result.rows[0]?.id ?? null;
+    }
+    if (code === null) return null;
+
     const result = await pool.query(
-      `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2`,
-      [vehicleId, userId]
+      `SELECT id FROM vehicles WHERE code = $1 AND user_id = $2`,
+      [code, userId]
     );
     if (result.rows.length === 0) {
-      throw new HttpError(403, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      throw new HttpError(404, "Fahrzeug-Code nicht gefunden oder keine Berechtigung");
     }
+    return result.rows[0].id;
   }
 
   // POST /api/fahrt  →  Neue Fahrt speichern
-  // Body: { kmstand, ziel, fahrtart, timestamp, vehicle_id?, force? }
+  // Body: { kmstand, ziel, fahrtart, timestamp, vehicle_code?, force? }
+  // Ohne vehicle_code wird das Default-Fahrzeug des Users verwendet (falls vorhanden).
   router.post("/fahrt", requireAuth, asyncHandler(async (req, res) => {
-    const { force, ...fahrt } = parse(fahrtCreate, req.body);
-    await assertVehicleOwned(fahrt.vehicle_id, req.userId);
+    const { force, vehicle_code, ...fahrt } = parse(fahrtCreate, req.body);
+    fahrt.vehicle_id = await resolveVehicleId(vehicle_code, req.userId);
 
     fahrt.ziel = await geocode(fahrt.ziel);
 
@@ -54,18 +68,22 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   }));
 
   // PUT /api/fahrt/:id  →  Fahrt bearbeiten
-  // Body: beliebige Teilmenge von { kmstand, ziel, fahrtart, timestamp, vehicle_id }, optional force
+  // Body: beliebige Teilmenge von { kmstand, ziel, fahrtart, timestamp, vehicle_code }, optional force
   // Ein neuer timestamp verschiebt die Fahrt ggf. in einen anderen Monat.
   router.put("/fahrt/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const { force, ...changes } = parse(fahrtUpdate, req.body);
+
+    if ("vehicle_code" in changes) {
+      changes.vehicle_id = await resolveVehicleId(changes.vehicle_code, req.userId);
+      delete changes.vehicle_code;
+    }
 
     const fields = Object.keys(changes);  // nur Felder aus dem Schema
     if (fields.length === 0) {
       throw new HttpError(400, "Keine Felder zum Aktualisieren angegeben");
     }
 
-    await assertVehicleOwned(changes.vehicle_id, req.userId);
     if (changes.ziel !== undefined) {
       changes.ziel = await geocode(changes.ziel);
     }

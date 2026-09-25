@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { withTransaction } from "./db.js";
 import { createApiToken } from "./lib/tokens.js";
+import { createVehicle } from "./lib/vehicles.js";
 
 export async function ensureAdmin(pool, adminConfig) {
   const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM users`);
@@ -23,7 +24,7 @@ export async function ensureAdmin(pool, adminConfig) {
         [username, hash]
       )).rows[0].id;
       await createApiToken(client, userId, "Default", true);
-      await client.query(`INSERT INTO vehicles (user_id, name) VALUES ($1, 'Fahrzeug 1')`, [userId]);
+      await createVehicle(client, userId, "Fahrzeug 1", true);
     });
 
     console.log(`👤 Admin-User "${username}" angelegt.`);

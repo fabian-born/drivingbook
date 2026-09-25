@@ -9,6 +9,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createLimiter } from "../lib/rateLimit.js";
 import { createApiToken } from "../lib/tokens.js";
+import { createVehicle } from "../lib/vehicles.js";
 import { loginBody, registerBody } from "../schemas.js";
 
 export function authRoutes({ pool, config }) {
@@ -74,10 +75,7 @@ export function authRoutes({ pool, config }) {
         )).rows[0];
 
         const { token } = await createApiToken(client, user.id, "Default", true);
-        const vehicle = (await client.query(
-          `INSERT INTO vehicles (user_id, name) VALUES ($1, $2) RETURNING id, name`,
-          [user.id, vehicleName]
-        )).rows[0];
+        const vehicle = await createVehicle(client, user.id, vehicleName, true);
 
         return { user, token, vehicle };
       });

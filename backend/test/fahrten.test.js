@@ -36,8 +36,8 @@ describe("Fahrten", () => {
     const ok = await post(fahrt("1000", "2026-01-05T08:00:00Z"));
     assert.equal(ok.status, 200);
 
-    const foreign = await post(fahrt(1100, "2026-01-06T08:00:00Z", { vehicle_id: other.vehicle.id }));
-    assert.equal(foreign.status, 403);
+    const foreign = await post(fahrt(1100, "2026-01-06T08:00:00Z", { vehicle_code: other.vehicle.code }));
+    assert.equal(foreign.status, 404);
   });
 
   it("bearbeitet per ID die richtige Fahrt, auch wenn sich die Reihenfolge ändert", async () => {
@@ -55,8 +55,9 @@ describe("Fahrten", () => {
 
   it("erlaubt Teil-Updates mit kmstand 0 und vehicle_id null (mit force)", async () => {
     // Liegt vor allen anderen Fahrten, damit km-Stand 0 die Plausibilität späterer Tests nicht stört
-    const id = (await post(fahrt(5000, "2020-02-01T08:00:00Z", { vehicle_id: user.vehicle.id }))).body.id;
-    const res = await t.http().put(`/api/fahrt/${id}`).set(user).send({ kmstand: 0, vehicle_id: null, force: true });
+    // (force nötig, da frühere Fahrten ohne vehicle_code jetzt ebenfalls das Default-Fahrzeug nutzen)
+    const id = (await post(fahrt(5000, "2020-02-01T08:00:00Z", { vehicle_code: user.vehicle.code, force: true }))).body.id;
+    const res = await t.http().put(`/api/fahrt/${id}`).set(user).send({ kmstand: 0, vehicle_code: null, force: true });
     assert.equal(res.status, 200);
     assert.equal(res.body.fahrt.kmstand, 0);
     assert.equal(res.body.fahrt.vehicle_id, null);
@@ -77,7 +78,7 @@ describe("Fahrten", () => {
 
   it("ordnet Monate nach deutscher Zeit zu", async () => {
     // 31.03. 22:30 UTC = 01.04. 00:30 Sommerzeit
-    const id = (await post(fahrt(20000, "2026-03-31T22:30:00Z", { vehicle_id: user.vehicle.id }))).body.id;
+    const id = (await post(fahrt(20000, "2026-03-31T22:30:00Z", { vehicle_code: user.vehicle.code }))).body.id;
     const april = (await month("2026-04")).body;
     assert.ok(april.some(f => f._id === id));
 
@@ -94,13 +95,13 @@ describe("Fahrten", () => {
 });
 
 describe("km-Plausibilität", () => {
-  let t, user, vid;
-  const post = body => t.http().post("/api/fahrt").set(user).send({ vehicle_id: vid, ...body });
+  let t, user, vcode;
+  const post = body => t.http().post("/api/fahrt").set(user).send({ vehicle_code: vcode, ...body });
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("plausi");
-    vid  = user.vehicle.id;
+    vcode = user.vehicle.code;
     await post(fahrt(1000, "2026-06-01T08:00:00Z"));
     await post(fahrt(2000, "2026-06-10T08:00:00Z"));
   });
@@ -125,7 +126,7 @@ describe("km-Plausibilität", () => {
   it("prüft je Fahrzeug getrennt", async () => {
     const zweites = await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" });
     const res = await t.http().post("/api/fahrt").set(user)
-      .send({ ...fahrt(50, "2026-06-07T08:00:00Z"), vehicle_id: zweites.body.id });
+      .send({ ...fahrt(50, "2026-06-07T08:00:00Z"), vehicle_code: zweites.body.code });
     assert.equal(res.status, 200);
   });
 });

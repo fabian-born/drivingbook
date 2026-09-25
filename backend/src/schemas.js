@@ -55,17 +55,18 @@ const fahrtFields = {
   }),
 };
 
-// vehicle_id ist immer optional; null entfernt die Zuordnung
-const vehicleId = z.union(
-  [z.null(), numeric(z.number().int().min(1).max(MAX_INT))],
-  { error: "Ungültige vehicle_id" }
+// vehicle_code ist immer optional; null entfernt die Zuordnung,
+// fehlt das Feld komplett wird das Default-Fahrzeug verwendet (nur beim Anlegen)
+const vehicleCode = z.union(
+  [z.null(), z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6}$/, { error: "Ungültiger Fahrzeug-Code" })],
+  { error: "Ungültiger Fahrzeug-Code" }
 ).optional();
 
 // force: true speichert trotz Warnung der km-Plausibilitätsprüfung
 const force = z.boolean({ error: "force muss true oder false sein" }).optional();
 
-export const fahrtCreate = z.object({ ...fahrtFields, vehicle_id: vehicleId, force });
-export const fahrtUpdate = z.object({ ...fahrtFields, vehicle_id: vehicleId, force }).partial();
+export const fahrtCreate = z.object({ ...fahrtFields, vehicle_code: vehicleCode, force });
+export const fahrtUpdate = z.object({ ...fahrtFields, vehicle_code: vehicleCode, force }).partial();
 
 // ── Auth & Benutzer ──────────────────────────────────────────
 const PASSWORD_MSG = "Passwort muss mindestens 8 Zeichen haben";
@@ -106,6 +107,7 @@ export const changePasswordBody = z.object({
 // ── Fahrzeuge & Tokens ───────────────────────────────────────
 export const vehicleBody = z.object({
   name: text("Name erforderlich", 100),
+  is_default: z.unknown().optional().transform(v => v === true),
 });
 
 export const tokenBody = z.object({

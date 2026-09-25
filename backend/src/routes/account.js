@@ -7,6 +7,7 @@ import bcrypt  from "bcrypt";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
+import { createVehicle } from "../lib/vehicles.js";
 import { changePasswordBody, idParam, tokenBody, vehicleBody } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {
@@ -18,7 +19,8 @@ export function accountRoutes({ pool, requireAuth }) {
     [userId]
   );
   const listVehicles = userId => pool.query(
-    `SELECT id, name, created_at FROM vehicles WHERE user_id = $1 ORDER BY id ASC`,
+    `SELECT id, name, code, is_default, created_at FROM vehicles
+     WHERE user_id = $1 ORDER BY is_default DESC, id ASC`,
     [userId]
   );
 
@@ -61,13 +63,46 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json((await listVehicles(req.userId)).rows);
   }));
 
+  // POST /api/vehicles  →  Neues Fahrzeug anlegen; Code wird generiert
+  // Body: { name, is_default? }
   router.post("/vehicles", requireAuth, asyncHandler(async (req, res) => {
-    const { name } = parse(vehicleBody, req.body);
-    const result = await pool.query(
-      `INSERT INTO vehicles (user_id, name) VALUES ($1, $2) RETURNING id, name`,
-      [req.userId, name]
-    );
-    return res.status(201).json(result.rows[0]);
+    const { name, is_default } = parse(vehicleBody, req.body);
+
+    const created = await withTransaction(pool, async client => {
+      // Wenn neues Fahrzeug Default sein soll → alten Default entfernen
+      if (is_default) {
+        await client.query(
+          `UPDATE vehicles SET is_default = FALSE WHERE user_id = $1 AND is_default = TRUE`,
+          [req.userId]
+        );
+      }
+      return createVehicle(client, req.userId, name, is_default);
+    });
+
+    return res.status(201).json(created);
+  }));
+
+  // PATCH /api/vehicles/:id/default  →  Dieses Fahrzeug als Default markieren
+  router.patch("/vehicles/:id/default", requireAuth, asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+
+    const updated = await withTransaction(pool, async client => {
+      await client.query(
+        `UPDATE vehicles SET is_default = FALSE WHERE user_id = $1 AND is_default = TRUE`,
+        [req.userId]
+      );
+      const result = await client.query(
+        `UPDATE vehicles SET is_default = TRUE WHERE id = $1 AND user_id = $2
+         RETURNING id, name, code, is_default, created_at`,
+        [id, req.userId]
+      );
+      if (result.rows.length === 0) {
+        throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      }
+      return result.rows[0];
+    });
+
+    return res.json(updated);
   }));
 
   router.delete("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {

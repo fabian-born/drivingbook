@@ -161,9 +161,13 @@ curl -X POST https://deine-domain.de/api/fahrt \
     "ziel": "Kunde Muster GmbH",
     "fahrtart": "geschäftlich",
     "timestamp": "2026-04-29T09:30:00.000Z",
-    "vehicle_id": 1
+    "vehicle_code": "A9F82D"
   }'
 ```
+
+`vehicle_code` ist der 6-stellige Code des Fahrzeugs (sichtbar im Profil unter "Fahrzeuge").
+Fehlt `vehicle_code` komplett, wird automatisch das als Standard markierte Fahrzeug verwendet
+(falls eins existiert). `"vehicle_code": null` trägt die Fahrt explizit ohne Fahrzeug ein.
 
 **km-Plausibilität:** Ist der km-Stand kleiner als bei der vorherigen oder größer
 als bei der folgenden Fahrt desselben Fahrzeugs, antwortet die API mit

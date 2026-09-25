@@ -7,6 +7,7 @@ import bcrypt  from "bcrypt";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
+import { createVehicle } from "../lib/vehicles.js";
 import { createUserBody, idParam, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
@@ -45,18 +46,23 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   // POST /api/admin/users/:id/vehicle  →  Fahrzeug für anderen User anlegen
   router.post("/admin/users/:id/vehicle", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
-    const { name } = parse(vehicleBody, req.body);
+    const { name, is_default } = parse(vehicleBody, req.body);
 
     const userCheck = await pool.query(`SELECT id FROM users WHERE id = $1`, [id]);
     if (userCheck.rows.length === 0) {
       throw new HttpError(404, "User nicht gefunden");
     }
 
-    const result = await pool.query(
-      `INSERT INTO vehicles (user_id, name) VALUES ($1, $2) RETURNING id, name`,
-      [id, name]
-    );
-    return res.status(201).json(result.rows[0]);
+    const created = await withTransaction(pool, async client => {
+      if (is_default) {
+        await client.query(
+          `UPDATE vehicles SET is_default = FALSE WHERE user_id = $1 AND is_default = TRUE`,
+          [id]
+        );
+      }
+      return createVehicle(client, id, name, is_default);
+    });
+    return res.status(201).json(created);
   }));
 
   return router;
