@@ -552,7 +552,13 @@ function historyButton(f) {
 
 const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
 const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
-const QUELLEN     = { web: "Web", api_token: "API-Token" };
+const QUELLEN     = { web: "Web", api_token: "API-Token", import: "Import" };
+
+// "import:web" → "Web (importiert)"
+function quelleText(quelle) {
+  if (quelle?.startsWith("import:")) return `${quelleText(quelle.slice(7))} (importiert)`;
+  return QUELLEN[quelle] || quelle;
+}
 
 function formatWert(feld, wert) {
   if (wert == null) return "–";
@@ -582,7 +588,7 @@ function zeigeProtokoll(titel, eintraege, leerText) {
     : `<ul class="list-group list-group-flush">${eintraege.map(e => `
         <li class="list-group-item px-0">
           <div class="d-flex justify-content-between small text-muted mb-1">
-            <span>${escapeHtml(new Date(e.changed_at).toLocaleString("de-DE"))} · ${escapeHtml(QUELLEN[e.source] || e.source)}</span>
+            <span>${escapeHtml(new Date(e.changed_at).toLocaleString("de-DE"))} · ${escapeHtml(quelleText(e.source))}</span>
             <span>${e.fahrt_id ? `Fahrt-ID ${escapeHtml(e.fahrt_id)} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
           </div>
           <div class="small">${beschreibeEintrag(e)}</div>

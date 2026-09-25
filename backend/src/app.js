@@ -31,7 +31,9 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
     app.set("trust proxy", config.trustProxy);
   }
   app.disable("x-powered-by");
-  app.use(express.json({ limit: "100kb" }));
+  // Import-Dateien können groß sein; alle anderen Requests bleiben klein
+  const jsonKlein = express.json({ limit: "100kb" });
+  app.use((req, res, next) => (req.path === "/api/vehicles/import" ? next() : jsonKlein(req, res, next)));
 
   // Ohne CORS_ORIGIN keine CORS-Header → Browser erlauben nur Aufrufe von der gleichen Origin
   if (config.corsOrigins.length > 0) {

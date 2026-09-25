@@ -53,7 +53,7 @@ export const auditQuery = z.object({
 const KM_MSG = "kmstand muss eine ganze Zahl ≥ 0 sein";
 const TS_MSG = "Ungültiger Timestamp";
 
-const fahrtFields = {
+export const fahrtFields = {
   kmstand: numeric(
     z.number({ error: KM_MSG }).int({ error: KM_MSG }).min(0, { error: KM_MSG }).max(MAX_INT, { error: KM_MSG })
   ),
@@ -179,3 +179,48 @@ export const vehicleYearBody = z.object({
   tax_rate:     decimal("Steuersatz muss zwischen 0 und 60 % liegen", 60).optional()
     .transform(v => v ?? null),
 }).refine(d => d.depreciation <= d.total_costs, { error: "AfA/Leasing darf die Gesamtkosten nicht übersteigen" });
+
+// ── Export / Import eines Fahrzeugs ─────────────────────────
+export const EXPORT_FORMAT  = "drivingbook-fahrzeug";
+export const EXPORT_VERSION = 1;
+const MAX_IMPORT_FAHRTEN    = 100_000;
+
+const auditDaten = z.record(z.string(), z.unknown()).nullable().optional().transform(v => v ?? null);
+
+export const importQuery = z.object({ vehicle: vehicleFilter });
+
+export const importBody = z.object({
+  format:  z.literal(EXPORT_FORMAT, { error: "Keine Fahrtenbuch-Exportdatei" }),
+  version: z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
+  fahrzeug: z.object({
+    id:            z.number().int().nullable().optional(),
+    name:          text("Fahrzeugname fehlt", 100),
+    code:          z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6}$/).nullable().optional().catch(null),
+    license_plate: z.string().trim().max(20).nullable().optional().catch(null),
+    list_price:    z.number().min(0).max(10_000_000).nullable().optional().catch(null),
+    drive_type:    z.enum(DRIVE_TYPES).optional().catch("verbrenner"),
+  }, { error: "Fahrzeugdaten fehlen" }),
+  jahre: z.array(z.object({
+    year:         z.number().int().min(1900).max(2999),
+    total_costs:  z.number().min(0).max(10_000_000),
+    depreciation: z.number().min(0).max(10_000_000).optional().default(0),
+    commute_km:   z.number().min(0).max(1000).optional().default(0),
+    months:       z.number().int().min(1).max(12).optional().default(12),
+    tax_rate:     z.number().min(0).max(60).nullable().optional().default(null),
+  }), { error: "Ungültige Jahreskosten" }).optional().default([]),
+  fahrten: z.array(z.object({
+    id:        z.number().int(),
+    kmstand:   fahrtFields.kmstand,
+    ziel:      fahrtFields.ziel,
+    fahrtart:  fahrtFields.fahrtart,
+    timestamp: fahrtFields.timestamp,
+  }), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_FAHRTEN, { error: `Höchstens ${MAX_IMPORT_FAHRTEN} Fahrten pro Import` }),
+  protokoll: z.array(z.object({
+    fahrt_id:   z.number().int(),
+    action:     z.enum(["create", "update", "delete"]),
+    old_data:   auditDaten,
+    new_data:   auditDaten,
+    source:     z.string().max(20).optional().default("web"),
+    changed_at: fahrtFields.timestamp,
+  }), { error: "Ungültiges Änderungsprotokoll" }).optional().default([]),
+});
