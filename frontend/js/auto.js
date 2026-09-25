@@ -45,6 +45,40 @@ async function ladeInfo() {
   zeigeVergleich(info);
 }
 
+// ── Prüfung ──────────────────────────────────────────────────
+
+const AMPEL  = {
+  gruen: { text: "Alles in Ordnung", farbe: "success" },
+  gelb:  { text: "Bitte prüfen",     farbe: "warning" },
+  rot:   { text: "Fehler gefunden",  farbe: "danger" },
+};
+const STUFE = {
+  fehler:  { icon: "mdi-close-circle",       farbe: "text-danger" },
+  warnung: { icon: "mdi-alert",              farbe: "text-warning" },
+  hinweis: { icon: "mdi-information-outline", farbe: "text-secondary" },
+};
+
+async function ladePruefung() {
+  if (!aktivesFahrzeug) return;
+  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/pruefung?year=${$("jahrSelect").value}`);
+  if (!res.ok) return;
+  const { ampel, befunde } = await res.json();
+
+  $("pruefAmpel").className   = `badge text-bg-${AMPEL[ampel].farbe}`;
+  $("pruefAmpel").textContent = AMPEL[ampel].text;
+
+  $("pruefListe").innerHTML = befunde.length === 0
+    ? `<li class="list-group-item text-success"><span class="mdi mdi-check-circle me-2"></span>Keine Auffälligkeiten gefunden.</li>`
+    : befunde.map(b => `
+        <li class="list-group-item d-flex gap-2">
+          <span class="mdi ${STUFE[b.stufe].icon} ${STUFE[b.stufe].farbe}"></span>
+          <div>
+            ${b.timestamp ? `<div class="small text-muted">${escapeHtml(new Date(b.timestamp).toLocaleString("de-DE"))} · ${escapeHtml(km(b.kmstand))}</div>` : ""}
+            ${escapeHtml(b.text)}
+          </div>
+        </li>`).join("");
+}
+
 function zeigeFahrzeug(v) {
   $("autoName").textContent = v.name;
   $("autoCode").textContent = v.code;
@@ -265,7 +299,7 @@ function initFahrzeugverwaltung() {
 document.addEventListener("DOMContentLoaded", async () => {
   fuelleJahre();
   initFahrzeugverwaltung();
-  $("jahrSelect").addEventListener("change", ladeInfo);
+  $("jahrSelect").addEventListener("change", () => Promise.all([ladeInfo(), ladePruefung()]));
   $("datenSpeichernBtn").addEventListener("click", speichereDaten);
   $("kostenSpeichernBtn").addEventListener("click", speichereKosten);
   $("copyCodeBtn").addEventListener("click", () => navigator.clipboard.writeText($("autoCode").textContent));
@@ -273,5 +307,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   await fahrzeugBereit;
   $("autoInhalt").classList.toggle("d-none", !aktivesFahrzeug);
   $("keinFahrzeug").classList.toggle("d-none", !!aktivesFahrzeug);
-  await Promise.all([ladeInfo(), ladeFahrzeugliste()]);
+  await Promise.all([ladeInfo(), ladePruefung(), ladeFahrzeugliste()]);
 });

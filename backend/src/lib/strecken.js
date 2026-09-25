@@ -29,7 +29,8 @@ export async function jahresFahrten(db, { userId, year, vehicleId = null, timezo
   const result = await db.query(
     `WITH strecken AS (
        SELECT f.id, f.kmstand, f.ziel, f.fahrtart, f.timestamp, f.vehicle_id,
-              f.kmstand - LAG(f.kmstand) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS strecke
+              f.kmstand - LAG(f.kmstand) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS strecke,
+              LAG(f.timestamp) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS vorher_timestamp
        FROM   fahrten f
        WHERE  f.user_id = $1
          AND  ($4::int IS NULL OR f.vehicle_id = $4)

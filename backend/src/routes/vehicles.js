@@ -7,6 +7,7 @@ import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { steuerVergleich } from "../lib/steuer.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
+import { pruefeJahr } from "../lib/pruefung.js";
 import { idParam, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
@@ -85,6 +86,42 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       jahr:      km,
       kosten:    kosten.rows[0] ?? null,
       vergleich: steuerVergleich(vehicle, kosten.rows[0] ?? null, km),
+    });
+  }));
+
+  // GET /api/vehicles/:id/pruefung?year=YYYY  →  Ampel + Auffälligkeiten eines Jahres
+  router.get("/vehicles/:id/pruefung", requireAuth, asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+    const year = parse(infoQuery, req.query).year
+      ?? Number(new Date().toLocaleString("en-CA", { timeZone: tz, year: "numeric" }));
+    await eigenesFahrzeug(id, req.userId);
+
+    const [fahrten, audit, ohneFahrzeug] = await Promise.all([
+      jahresFahrten(pool, { userId: req.userId, year, vehicleId: id, timezone: tz }),
+      pool.query(
+        `SELECT COUNT(DISTINCT fahrt_id) FILTER (WHERE action = 'update')::int AS geaendert,
+                COUNT(DISTINCT fahrt_id) FILTER (WHERE action = 'delete')::int AS geloescht
+         FROM   fahrten_audit
+         WHERE  user_id = $1
+           AND  $3 IN ((old_data->>'vehicle_id')::int, (new_data->>'vehicle_id')::int)
+           AND  $2 IN (
+                  EXTRACT(YEAR FROM ((old_data->>'timestamp')::timestamptz AT TIME ZONE $4)),
+                  EXTRACT(YEAR FROM ((new_data->>'timestamp')::timestamptz AT TIME ZONE $4))
+                )`,
+        [req.userId, year, id, tz]
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS anzahl FROM fahrten
+         WHERE  user_id = $1 AND vehicle_id IS NULL
+           AND  timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
+           AND  timestamp <  make_timestamptz($2 + 1, 1, 1, 0, 0, 0, $3)`,
+        [req.userId, year, tz]
+      ),
+    ]);
+
+    return res.json({
+      year,
+      ...pruefeJahr(fahrten, { ...audit.rows[0], ohneFahrzeug: ohneFahrzeug.rows[0].anzahl }),
     });
   }));
 
