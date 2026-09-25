@@ -153,6 +153,12 @@
         </select>
       </div>
       <div class="col-6 col-md-2">
+        <label class="form-label mb-1 small">Fahrzeug</label>
+        <select id="vehicleFilter" class="form-select form-select-sm">
+          <option value="alle">Alle Fahrzeuge</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
         <button class="btn btn-outline-secondary btn-sm w-100" id="csvExportYear">
           <span class="mdi mdi-download me-1"></span>CSV Export
         </button>
@@ -184,12 +190,13 @@
             <th>Diff</th>
             <th>Ziel / Kunde</th>
             <th>Fahrtart</th>
+            <th>Fahrzeug</th>
             <th>Zeitpunkt</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="fahrtenTabelle">
-          <tr><td colspan="7">Lade Daten...</td></tr>
+          <tr><td colspan="8">Lade Daten...</td></tr>
         </tbody>
       </table>
     </div>

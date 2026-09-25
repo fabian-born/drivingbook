@@ -5,10 +5,54 @@ const monatSelect = document.getElementById("monatSelect");
 const tbody       = document.getElementById("fahrtenTabelle");
 const cardList    = document.getElementById("cardList") ?? document.createElement("div");
 const fahrtartFilter = document.getElementById("fahrtartFilter");
+const vehicleFilter  = document.getElementById("vehicleFilter");
 const csvExportBtn   = document.getElementById("csvExportYear");
 
 let aktuelleFahrten = [];
 let jahresansicht   = false;
+let vehicles      = [];
+let vehicleById   = new Map();
+
+// ----------------- Fahrzeuge laden (Filter + Zuordnungs-Dropdown) -----------------
+async function ladeVehicles() {
+  try {
+    const res = await apiFetch("/api/vehicles");
+    if (!res.ok) return;
+    vehicles    = await res.json();
+    vehicleById = new Map(vehicles.map(v => [v.id, v]));
+  } catch {
+    vehicles = [];
+  }
+
+  vehicleFilter.innerHTML = `
+    <option value="alle">Alle Fahrzeuge</option>
+    <option value="kein">Kein Fahrzeug</option>
+    ${vehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("")}`;
+}
+
+// Ändert die Fahrzeug-Zuordnung einer Fahrt (code === "" → kein Fahrzeug)
+async function handleVehicleChange(index, code) {
+  const gespeichert = await speichereFahrt(index, { vehicle_code: code || null });
+  if (!gespeichert) return;
+
+  const vehicle = vehicles.find(v => v.code === code);
+  aktuelleFahrten[index].vehicle_id   = vehicle?.id ?? null;
+  aktuelleFahrten[index].vehicle_name = vehicle?.name ?? null;
+}
+
+// Baut die Optionsliste für das editierbare Fahrzeug-Dropdown einer Fahrt
+function vehicleOptions(vehicleId) {
+  const aktuellerCode = vehicleId != null ? (vehicleById.get(vehicleId)?.code ?? "") : "";
+  return `
+    <option value="" ${aktuellerCode === "" ? "selected" : ""}>Kein Fahrzeug</option>
+    ${vehicles.map(v => `<option value="${v.code}" ${v.code === aktuellerCode ? "selected" : ""}>${escapeHtml(v.name)}</option>`).join("")}`;
+}
+
+function passtVehicleFilter(f) {
+  if (vehicleFilter.value === "alle") return true;
+  if (vehicleFilter.value === "kein") return f.vehicle_id == null;
+  return String(f.vehicle_id) === vehicleFilter.value;
+}
 
 // ----------------- Hilfsfunktion: ist gerade Mobile? -----------------
 function isMobile() {
@@ -145,6 +189,7 @@ function renderTabelle() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (!passtVehicleFilter(f)) return;
     const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
 
     const tr = document.createElement("tr");
@@ -158,6 +203,11 @@ function renderTabelle() {
         <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
           <option value="geschäftlich" ${f.fahrtart === "geschäftlich" ? "selected" : ""}>Geschäftlich</option>
           <option value="privat"       ${f.fahrtart === "privat"       ? "selected" : ""}>Privat</option>
+        </select>
+      </td>
+      <td>
+        <select class="form-select form-select-sm vehicle-select" data-index="${i}">
+          ${vehicleOptions(f.vehicle_id)}
         </select>
       </td>
       <td>
@@ -182,6 +232,7 @@ function renderTabelleJahresansicht() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (!passtVehicleFilter(f)) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -189,7 +240,7 @@ function renderTabelleJahresansicht() {
       nr = 0;
       const trH = document.createElement("tr");
       trH.className = "table-dark";
-      trH.innerHTML = `<td colspan="7" class="fw-bold small">
+      trH.innerHTML = `<td colspan="8" class="fw-bold small">
         <span class="mdi mdi-calendar-month me-1"></span>${formatMonat(monat)}
       </td>`;
       tbody.appendChild(trH);
@@ -204,6 +255,7 @@ function renderTabelleJahresansicht() {
       <td>${diff >= 0 ? diff : "–"}</td>
       <td>${escapeHtml(f.ziel)}</td>
       <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${escapeHtml(f.fahrtart)}</span></td>
+      <td>${escapeHtml(f.vehicle_name || "–")}</td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
@@ -220,6 +272,7 @@ function renderCards() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (!passtVehicleFilter(f)) return;
     const diff = i === 0 ? 0 : f.kmstand - aktuelleFahrten[i - 1].kmstand;
     cardList.appendChild(buildCard(f, i, diff, false));
   });
@@ -233,6 +286,7 @@ function renderCardsJahresansicht() {
 
   aktuelleFahrten.forEach((f, i) => {
     if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (!passtVehicleFilter(f)) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -271,7 +325,7 @@ function buildCard(f, i, diff, readonly, nr) {
         ${badge}
       </div>
       <div class="card-ziel">${escapeHtml(f.ziel)}</div>
-      <div class="card-meta">#${num} · ${zeitpunkt} ${historyButton(f)}</div>`;
+      <div class="card-meta">#${num} · ${escapeHtml(f.vehicle_name || "Kein Fahrzeug")} · ${zeitpunkt} ${historyButton(f)}</div>`;
   } else {
     div.innerHTML = `
       <button class="btn btn-sm btn-outline-danger delete-btn btn-delete-card" data-index="${i}" title="Löschen">
@@ -290,6 +344,10 @@ function buildCard(f, i, diff, readonly, nr) {
 
       <input type="text" class="form-control form-control-sm mb-2 card-field-ziel"
         data-index="${i}" data-field="ziel" value="${escapeHtml(f.ziel)}">
+
+      <select class="form-select form-select-sm mb-2 card-vehicle" data-index="${i}">
+        ${vehicleOptions(f.vehicle_id)}
+      </select>
 
       <input type="datetime-local" class="form-control form-control-sm card-timestamp"
         data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
@@ -320,6 +378,11 @@ cardList.addEventListener("change", async e => {
     const localVal = e.target.value;
     if (!localVal) return;
     await handleTimestampChange(i, localVal);
+  }
+
+  // Fahrzeug-Dropdown
+  if (e.target.classList.contains("card-vehicle")) {
+    await handleVehicleChange(e.target.dataset.index, e.target.value);
   }
 });
 
@@ -380,6 +443,10 @@ tbody.addEventListener("change", async e => {
     const i = e.target.dataset.index;
     if (!e.target.value) return;
     await handleTimestampChange(i, e.target.value);
+  }
+
+  if (e.target.classList.contains("vehicle-select")) {
+    await handleVehicleChange(e.target.dataset.index, e.target.value);
   }
 });
 
@@ -503,12 +570,12 @@ function formatMonat(monthKey) {
 }
 
 function setLaden(text = "Lade Daten...") {
-  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
+  tbody.innerHTML   = `<tr><td colspan="8">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
 function setLeer(text) {
-  tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
+  tbody.innerHTML   = `<tr><td colspan="8">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
@@ -532,6 +599,7 @@ function zeigeHinweis(text, typ = "info") {
 // ═══════════════════════════════════════════════
 
 fahrtartFilter.addEventListener("change", renderAll);
+vehicleFilter.addEventListener("change", renderAll);
 
 csvExportBtn?.addEventListener("click", () => {
   downloadDatei(`/api/export/csv/year/${jahrSelect.value}`, `fahrten_${jahrSelect.value}.csv`);
@@ -575,14 +643,15 @@ function historyButton(f) {
           </button>`;
 }
 
-const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug-ID" };
+const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
 const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
 const QUELLEN     = { web: "Web", api_token: "API-Token" };
 
 function formatWert(feld, wert) {
   if (wert == null) return "–";
-  if (feld === "timestamp") return new Date(wert).toLocaleString("de-DE");
-  if (feld === "kmstand")   return `${wert} km`;
+  if (feld === "timestamp")   return new Date(wert).toLocaleString("de-DE");
+  if (feld === "kmstand")     return `${wert} km`;
+  if (feld === "vehicle_id")  return vehicleById.get(wert)?.name ?? `Fahrzeug #${wert}`;
   return String(wert);
 }
 
@@ -628,7 +697,9 @@ document.getElementById("auditYear")?.addEventListener("click", async () => {
     `Keine nachträglichen Änderungen oder Löschungen in ${jahr}.`);
 });
 
-fuelleJahre();
-fuelleMonateMitCheck();
+ladeVehicles().then(() => {
+  fuelleJahre();
+  fuelleMonateMitCheck();
+});
 
 }); // DOMContentLoaded

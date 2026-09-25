@@ -3,6 +3,32 @@
 // lokal zwischengespeichert und automatisch nachgereicht.
 
 const WARTESCHLANGE_KEY = "offlineFahrten";
+const LETZTES_FAHRZEUG_KEY = "letztesFahrzeugCode";
+
+// ── Fahrzeugauswahl ──────────────────────────────────────────
+// Das Dropdown wird nur angezeigt, wenn der User mehr als ein Fahrzeug hat;
+// bei genau einem Fahrzeug wird ohnehin automatisch das Standard-Fahrzeug verwendet.
+async function ladeFahrzeuge() {
+  const gruppe = document.getElementById("vehicleGroup");
+  const select = document.getElementById("vehicleSelect");
+
+  try {
+    const res = await apiFetch("/api/vehicles");
+    if (!res.ok) return;
+    const vehicles = await res.json();
+    if (vehicles.length <= 1) return;
+
+    const letzterCode = localStorage.getItem(LETZTES_FAHRZEUG_KEY);
+    const standard     = vehicles.find(v => v.code === letzterCode)
+      ?? vehicles.find(v => v.is_default)
+      ?? vehicles[0];
+
+    select.innerHTML = vehicles.map(v =>
+      `<option value="${v.code}" ${v.code === standard.code ? "selected" : ""}>${escapeHtml(v.name)}</option>`
+    ).join("");
+    gruppe.classList.remove("d-none");
+  } catch { /* Fahrzeugliste optional – Formular bleibt ohne Auswahl nutzbar */ }
+}
 
 // ── Standort ─────────────────────────────────────────────────
 
@@ -154,6 +180,11 @@ async function addFahrt() {
   // Zeitpunkt wird bei der Erfassung festgehalten, auch wenn erst später gesendet wird
   const fahrt = { kmstand, ziel, fahrtart, timestamp: new Date().toISOString() };
 
+  const vehicleGroup = document.getElementById("vehicleGroup");
+  if (!vehicleGroup.classList.contains("d-none")) {
+    fahrt.vehicle_code = document.getElementById("vehicleSelect").value;
+  }
+
   if (!navigator.onLine) return inWarteschlange(fahrt);
 
   try {
@@ -194,5 +225,9 @@ window.addEventListener("online", synchronisiere);
 document.addEventListener("DOMContentLoaded", () => {
   aktualisiereOfflineHinweis();
   document.getElementById("syncJetzt").addEventListener("click", synchronisiere);
+  document.getElementById("vehicleSelect").addEventListener("change", e => {
+    localStorage.setItem(LETZTES_FAHRZEUG_KEY, e.target.value);
+  });
+  ladeFahrzeuge();
   synchronisiere();
 });
