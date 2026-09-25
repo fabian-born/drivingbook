@@ -60,8 +60,9 @@ function zeigeFahrzeug(v) {
 function zeigeKennzahlen({ gesamt, jahr, year }) {
   $("kzKmAktuell").textContent = gesamt.km_aktuell != null ? km(gesamt.km_aktuell) : "–";
   $("kzKmJahr").textContent    = km(jahr.gesamt);
+  const privat = jahr.privat + jahr.arbeitsweg;
   $("kzPrivat").textContent    = jahr.gesamt > 0
-    ? `${km(jahr.privat)} (${prozent(jahr.privat / jahr.gesamt)})`
+    ? `${km(privat)} (${prozent(privat / jahr.gesamt)})`
     : "–";
   $("kzFahrten").textContent   = jahr.fahrten.toLocaleString("de-DE");
   $("kzZeitraum").textContent  = gesamt.fahrten > 0
@@ -104,7 +105,7 @@ function zeigeVergleich({ vehicle, kosten, jahr, vergleich: vg }) {
   const fb = vg.fahrtenbuch;
   $("vgFahrtenbuchSumme").textContent = fb ? euro(fb.summe) : "–";
   $("vgFahrtenbuchDetail").textContent = fb
-    ? `${prozent(fb.privat_anteil)} privat (${km(jahr.privat)} von ${km(jahr.gesamt)}) × Kosten ${euro(vg.kosten_gesamt)}`
+    ? `${prozent(fb.privat_anteil)} privat inkl. Arbeitsweg (${km(jahr.privat + jahr.arbeitsweg)} von ${km(jahr.gesamt)}) × Kosten ${euro(vg.kosten_gesamt)}`
     : "Noch keine gefahrenen Kilometer in diesem Jahr.";
 
   $("vgPauschal").classList.toggle("gewinner", vg.empfehlung === "pauschal");

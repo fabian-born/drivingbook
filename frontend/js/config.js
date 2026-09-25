@@ -39,6 +39,24 @@ function tokenPayload() {
   }
 })();
 
+// Fahrtarten: Wert (wie im Backend), Beschriftung, Bootstrap-Farbe
+const FAHRTARTEN = [
+  { wert: "geschäftlich", label: "Geschäftlich", farbe: "primary" },
+  { wert: "privat",       label: "Privat",       farbe: "success" },
+  { wert: "arbeitsweg",   label: "Arbeitsweg",   farbe: "warning" },
+];
+const fahrtartInfo = wert => FAHRTARTEN.find(a => a.wert === wert) ?? { wert, label: wert, farbe: "secondary" };
+
+function fahrtartOptionen(ausgewaehlt) {
+  return FAHRTARTEN.map(a =>
+    `<option value="${a.wert}" ${a.wert === ausgewaehlt ? "selected" : ""}>${a.label}</option>`).join("");
+}
+
+function fahrtartBadge(wert) {
+  const a = fahrtartInfo(wert);
+  return `<span class="badge text-bg-${a.farbe} card-badge">${escapeHtml(a.label)}</span>`;
+}
+
 // Maskiert HTML-Sonderzeichen, bevor Daten per innerHTML eingefügt werden
 function escapeHtml(value) {
   return String(value ?? "")

@@ -108,10 +108,10 @@ describe("Jahresfahrten", () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.fahrten.map(f => f.strecke), [100, 50, 250]);
     assert.deepEqual(res.body.monate, [
-      { monat: "2026-01", start_km: 1000, end_km: 1150, fahrten: 2, gesamt: 150, privat: 50, geschaeftlich: 100 },
-      { monat: "2026-03", start_km: 1150, end_km: 1400, fahrten: 1, gesamt: 250, privat: 0, geschaeftlich: 250 },
+      { monat: "2026-01", start_km: 1000, end_km: 1150, fahrten: 2, gesamt: 150, privat: 50, geschaeftlich: 100, arbeitsweg: 0 },
+      { monat: "2026-03", start_km: 1150, end_km: 1400, fahrten: 1, gesamt: 250, privat: 0, geschaeftlich: 250, arbeitsweg: 0 },
     ]);
-    assert.deepEqual(res.body.summe, { fahrten: 3, gesamt: 400, privat: 50, geschaeftlich: 350 });
+    assert.deepEqual(res.body.summe, { fahrten: 3, gesamt: 400, privat: 50, geschaeftlich: 350, arbeitsweg: 0 });
     assert.ok(res.body.fahrten[0]._id);
   });
 

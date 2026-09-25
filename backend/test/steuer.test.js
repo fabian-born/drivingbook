@@ -50,3 +50,12 @@ describe("Steuervergleich", () => {
     assert.equal(v.empfehlung, null);
   });
 });
+
+describe("Steuervergleich mit Arbeitsweg", () => {
+  it("zählt Fahrten zur Arbeit beim Fahrtenbuch zur privaten Nutzung", () => {
+    const v = steuerVergleich({ list_price: 45990, drive_type: "verbrenner" }, kosten,
+      { privat: 3000, arbeitsweg: 2000, gesamt: 20000 });
+    assert.equal(v.fahrtenbuch.privat_anteil, 0.25);
+    assert.equal(v.fahrtenbuch.summe, 2250);
+  });
+});

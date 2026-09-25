@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 
-export const FAHRTARTEN  = ["privat", "geschäftlich"];
+export const FAHRTARTEN  = ["privat", "geschäftlich", "arbeitsweg"];
 const MAX_INT            = 2147483647;  // Obergrenze von PostgreSQL INTEGER
 
 // Zahl oder rein numerischer String (Formulare senden Strings)

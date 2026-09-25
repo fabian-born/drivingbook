@@ -9,7 +9,7 @@
 import { FAHRTARTEN } from "../schemas.js";
 
 // Schlüssel in den Summen ("geschäftlich" → "geschaeftlich")
-const SUMMEN_KEY = { privat: "privat", "geschäftlich": "geschaeftlich" };
+const SUMMEN_KEY = { privat: "privat", "geschäftlich": "geschaeftlich", arbeitsweg: "arbeitsweg" };
 
 function leereSumme() {
   const summe = { fahrten: 0, gesamt: 0 };

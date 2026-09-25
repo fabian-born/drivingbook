@@ -6,7 +6,7 @@
 //               + 0,03 % × Listenpreis × Entfernung Wohnung–Arbeit × Monate
 //               (Satz bei E-/Hybridfahrzeugen anteilig), höchstens die Kosten
 //               (Kostendeckelung)
-// Fahrtenbuch:  Kosten × Anteil privater Kilometer
+// Fahrtenbuch:  Kosten × Anteil privater Kilometer inkl. Arbeitsweg
 //               (AfA/Leasing bei E-/Hybridfahrzeugen anteilig wie der Satz)
 // ============================================================
 
@@ -22,7 +22,7 @@ const runde = betrag => Math.round(betrag * 100) / 100;
 
 // vehicle: { list_price, drive_type }
 // kosten:  { total_costs, depreciation, commute_km, months, tax_rate } oder null
-// km:      { privat, gesamt }
+// km:      { privat, arbeitsweg?, gesamt }
 // Liefert null, solange Listenpreis oder Kosten fehlen.
 export function steuerVergleich(vehicle, kosten, km) {
   if (vehicle.list_price == null || !kosten) return null;
@@ -39,7 +39,8 @@ export function steuerVergleich(vehicle, kosten, km) {
   const pauschalOhneDeckel = privatnutzung + arbeitsweg;
   const pauschal = Math.min(pauschalOhneDeckel, kostenGesamt);
 
-  const privatAnteil = km.gesamt > 0 ? km.privat / km.gesamt : null;
+  // Fahrten zur Arbeit sind beim Fahrtenbuch Teil der privaten Nutzung
+  const privatAnteil = km.gesamt > 0 ? (km.privat + (km.arbeitsweg ?? 0)) / km.gesamt : null;
   const fahrtenbuch  = privatAnteil == null ? null : kostenGesamt * privatAnteil;
 
   // Bis zu diesem Privatanteil ist das Fahrtenbuch günstiger

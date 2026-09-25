@@ -12,21 +12,23 @@ const { monate, summe } = await res.json();
 
 const monatsTabelle = monate.map(m => ({
     month: m.monat, startKm: m.start_km, endKm: m.end_km,
-    diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich,
+    diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich, arbeitsweg: m.arbeitsweg,
 }));
 const monatsKm       = Object.fromEntries(monatsTabelle.map(m => [m.month, m.diff]));
 const gesamtKm       = summe.gesamt;
 const totalPrivat    = summe.privat;
 const totalGeschaeft = summe.geschaeftlich;
+const totalArbeitsweg = summe.arbeitsweg;
 
 document.getElementById("kmProMonat").innerText =
     (monatsKm[aktuellerMonat] ?? 0).toFixed(1);
 
 const privatPct  = gesamtKm > 0 ? ((totalPrivat   / gesamtKm) * 100).toFixed(2) : "0.00";
 const geschaeftPct = gesamtKm > 0 ? ((totalGeschaeft / gesamtKm) * 100).toFixed(2) : "0.00";
+const arbeitswegPct = gesamtKm > 0 ? ((totalArbeitsweg / gesamtKm) * 100).toFixed(2) : "0.00";
 
 document.getElementById("splitKm").innerText =
-    `Privat: ${totalPrivat} (${privatPct} %) km\nGeschäftlich: ${totalGeschaeft} (${geschaeftPct} %) km`;
+    `Privat: ${totalPrivat} (${privatPct} %) km\nGeschäftlich: ${totalGeschaeft} (${geschaeftPct} %) km\nArbeitsweg: ${totalArbeitsweg} (${arbeitswegPct} %) km`;
 
 document.getElementById("kmGesamtJahr").innerText = gesamtKm;
 
@@ -42,8 +44,10 @@ monatsTabelle.forEach(row => {
         <td>${row.diff}</td>
         <td>${row.privat}</td>
         <td>${row.geschaeft}</td>
-        <td>${row.diff ? ((row.privat    / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
-        <td>${row.diff ? ((row.geschaeft / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+        <td>${row.arbeitsweg}</td>
+        <td>${row.diff ? ((row.privat     / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+        <td>${row.diff ? ((row.geschaeft  / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+        <td>${row.diff ? ((row.arbeitsweg / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
     `;
     tbody.appendChild(tr);
 });
@@ -77,6 +81,15 @@ chartInstanz = new Chart(document.getElementById("kmChart"), {
                 data: monatsTabelle.map(row => row.privat),
                 backgroundColor: "rgba(25, 135, 84, 0.75)",
                 borderColor: "rgba(25, 135, 84, 1)",
+                borderWidth: 2,
+                borderRadius: 4,
+                stack: "km"
+            },
+            {
+                label: "Arbeitsweg",
+                data: monatsTabelle.map(row => row.arbeitsweg),
+                backgroundColor: "rgba(255, 193, 7, 0.75)",
+                borderColor: "rgba(255, 193, 7, 1)",
                 borderWidth: 2,
                 borderRadius: 4,
                 stack: "km"

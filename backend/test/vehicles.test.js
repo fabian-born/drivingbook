@@ -31,7 +31,7 @@ describe("Auto-Info", () => {
   it("liefert Kennzahlen je Jahr, ohne Kosten noch keinen Vergleich", async () => {
     const res = await t.http().get(`/api/vehicles/${id}/info?year=2026`).set(user);
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.jahr, { fahrten: 2, privat: 50, geschaeftlich: 100, gesamt: 150 });
+    assert.deepEqual(res.body.jahr, { fahrten: 2, privat: 50, geschaeftlich: 100, arbeitsweg: 0, gesamt: 150 });
     assert.equal(res.body.gesamt.fahrten, 3);
     assert.equal(res.body.gesamt.km_aktuell, 1150);
     assert.equal(res.body.kosten, null);

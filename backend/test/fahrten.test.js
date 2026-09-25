@@ -207,3 +207,23 @@ describe("Migration 006: Fahrten dem Fahrzeug 7VKWR8 zuordnen", () => {
     ]);
   });
 });
+
+describe("Fahrtart Arbeitsweg", () => {
+  let t, user;
+  const post = body => t.http().post("/api/fahrt").set(user).send(body);
+  before(async () => {
+    t = await setup();
+    user = await t.registerUser("pendler");
+  });
+  after(() => t.close());
+
+  it("kennt die Fahrtart Arbeitsweg und zählt sie getrennt", async () => {
+    const res = await post(fahrt(5, "2027-01-02T08:00:00Z", { fahrtart: "arbeitsweg" }));
+    assert.equal(res.status, 200);
+    await post(fahrt(25, "2027-01-03T08:00:00Z", { fahrtart: "arbeitsweg" }));
+    const jahr = await t.http().get(`/api/fahrten?year=2027&vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(jahr.body.summe.arbeitsweg, 20);
+    assert.equal((await post(fahrt(30, "2027-01-04T08:00:00Z", { fahrtart: "urlaub" }))).status, 400);
+  });
+
+});

@@ -12,6 +12,9 @@ const ROW_FILL  = "#f2f2f2";
 
 const km = n => (n == null ? "–" : n.toLocaleString("de-DE"));
 
+const FAHRTART_KEY   = { privat: "privat", "geschäftlich": "geschaeftlich", arbeitsweg: "arbeitsweg" };
+const FAHRTART_LABEL = { privat: "Privat", "geschäftlich": "Geschäftlich", arbeitsweg: "Arbeitsweg" };
+
 // Erste Fahrt je Fahrzeug ohne Vorgänger hat keine Strecke (null)
 function computeDistances(trips, startKm) {
   const lastKm   = new Map(startKm);
@@ -26,14 +29,13 @@ function computeDistances(trips, startKm) {
     if (!vehicles.has(key)) {
       vehicles.set(key, {
         name: t.vehicle_name || "Ohne Fahrzeug",
-        startKm: prev ?? t.kmstand, endKm: t.kmstand, privat: 0, geschaeftlich: 0,
+        startKm: prev ?? t.kmstand, endKm: t.kmstand, privat: 0, geschaeftlich: 0, arbeitsweg: 0,
       });
     }
     const v = vehicles.get(key);
     v.endKm = t.kmstand;
     if (diff != null) {
-      if (t.fahrtart === "privat") v.privat += diff;
-      else v.geschaeftlich += diff;
+      v[FAHRTART_KEY[t.fahrtart] ?? "geschaeftlich"] += diff;
     }
     return { ...t, diff };
   });
@@ -126,16 +128,18 @@ export function renderYearPdf(stream, { year, username, trips, startKm, audit, t
       // ── Übersicht je Fahrzeug ─────────────────────────────
       heading("Übersicht");
       const summaryCols = [
-        { width: 125 }, { width: 70, align: "right" }, { width: 70, align: "right" },
-        { width: 70, align: "right" }, { width: 90, align: "right" }, { width: width - 425, align: "right" },
+        { width: 95 }, { width: 55, align: "right" }, { width: 55, align: "right" },
+        { width: 55, align: "right" }, { width: 80, align: "right" }, { width: 85, align: "right" },
+        { width: width - 425, align: "right" },
       ];
-      drawRow(summaryCols, ["Fahrzeug", "Start-km", "End-km", "Gesamt km", "Privat km", "Geschäftlich km"], { bold: true, fill: ROW_FILL });
+      drawRow(summaryCols, ["Fahrzeug", "Start-km", "End-km", "Gesamt km", "Privat km", "Geschäftlich km", "Arbeitsweg km"], { bold: true, fill: ROW_FILL });
       for (const v of vehicles) {
-        const total = v.privat + v.geschaeftlich;
+        const total = v.privat + v.geschaeftlich + v.arbeitsweg;
         const pct   = n => (total > 0 ? ` (${((n / total) * 100).toFixed(1)} %)` : "");
         drawRow(summaryCols, [
           v.name, km(v.startKm), km(v.endKm), km(total),
           km(v.privat) + pct(v.privat), km(v.geschaeftlich) + pct(v.geschaeftlich),
+          km(v.arbeitsweg) + pct(v.arbeitsweg),
         ]);
       }
 
@@ -156,7 +160,7 @@ export function renderYearPdf(stream, { year, username, trips, startKm, audit, t
       rows.forEach((t, i) => {
         drawRow(tripCols, [
           i + 1, t.zeitpunkt, km(t.kmstand), km(t.diff),
-          t.fahrtart === "privat" ? "Privat" : "Geschäftlich",
+          FAHRTART_LABEL[t.fahrtart] ?? t.fahrtart,
           ...(multiVehicle ? [t.vehicle_name || "–"] : []),
           t.edited ? `${t.ziel} *` : t.ziel,
         ], { fill: i % 2 ? ROW_FILL : null, onNewPage: drawHeader });

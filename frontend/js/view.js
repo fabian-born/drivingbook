@@ -137,8 +137,7 @@ function renderTabelle() {
       <td contenteditable="true" data-field="ziel">${escapeHtml(f.ziel)}</td>
       <td>
         <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
-          <option value="geschäftlich" ${f.fahrtart === "geschäftlich" ? "selected" : ""}>Geschäftlich</option>
-          <option value="privat"       ${f.fahrtart === "privat"       ? "selected" : ""}>Privat</option>
+          ${fahrtartOptionen(f.fahrtart)}
         </select>
       </td>
       <td>
@@ -184,7 +183,7 @@ function renderTabelleJahresansicht() {
       <td>${escapeHtml(f.kmstand)}</td>
       <td>${diff >= 0 ? diff : "–"}</td>
       <td>${escapeHtml(f.ziel)}</td>
-      <td><span class="badge ${f.fahrtart === 'privat' ? 'bg-success' : 'bg-primary'} card-badge">${escapeHtml(f.fahrtart)}</span></td>
+      <td>${fahrtartBadge(f.fahrtart)}</td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
@@ -232,9 +231,7 @@ function renderCardsJahresansicht() {
 }
 
 function buildCard(f, i, diff, readonly, nr) {
-  const badge   = f.fahrtart === "privat"
-    ? `<span class="badge bg-success card-badge">Privat</span>`
-    : `<span class="badge bg-primary card-badge">Geschäftlich</span>`;
+  const badge   = fahrtartBadge(f.fahrtart);
   const zeitpunkt = new Date(f.timestamp).toLocaleString("de-DE");
   const num = nr ?? (i + 1);
 
@@ -264,8 +261,7 @@ function buildCard(f, i, diff, readonly, nr) {
           data-index="${i}" data-field="kmstand" value="${escapeHtml(f.kmstand)}" style="width:110px">
         <span class="card-diff text-muted">+${diff >= 0 ? diff : 0} km</span>
         <select class="form-select form-select-sm ms-auto card-fahrtart" data-index="${i}" style="width:130px">
-          <option value="geschäftlich" ${f.fahrtart === "geschäftlich" ? "selected" : ""}>Geschäftlich</option>
-          <option value="privat"       ${f.fahrtart === "privat"       ? "selected" : ""}>Privat</option>
+          ${fahrtartOptionen(f.fahrtart)}
         </select>
       </div>
 

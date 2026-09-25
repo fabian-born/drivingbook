@@ -8,7 +8,7 @@ async function ladeHistoryDashboard(jahr) {
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
 
   // Eine Abfrage fürs ganze Jahr; Strecken rechnet das Backend (ab dem letzten km-Stand des Vorjahres)
-  let monatsTabelle = [], summe = { gesamt: 0, privat: 0, geschaeftlich: 0 };
+  let monatsTabelle = [], summe = { gesamt: 0, privat: 0, geschaeftlich: 0, arbeitsweg: 0 };
   try {
     const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${jahr}`));
     if (res.ok) {
@@ -16,7 +16,7 @@ async function ladeHistoryDashboard(jahr) {
       summe = daten.summe;
       monatsTabelle = daten.monate.map(m => ({
         month: m.monat, startKm: m.start_km, endKm: m.end_km,
-        diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich,
+        diff: m.gesamt, privat: m.privat, geschaeft: m.geschaeftlich, arbeitsweg: m.arbeitsweg,
       }));
     }
   } catch (e) {
@@ -25,6 +25,7 @@ async function ladeHistoryDashboard(jahr) {
   const gesamtKm       = summe.gesamt;
   const totalPrivat    = summe.privat;
   const totalGeschaeft = summe.geschaeftlich;
+  const totalArbeitsweg = summe.arbeitsweg;
 
   document.getElementById("historyLoading").classList.add("d-none");
   document.getElementById("historyContent").classList.remove("d-none");
@@ -39,6 +40,7 @@ async function ladeHistoryDashboard(jahr) {
 
   const privatPct    = gesamtKm > 0 ? ((totalPrivat    / gesamtKm) * 100).toFixed(2) : "0.00";
   const geschaeftPct = gesamtKm > 0 ? ((totalGeschaeft / gesamtKm) * 100).toFixed(2) : "0.00";
+  const arbeitswegPct = gesamtKm > 0 ? ((totalArbeitsweg / gesamtKm) * 100).toFixed(2) : "0.00";
 
   document.getElementById("historyContent").innerHTML = `
     <!-- Stat-Karten -->
@@ -54,10 +56,11 @@ async function ladeHistoryDashboard(jahr) {
       <div class="col-md-4">
         <div class="card text-center shadow-sm h-100">
           <div class="card-body py-2">
-            <h6 class="card-title mb-1">Privat / Geschäftlich</h6>
+            <h6 class="card-title mb-1">Privat / Geschäftlich / Arbeitsweg</h6>
             <p class="fw-bold mb-0" style="font-size:0.95rem;">
               Privat: ${totalPrivat.toLocaleString("de-DE")} km (${privatPct} %)<br>
-              Geschäftlich: ${totalGeschaeft.toLocaleString("de-DE")} km (${geschaeftPct} %)
+              Geschäftlich: ${totalGeschaeft.toLocaleString("de-DE")} km (${geschaeftPct} %)<br>
+              Arbeitsweg: ${totalArbeitsweg.toLocaleString("de-DE")} km (${arbeitswegPct} %)
             </p>
           </div>
         </div>
@@ -96,8 +99,10 @@ async function ladeHistoryDashboard(jahr) {
               <th>Ges. KM</th>
               <th>Privat KM</th>
               <th>Gesch. KM</th>
+              <th>Arbeitsw. KM</th>
               <th>Privat %</th>
               <th>Gesch. %</th>
+              <th>Arbeitsw. %</th>
             </tr>
           </thead>
           <tbody id="historyTabelle"></tbody>
@@ -117,8 +122,10 @@ async function ladeHistoryDashboard(jahr) {
       <td>${row.diff.toLocaleString("de-DE")}</td>
       <td>${row.privat.toLocaleString("de-DE")}</td>
       <td>${row.geschaeft.toLocaleString("de-DE")}</td>
-      <td>${row.diff ? ((row.privat    / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
-      <td>${row.diff ? ((row.geschaeft / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+      <td>${row.arbeitsweg.toLocaleString("de-DE")}</td>
+      <td>${row.diff ? ((row.privat     / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+      <td>${row.diff ? ((row.geschaeft  / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
+      <td>${row.diff ? ((row.arbeitsweg / row.diff) * 100).toFixed(1) + "%" : "-"}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -150,6 +157,15 @@ async function ladeHistoryDashboard(jahr) {
           data: monatsTabelle.map(row => row.privat),
           backgroundColor: "rgba(25, 135, 84, 0.75)",
           borderColor: "rgba(25, 135, 84, 1)",
+          borderWidth: 2,
+          borderRadius: 4,
+          stack: "km"
+        },
+        {
+          label: "Arbeitsweg",
+          data: monatsTabelle.map(row => row.arbeitsweg),
+          backgroundColor: "rgba(255, 193, 7, 0.75)",
+          borderColor: "rgba(255, 193, 7, 1)",
           borderWidth: 2,
           borderRadius: 4,
           stack: "km"
