@@ -281,6 +281,28 @@ Backend wandelt sie beim Übertragen in eine Adresse um.
 
 PWA-Funktionen erfordern HTTPS (oder `localhost`).
 
+## 11. Sprachen
+
+Oberfläche, Fehlermeldungen, Prüfbefunde, PDF und CSV gibt es auf **Deutsch** und **Englisch**.
+
+- **Welche Sprache gilt:** die Wahl im Profil (Konto → Sprache; gilt für alle Geräte). Ohne Wahl gilt
+  die Browsersprache, sonst Deutsch. Vor dem Login lässt sie sich auf der Login-Seite umstellen.
+- **Backend:** Es antwortet in der Sprache aus `Accept-Language`, die das Frontend immer mitschickt.
+  Ohne Header, z. B. bei API-Token-Clients wie Home Assistant, antwortet es auf Deutsch.
+- **Dateien:** `frontend/lang/<sprache>.json` und `backend/src/lang/<sprache>.json`, im i18next-Format
+  (verschachtelte Schlüssel, `{{platzhalter}}`, Mehrzahl als `schluessel_one` / `schluessel_other`).
+- **Fachlich:** Der Steuervergleich bleibt deutsches Recht, unabhängig von der Sprache (Land steht getrennt im Profil).
+
+**Neue Sprache hinzufügen** (Beispiel Französisch `fr`):
+1. `frontend/lang/de.json` nach `frontend/lang/fr.json` kopieren und übersetzen, ebenso
+   `backend/src/lang/de.json` → `backend/src/lang/fr.json`.
+2. In `frontend/js/i18n.js` bei `SPRACHEN` (`fr: "Français"`) und `LOCALES` (`fr: "fr-FR"`) ergänzen.
+3. In `backend/src/schemas.js` bei `LANGUAGES` und in `backend/src/i18n.js` bei `LOCALES` ergänzen.
+4. `lang/fr.json` in `APP_SHELL` von `frontend/sw.js` eintragen (Offline-Cache).
+5. Optional: CSV-Trennzeichen und Datumsformat in `CSV_FORMAT` (`backend/src/routes/export.js`).
+
+Fehlende Schlüssel fallen automatisch auf Deutsch zurück.
+
 ## Versionierung
 
 Frontend und Backend haben getrennte Versionen im Schema `JJJJ.MM.TT.N`

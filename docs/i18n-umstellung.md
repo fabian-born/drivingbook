@@ -49,6 +49,6 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
 - [x] 3b. Seiten: Auto-Info, Konto, Admin
 - [x] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
 - [x] 5. PDF und CSV
-- [ ] 6. Tests für Englisch (Backend + Browser), Doku (README, GitHub-Page), Aufräumen
+- [x] 6. Tests für Englisch (Backend + Browser), Doku (README, GitHub-Page), Aufräumen
 
 Nach jedem Schritt: Backend-Tests und Browser-Tests grün (Standard bleibt Deutsch).
