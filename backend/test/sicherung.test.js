@@ -42,7 +42,7 @@ describe("Fahrzeug-Sicherung", () => {
   it("ergänzt beim Wiederherstellen nur, was fehlt", async () => {
     // eine Fahrt „verloren“, Protokoll bleibt
     const jahr = await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user);
-    await t.pool.query(`DELETE FROM fahrten WHERE id = $1`, [jahr.body.fahrten[1]._id]);
+    await t.pool.query(`DELETE FROM trips WHERE id = $1`, [jahr.body.fahrten[1]._id]);
 
     const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
     assert.equal(res.status, 200);
@@ -79,9 +79,9 @@ describe("Fahrzeug-Sicherung", () => {
 
   it("stellt nach komplettem Verlust alles mit unverändertem Protokoll wieder her", async () => {
     const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.fahrzeug.code);
-    await t.pool.query(`DELETE FROM fahrten WHERE vehicle_id = $1`, [vehicle.id]);
+    await t.pool.query(`DELETE FROM trips WHERE vehicle_id = $1`, [vehicle.id]);
     await t.pool.query(`DELETE FROM vehicles WHERE id = $1`, [vehicle.id]);
-    await t.pool.query(`DELETE FROM fahrten_audit`);
+    await t.pool.query(`DELETE FROM trip_audit`);
 
     const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
     assert.deepEqual(res.body.importiert, { fahrten: 2, zugeordnet: 0, uebersprungen: 0, jahre: 1, protokoll: 5 });
@@ -103,14 +103,14 @@ describe("Fahrzeug-Sicherung", () => {
   });
 
   it("verwendet keine fremden oder zu großen Fahrt-IDs und verstellt die ID-Folge nicht", async () => {
-    const vorher = (await t.pool.query(`SELECT last_value FROM fahrten_id_seq`)).rows[0].last_value;
+    const vorher = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
     const fremd = { ...datei, fahrzeug: { ...datei.fahrzeug, code: null, name: "Präpariert" }, protokoll: [],
       fahrten: [{ id: 2147483000, kmstand: 99999, ziel: "x", fahrtart: "privat", timestamp: "2030-01-01T00:00:00Z" }] };
     const res = await t.http().post("/api/vehicles/import").set(user).send(fremd);
     assert.equal(res.status, 201);
-    const neu = (await t.pool.query(`SELECT id FROM fahrten WHERE kmstand = 99999`)).rows[0].id;
+    const neu = (await t.pool.query(`SELECT id FROM trips WHERE odometer_km = 99999`)).rows[0].id;
     assert.ok(neu < 2147483000);
-    const nachher = (await t.pool.query(`SELECT last_value FROM fahrten_id_seq`)).rows[0].last_value;
+    const nachher = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
     assert.ok(Number(nachher) - Number(vorher) <= 1);
 
     // neue Fahrten funktionieren weiter
@@ -172,7 +172,7 @@ describe("Gesamtsicherung", () => {
 
   it("stellt nach Datenverlust alles wieder her, ohne Doppelte", async () => {
     await t.pool.query(`DELETE FROM vehicles WHERE code = $1`, [zweitCode]);
-    await t.pool.query(`DELETE FROM fahrten WHERE user_id = (SELECT id FROM users WHERE username = 'gesamt') AND ziel IN ('Zweit', 'Ohne')`);
+    await t.pool.query(`DELETE FROM trips WHERE user_id = (SELECT id FROM users WHERE username = 'gesamt') AND destination IN ('Zweit', 'Ohne')`);
 
     const res = await t.http().post("/api/backup/restore").set(user).send(sicherung);
     assert.equal(res.status, 200);

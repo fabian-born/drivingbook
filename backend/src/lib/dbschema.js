@@ -7,23 +7,23 @@
 // Modul, damit die API-Namen an genau einer Stelle übersetzt werden.
 // ============================================================
 
-// Tabellen, Sequenz und Spalten
+// Tabellen, Sequenz und Spalten (seit Migration 011 englisch)
 export const TAB = {
-  fahrten: "fahrten",
-  audit:   "fahrten_audit",
-  seq:     "fahrten_id_seq",
+  fahrten: "trips",
+  audit:   "trip_audit",
+  seq:     "trips_id_seq",
 };
 
 export const COL = {
-  kmstand:  "kmstand",
-  ziel:     "ziel",
-  fahrtart: "fahrtart",
-  fahrtId:  "fahrt_id",   // in der Protokoll-Tabelle
+  kmstand:  "odometer_km",
+  ziel:     "destination",
+  fahrtart: "trip_type",
+  fahrtId:  "trip_id",   // in der Protokoll-Tabelle
 };
 
 // Werte: API → Datenbank
-const FAHRTART_DB = { privat: "privat", "geschäftlich": "geschäftlich", arbeitsweg: "arbeitsweg" };
-const ANTRIEB_DB  = { verbrenner: "verbrenner", hybrid: "hybrid", elektro: "elektro", elektro_teuer: "elektro_teuer" };
+const FAHRTART_DB = { privat: "private", "geschäftlich": "business", arbeitsweg: "commute" };
+const ANTRIEB_DB  = { verbrenner: "combustion", hybrid: "hybrid", elektro: "electric", elektro_teuer: "electric_high_price" };
 
 const umkehren = map => Object.fromEntries(Object.entries(map).map(([api, db]) => [db, api]));
 const FAHRTART_API = umkehren(FAHRTART_DB);
