@@ -1,9 +1,9 @@
 // ============================================================
-// HTTP-Hilfen: Fehlerklasse, Async-Wrapper, Validierung,
-// zentrale Fehlerbehandlung
+// HTTP helpers: error class, async wrapper, validation,
+// central error handling
 // ============================================================
 
-// Fehler mit HTTP-Status; `extra` wird mit in die JSON-Antwort übernommen
+// Error with HTTP status; `extra` is merged into the JSON response
 export class HttpError extends Error {
   constructor(status, message, extra = {}) {
     super(message);
@@ -12,11 +12,11 @@ export class HttpError extends Error {
   }
 }
 
-// Express 4 fängt abgelehnte Promises nicht selbst ab
+// Express 4 does not catch rejected promises by itself
 export const asyncHandler = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-// Prüft `data` gegen ein zod-Schema; wirft bei Fehlern 400 mit der ersten Meldung
+// Validates `data` against a zod schema; on failure throws 400 with the first message
 export function parse(schema, data) {
   const result = schema.safeParse(data ?? {});
   if (!result.success) {
@@ -25,7 +25,7 @@ export function parse(schema, data) {
   return result.data;
 }
 
-// Muss als letzte Middleware registriert werden
+// Must be registered as the last middleware
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
   if (err instanceof HttpError) {

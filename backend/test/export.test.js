@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
 
-// supertest liefert Binärdaten nur mit eigenem Parser als Buffer
+// supertest returns binary data as a Buffer only with a custom parser
 const binary = (res, callback) => {
   const chunks = [];
   res.on("data", c => chunks.push(c));
@@ -23,22 +23,22 @@ describe("Export", () => {
   });
   after(() => t.close());
 
-  it("liefert 404 für Monate ohne Fahrten", async () => {
+  it("returns 404 for months without trips", async () => {
     assert.equal((await t.http().get("/api/export/json?month=2026-08").set(user)).status, 404);
     assert.equal((await t.http().get("/api/export/json?month=2026-13").set(user)).status, 400);
   });
 
-  it("maskiert CSV-Felder und verhindert Formel-Injection", async () => {
+  it("escapes CSV fields and prevents formula injection", async () => {
     const res = await t.http().get("/api/export/csv/year/2026").set(user);
     assert.equal(res.status, 200);
     const lines = res.text.replace(/^﻿/, "").trim().split("\n");
-    assert.equal(lines.length, 3);  // Kopf + 2 Fahrten aus 2026
+    assert.equal(lines.length, 3);  // header + 2 trips from 2026
     assert.ok(lines[1].includes(`"'=HYPERLINK(""http://x"") ""Zitat"""`));
-    assert.ok(lines[1].includes("10.01.2026 09:00"));  // deutsche Zeit
-    assert.ok(lines[2].endsWith(";ja"));               // nachträglich geändert
+    assert.ok(lines[1].includes("10.01.2026 09:00"));  // German local time
+    assert.ok(lines[2].endsWith(";ja"));               // modified afterwards
   });
 
-  it("erzeugt ein PDF für ein Jahr", async () => {
+  it("generates a PDF for a year", async () => {
     const res = await t.http().get("/api/export/pdf/year/2026").set(user).buffer(true).parse(binary);
     assert.equal(res.status, 200);
     assert.equal(res.headers["content-type"], "application/pdf");
@@ -46,13 +46,13 @@ describe("Export", () => {
     assert.ok(res.body.length > 1000);
   });
 
-  it("erzeugt auch für leere Jahre ein PDF", async () => {
+  it("generates a PDF even for empty years", async () => {
     const res = await t.http().get("/api/export/pdf/year/2030").set(user).buffer(true).parse(binary);
     assert.equal(res.status, 200);
     assert.equal(res.body.subarray(0, 5).toString(), "%PDF-");
   });
 
-  it("schränkt Exporte auf ein Fahrzeug ein", async () => {
+  it("restricts exports to one vehicle", async () => {
     const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
     await post({ odometer_km: 10, destination: "Zweitwagen", trip_type: "private", timestamp: "2026-01-15T08:00:00Z", vehicle_code: zweites.code });
 
@@ -65,7 +65,7 @@ describe("Export", () => {
     assert.notEqual(nur1.body[0].destination, "Zweitwagen");
 
     const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${zweites.code}`).set(user);
-    assert.equal(csv.text.replace(/^\uFEFF/, "").trim().split("\n").length, 2);  // Kopf + 1 Fahrt
+    assert.equal(csv.text.replace(/^\uFEFF/, "").trim().split("\n").length, 2);  // header + 1 trip
 
     const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${zweites.code}`).set(user).buffer(true).parse(binary);
     assert.equal(pdf.status, 200);
@@ -74,19 +74,19 @@ describe("Export", () => {
     assert.equal(leer.status, 404);
   });
 
-  it("lehnt fremde und ungültige Fahrzeug-Codes ab", async () => {
+  it("rejects foreign and invalid vehicle codes", async () => {
     const fremd = await t.registerUser("export-fremd");
     assert.equal((await t.http().get(`/api/export/json?month=2026-01&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
     assert.equal((await t.http().get("/api/export/json?month=2026-01&vehicle=xx").set(user)).status, 400);
     assert.equal((await t.http().get(`/api/audit?year=2026&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
   });
 
-  it("verlangt Anmeldung", async () => {
+  it("requires authentication", async () => {
     assert.equal((await t.http().get("/api/export/pdf/year/2026")).status, 401);
   });
 });
 
-describe("Jahresfahrten", () => {
+describe("Yearly trips", () => {
   let t, user;
   const post = body => t.http().post("/api/trips").set(user).send({ destination: "Ziel", trip_type: "private", ...body });
 
@@ -103,7 +103,7 @@ describe("Jahresfahrten", () => {
   });
   after(() => t.close());
 
-  it("liefert Strecken, Monate und Summe über den Jahreswechsel hinweg", async () => {
+  it("returns distances, months and total across the year boundary", async () => {
     const res = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.trips.map(f => f.distance), [100, 50, 250]);
@@ -115,20 +115,20 @@ describe("Jahresfahrten", () => {
     assert.ok(res.body.trips[0].id);
   });
 
-  it("rechnet ohne Fahrzeugfilter je Fahrzeug getrennt", async () => {
+  it("calculates per vehicle separately without a vehicle filter", async () => {
     const res = await t.http().get("/api/trips?year=2026").set(user);
     assert.equal(res.body.trips.length, 4);
-    assert.equal(res.body.trips.find(f => f.odometer_km === 50).distance, null);  // erste Fahrt des Zweitwagens
+    assert.equal(res.body.trips.find(f => f.odometer_km === 50).distance, null);  // first trip of the second vehicle
     assert.equal(res.body.totals.total, 400);
   });
 
-  it("validiert das Jahr", async () => {
+  it("validates the year", async () => {
     assert.equal((await t.http().get("/api/trips").set(user)).status, 400);
     assert.deepEqual((await t.http().get("/api/trips?year=2030").set(user)).body.trips, []);
   });
 });
 
-describe("PDF rechnet wie Dashboard und Auto-Info", () => {
+describe("PDF calculates like dashboard and vehicle info", () => {
   let t, user;
   const post = body => t.http().post("/api/trips").set(user).send({ destination: "Ziel", trip_type: "private", force: true, ...body });
 
@@ -137,12 +137,12 @@ describe("PDF rechnet wie Dashboard und Auto-Info", () => {
     user = await t.registerUser("pdf-gleich");
     await post({ odometer_km: 900,  timestamp: "2025-12-30T08:00:00Z" });
     await post({ odometer_km: 1000, timestamp: "2026-01-02T08:00:00Z", trip_type: "business" });
-    await post({ odometer_km: 950,  timestamp: "2026-01-03T08:00:00Z" });                          // Rückschritt
+    await post({ odometer_km: 950,  timestamp: "2026-01-03T08:00:00Z" });                          // odometer regression
     await post({ odometer_km: 1200, timestamp: "2026-01-04T08:00:00Z", trip_type: "commute" });
   });
   after(() => t.close());
 
-  it("liefert dieselben Summen, Rückschritte zählen 0", async () => {
+  it("returns the same totals, regressions count as 0", async () => {
     const { jahresFahrten } = await import("../src/lib/strecken.js");
     const { fahrzeugUebersicht } = await import("../src/lib/pdf.js");
 
@@ -154,9 +154,9 @@ describe("PDF rechnet wie Dashboard und Auto-Info", () => {
     assert.deepEqual(api.totals, { trips: 3, total: 350, business: 100, private: 0, commute: 250 });
     assert.equal(uebersicht.total, api.totals.total);
     assert.equal(uebersicht.private, api.totals.private);
-    assert.equal(uebersicht.startKm, 900);   // letzter Stand vor dem Jahr
+    assert.equal(uebersicht.startKm, 900);   // last reading before the year
     assert.equal(uebersicht.endKm, 1200);
-    assert.deepEqual(fahrten.map(f => f.distance), [100, -50, 250]);   // im PDF sichtbar
+    assert.deepEqual(fahrten.map(f => f.distance), [100, -50, 250]);   // visible in the PDF
 
     const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${user.vehicle.code}`).set(user)
       .buffer(true).parse(binary);

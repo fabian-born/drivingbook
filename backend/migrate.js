@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 // ============================================================
-// Fahrtenbuch – Migrationsskript
-// JSON-Dateien (altes Format) → PostgreSQL
+// Logbook – migration script
+// JSON files (legacy format) → PostgreSQL
 //
-// Verwendung:
-//   node migrate.js --user <username> --dir <pfad-zu-json-ordner>
+// Usage:
+//   node migrate.js --user <username> --dir <path-to-json-folder>
 //
-// Optionen:
-//   --user     <username>  Ziel-User in der DB (muss existieren)
-//   --dir      <pfad>      Ordner mit fahrten_YYYY-MM.json Dateien (Standard: ./data)
-//   --vehicle  <id>        Fahrzeug-ID zuweisen (optional, sonst auto)
-//   --dry-run              Nur anzeigen, nichts schreiben
-//   --host     <host>      DB-Host     (Standard: localhost)
-//   --port     <port>      DB-Port     (Standard: 5432)
-//   --db       <name>      DB-Name     (Standard: fahrtenbuch)
-//   --dbuser   <user>      DB-User     (Standard: fahrtenbuch)
-//   --dbpass   <pass>      DB-Passwort
+// Options:
+//   --user     <username>  target user in the DB (must exist)
+//   --dir      <path>      folder with fahrten_YYYY-MM.json files (default: ./data)
+//   --vehicle  <id>        vehicle ID to assign (optional, otherwise auto)
+//   --dry-run              preview only, write nothing
+//   --host     <host>      DB host     (default: localhost)
+//   --port     <port>      DB port     (default: 5432)
+//   --db       <name>      DB name     (default: fahrtenbuch)
+//   --dbuser   <user>      DB user     (default: fahrtenbuch)
+//   --dbpass   <pass>      DB password
 //
-// Beispiel (lokal):
-//   node migrate.js --user admin --dir ./data --dbpass MeinPasswort
+// Example (local):
+//   node migrate.js --user admin --dir ./data --dbpass MyPassword
 //
-// Beispiel (im Docker-Container):
+// Example (inside the Docker container):
 //   docker cp ./data fahrtenbuch-backend:/app/data
 //   docker exec -it fahrtenbuch-backend node migrate.js --user admin --dir ./data
 // ============================================================
@@ -32,7 +32,7 @@ import readline from "readline";
 
 const { Pool } = pg;
 
-// ── Argumente parsen ─────────────────────────────────────────
+// ── Parse arguments ──────────────────────────────────────────
 function parseArgs() {
   const args = process.argv.slice(2);
   const opts = {
@@ -66,7 +66,7 @@ function frage(rl, text) {
   return new Promise(resolve => rl.question(text, resolve));
 }
 
-// Fahrtart der alten JSON-Dateien ("privat"/"geschäftlich") → Wert in der Datenbank
+// Trip type of the legacy JSON files ("privat"/"geschäftlich") → database value
 function parseFahrtart(raw) {
   if (!raw) return "private";
   return raw.toLowerCase().trim().includes("gesch") ? "business" : "private";
@@ -78,7 +78,7 @@ function parseTimestamp(raw) {
   return isNaN(d) ? null : d.toISOString();
 }
 
-// ── JSON-Dateien laden ────────────────────────────────────────
+// ── Load JSON files ───────────────────────────────────────────
 function ladeJsonDateien(dir) {
   const absDir = path.resolve(dir);
   if (!fs.existsSync(absDir)) {
@@ -109,7 +109,7 @@ function ladeJsonDateien(dir) {
   return alle;
 }
 
-// ── Hauptprogramm ─────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────
 async function main() {
   const opts = parseArgs();
 
@@ -129,7 +129,7 @@ async function main() {
 
   if (fahrten.length === 0) { console.log("ℹ️  Keine Fahrten. Abbruch."); return; }
 
-  // Vorschau
+  // Preview
   console.log("Vorschau (erste 3 Einträge):");
   fahrten.slice(0, 3).forEach((f, i) =>
     console.log(`  [${i+1}] km=${f.kmstand}  ziel="${f.ziel}"  art=${f.fahrtart}  ts=${f.timestamp}`)
@@ -141,7 +141,7 @@ async function main() {
     return;
   }
 
-  // Bestätigung
+  // Confirmation
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const antwort = await frage(rl,
     `⚠️  ${fahrten.length} Fahrten → User "${opts.user}" importieren? (ja/nein): `
@@ -150,7 +150,7 @@ async function main() {
 
   if (antwort.trim().toLowerCase() !== "ja") { console.log("❌ Abgebrochen."); return; }
 
-  // DB-Verbindung
+  // DB connection
   const pool = new Pool({
     host: opts.host, port: opts.port,
     database: opts.db, user: opts.dbuser, password: opts.dbpass,
@@ -160,7 +160,7 @@ async function main() {
     const client = await pool.connect();
     console.log("✅ DB-Verbindung OK\n");
 
-    // User-ID ermitteln
+    // Look up user ID
     const userRes = await client.query(`SELECT id FROM users WHERE username = $1`, [opts.user]);
     if (userRes.rows.length === 0) {
       console.error(`❌ User "${opts.user}" nicht gefunden. Bitte zuerst registrieren.`);
@@ -169,7 +169,7 @@ async function main() {
     const userId = userRes.rows[0].id;
     console.log(`👤 User "${opts.user}" (ID: ${userId})`);
 
-    // Fahrzeug-ID bestimmen
+    // Determine vehicle ID
     if (opts.vehicleId) {
       const vCheck = await client.query(
         `SELECT id, name FROM vehicles WHERE id = $1 AND user_id = $2`,
@@ -208,7 +208,7 @@ async function main() {
         continue;
       }
 
-      // Duplikat-Prüfung
+      // Duplicate check
       const dup = await client.query(
         `SELECT id FROM trips WHERE user_id=$1 AND timestamp=$2 AND odometer_km=$3`,
         [userId, ts, kmstand]

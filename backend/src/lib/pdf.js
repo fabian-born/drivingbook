@@ -1,6 +1,6 @@
 // ============================================================
-// PDF-Export: Fahrtenbuch eines Jahres
-// Aufbau: Übersicht je Fahrzeug → Fahrtentabelle → Änderungsprotokoll
+// PDF export: logbook for one year
+// Layout: summary per vehicle → trip table → audit log
 // ============================================================
 
 import PDFDocument from "pdfkit";
@@ -15,8 +15,8 @@ const km = n => (n == null ? "–" : n.toLocaleString("de-DE"));
 
 const FAHRTART_LABEL = { private: "Privat", business: "Geschäftlich", commute: "Arbeitsweg" };
 
-// Übersicht je Fahrzeug aus jahresFahrten() – dieselbe Berechnung wie Dashboard
-// und Auto-Info (Strecke ab dem letzten km-Stand vor dem Jahr, Rückschritte zählen 0)
+// Summary per vehicle from jahresFahrten() – same calculation as dashboard and
+// vehicle info (distance from the last odometer reading before the year, decreases count as 0)
 export function fahrzeugUebersicht(trips) {
   const gruppen = new Map();
   for (const t of trips) {
@@ -35,7 +35,7 @@ export function fahrzeugUebersicht(trips) {
   });
 }
 
-// Kurzbeschreibung eines Protokolleintrags
+// Short description of an audit log entry
 function describeAudit(entry, formatTs) {
   const fmt = (field, value) => {
     if (value == null) return "–";
@@ -52,12 +52,12 @@ function describeAudit(entry, formatTs) {
   }
   const changes = Object.keys(labels)
     .filter(f => JSON.stringify(entry.old_data?.[f]) !== JSON.stringify(entry.new_data?.[f]))
-    // Standardschriften kennen kein "→" (WinAnsi), daher "»"
+    // Standard fonts have no "→" (WinAnsi), hence "»"
     .map(f => `${labels[f]}: ${fmt(f, entry.old_data?.[f])} » ${fmt(f, entry.new_data?.[f])}`);
   return changes.length ? changes.join("; ") : "Gespeichert ohne inhaltliche Änderung";
 }
 
-// trips: aus jahresFahrten() (mit Strecke je Fahrt)
+// trips: from jahresFahrten() (with distance per trip)
 export function renderYearPdf(stream, { year, username, trips, audit, timezone }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -75,10 +75,10 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
 
     const left   = doc.page.margins.left;
     const width  = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const bottom = () => doc.page.height - doc.page.margins.bottom - 15;  // Platz für Fußzeile
+    const bottom = () => doc.page.height - doc.page.margins.bottom - 15;  // room for footer
     let y = doc.page.margins.top;
 
-    // ── Tabellen-Helfer ─────────────────────────────────────
+    // ── Table helpers ───────────────────────────────────────
     function drawRow(columns, cells, { bold = false, fill = null, onNewPage = null } = {}) {
       doc.font(bold ? FONT_BOLD : FONT).fontSize(8.5);
       const height = Math.max(...columns.map((c, i) =>
@@ -107,7 +107,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       y = doc.y + 6;
     }
 
-    // ── Kopf ────────────────────────────────────────────────
+    // ── Header ──────────────────────────────────────────────
     doc.font(FONT_BOLD).fontSize(18).text(`Fahrtenbuch ${year}`, left, y);
     doc.font(FONT).fontSize(10).fillColor(GREY)
       .text(`Benutzer: ${username}   ·   Erstellt am ${formatTs(new Date().toISOString())}`);
@@ -120,7 +120,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
     if (rows.length === 0) {
       doc.font(FONT).fontSize(11).text(`Keine Fahrten im Jahr ${year} vorhanden.`, left, y);
     } else {
-      // ── Übersicht je Fahrzeug ─────────────────────────────
+      // ── Summary per vehicle ───────────────────────────────
       heading("Übersicht");
       const summaryCols = [
         { width: 95 }, { width: 55, align: "right" }, { width: 55, align: "right" },
@@ -138,7 +138,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
         ]);
       }
 
-      // ── Fahrten ───────────────────────────────────────────
+      // ── Trips ─────────────────────────────────────────────
       heading("Fahrten");
       const multiVehicle = vehicles.length > 1;
       const tripCols = [
@@ -154,7 +154,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
 
       rows.forEach((t, i) => {
         drawRow(tripCols, [
-          // Rückschritte bleiben hier als negative Strecke sichtbar
+          // Odometer decreases remain visible here as negative distance
           i + 1, formatTs(t.timestamp).replace(", ", " "), km(t.odometer_km), km(t.distance),
           FAHRTART_LABEL[t.trip_type] ?? t.trip_type,
           ...(multiVehicle ? [t.vehicle_name || "–"] : []),
@@ -170,7 +170,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       }
     }
 
-    // ── Änderungsprotokoll ──────────────────────────────────
+    // ── Audit log ───────────────────────────────────────────
     heading("Änderungsprotokoll");
     if (audit.length === 0) {
       doc.font(FONT).fontSize(9).text("Keine nachträglichen Änderungen oder Löschungen.", left, y);
@@ -184,12 +184,12 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       });
     }
 
-    // ── Fußzeile mit Seitenzahlen ───────────────────────────
+    // ── Footer with page numbers ────────────────────────────
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
       const marginBottom = doc.page.margins.bottom;
-      doc.page.margins.bottom = 0;  // sonst erzeugt Text im Rand eine neue Seite
+      doc.page.margins.bottom = 0;  // otherwise text in the margin creates a new page
       doc.font(FONT).fontSize(8).fillColor(GREY).text(
         `Fahrtenbuch ${year} · Seite ${i + 1} von ${range.count}`,
         left, doc.page.height - 30, { width, align: "center" }

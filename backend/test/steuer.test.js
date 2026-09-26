@@ -5,10 +5,10 @@ import { steuerVergleich } from "../src/lib/steuer.js";
 const kosten = { total_costs: 9000, depreciation: 4000, commute_km: 20, months: 12, tax_rate: 42 };
 const km     = { private: 3000, total: 20000 };
 
-describe("Steuervergleich", () => {
-  it("rechnet die 1-%-Regel mit Arbeitsweg und das Fahrtenbuch für Verbrenner", () => {
+describe("Tax comparison", () => {
+  it("calculates the 1% rule with commute and the logbook for combustion cars", () => {
     const v = steuerVergleich({ list_price: 45990, drive_type: "combustion" }, kosten, km);
-    assert.equal(v.list_price, 45900);                 // auf volle 100 € abgerundet
+    assert.equal(v.list_price, 45900);                 // rounded down to full 100 €
     assert.equal(v.flat_rate.private_use, 5508);       // 45.900 × 1 % × 12
     assert.equal(v.flat_rate.commute, 3304.8);        // 45.900 × 0,03 % × 20 km × 12
     assert.equal(v.flat_rate.total, 8812.8);
@@ -20,7 +20,7 @@ describe("Steuervergleich", () => {
     assert.ok(Math.abs(v.break_even_share - 0.9792) < 0.0001);
   });
 
-  it("setzt bei E-Autos Satz und AfA auf ein Viertel", () => {
+  it("reduces rate and depreciation to a quarter for EVs", () => {
     const v = steuerVergleich({ list_price: 45990, drive_type: "electric" }, kosten, km);
     assert.equal(v.total_costs, 6000);                // 5.000 + 4.000 / 4
     assert.equal(v.flat_rate.private_use, 1377);
@@ -28,21 +28,21 @@ describe("Steuervergleich", () => {
     assert.equal(v.logbook.total, 900);
   });
 
-  it("deckelt die Pauschale auf die tatsächlichen Kosten", () => {
+  it("caps the flat rate at the actual costs", () => {
     const v = steuerVergleich({ list_price: 45990, drive_type: "combustion" },
       { ...kosten, total_costs: 3000, depreciation: 0 }, km);
     assert.equal(v.flat_rate.total, 3000);
     assert.equal(v.flat_rate.capped, true);
   });
 
-  it("empfiehlt die Pauschale bei hohem Privatanteil", () => {
+  it("recommends the flat rate for a high private share", () => {
     const v = steuerVergleich({ list_price: 20000, drive_type: "combustion" },
       { ...kosten, commute_km: 0 }, { private: 18000, total: 20000 });
     assert.equal(v.recommendation, "flat_rate");
     assert.ok(v.difference < 0);
   });
 
-  it("liefert null ohne Listenpreis oder Kosten, ohne Fahrten keinen Fahrtenbuchwert", () => {
+  it("returns null without list price or costs, no logbook value without trips", () => {
     assert.equal(steuerVergleich({ list_price: null, drive_type: "combustion" }, kosten, km), null);
     assert.equal(steuerVergleich({ list_price: 30000, drive_type: "combustion" }, null, km), null);
     const v = steuerVergleich({ list_price: 30000, drive_type: "combustion" }, kosten, { private: 0, total: 0 });
@@ -51,8 +51,8 @@ describe("Steuervergleich", () => {
   });
 });
 
-describe("Steuervergleich mit Arbeitsweg", () => {
-  it("zählt Fahrten zur Arbeit beim Fahrtenbuch zur privaten Nutzung", () => {
+describe("Tax comparison with commute", () => {
+  it("counts commute trips as private use in the logbook", () => {
     const v = steuerVergleich({ list_price: 45990, drive_type: "combustion" }, kosten,
       { private: 3000, commute: 2000, total: 20000 });
     assert.equal(v.logbook.private_share, 0.25);

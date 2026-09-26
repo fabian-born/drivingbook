@@ -1,5 +1,5 @@
 // ============================================================
-// Eigenes Konto: Profil, Passwort, Fahrzeuge, API-Tokens
+// Own account: profile, password, vehicles, API tokens
 // ============================================================
 
 import express from "express";
@@ -27,9 +27,9 @@ export function accountRoutes({ pool, requireAuth }) {
     [userId]
   );
 
-  // ── Profil ─────────────────────────────────────────────────
+  // ── Profile ────────────────────────────────────────────────
 
-  // GET /api/profile  →  Userinfos + eigene Tokens + eigene Fahrzeuge
+  // GET /api/profile  →  user info + own tokens + own vehicles
   router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
     const [userRes, tokenRes, vehicleRes] = await Promise.all([
       pool.query(`SELECT id, username, role, created_at FROM users WHERE id = $1`, [req.userId]),
@@ -44,7 +44,7 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json({ user: userRes.rows[0], tokens: tokenRes.rows, vehicles: vehicleRes.rows });
   }));
 
-  // POST /api/users/change-password  →  Eigenes Passwort ändern
+  // POST /api/users/change-password  →  change own password
   router.post("/users/change-password", requireAuth, asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = parse(changePasswordBody, req.body);
 
@@ -60,19 +60,19 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json({ message: "Passwort erfolgreich geändert" });
   }));
 
-  // ── Fahrzeuge ──────────────────────────────────────────────
+  // ── Vehicles ───────────────────────────────────────────────
 
   router.get("/vehicles", requireAuth, asyncHandler(async (req, res) => {
     return res.json((await listVehicles(req.userId)).rows);
   }));
 
-  // POST /api/vehicles  →  Neues Fahrzeug anlegen; Code wird generiert
+  // POST /api/vehicles  →  create a new vehicle; code is generated
   // Body: { name, is_default? }
   router.post("/vehicles", requireAuth, asyncHandler(async (req, res) => {
     const { name, is_default } = parse(vehicleBody, req.body);
 
     const created = await withTransaction(pool, async client => {
-      // Wenn neues Fahrzeug Default sein soll → alten Default entfernen
+      // If the new vehicle should be the default → clear the old default
       if (is_default) {
         await client.query(
           `UPDATE vehicles SET is_default = FALSE WHERE user_id = $1 AND is_default = TRUE`,
@@ -85,7 +85,7 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.status(201).json(created);
   }));
 
-  // PATCH /api/vehicles/:id/default  →  Dieses Fahrzeug als Default markieren
+  // PATCH /api/vehicles/:id/default  →  mark this vehicle as default
   router.patch("/vehicles/:id/default", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
 
@@ -108,10 +108,10 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json(updated);
   }));
 
-  // DELETE /api/vehicles/:id[?target=ID]  →  Fahrzeug löschen
-  // Hat es Fahrten, müssen sie vorher zu einem anderen Fahrzeug des Users (target)
-  // umziehen – sonst verschwänden sie aus allen Ansichten und dem Fahrtenbuch-PDF.
-  // Ohne target antwortet der Endpunkt dann mit 409 (code HAS_TRIPS, count).
+  // DELETE /api/vehicles/:id[?target=ID]  →  delete vehicle
+  // If it has trips, they must first move to another vehicle of the user (target)
+  // – otherwise they would vanish from all views and the logbook PDF.
+  // Without target the endpoint then responds with 409 (code HAS_TRIPS, count).
   router.delete("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const { target: ziel } = parse(vehicleDeleteQuery, req.query);
@@ -163,18 +163,18 @@ export function accountRoutes({ pool, requireAuth }) {
 
   // ── API-Tokens ─────────────────────────────────────────────
 
-  // GET /api/tokens  →  Alle Tokens des Users (ohne den Token-Wert selbst)
+  // GET /api/tokens  →  all tokens of the user (without the token value itself)
   router.get("/tokens", requireAuth, asyncHandler(async (req, res) => {
     return res.json((await listTokens(req.userId)).rows);
   }));
 
-  // POST /api/tokens  →  Neuen Token generieren; Klartext nur in dieser Antwort
+  // POST /api/tokens  →  generate a new token; plain text only in this response
   // Body: { label?, is_default? }
   router.post("/tokens", requireAuth, asyncHandler(async (req, res) => {
     const { label, is_default } = parse(tokenBody, req.body);
 
     const created = await withTransaction(pool, async client => {
-      // Wenn neuer Token Default sein soll → alten Default entfernen
+      // If the new token should be the default → clear the old default
       if (is_default) {
         await client.query(
           `UPDATE api_tokens SET is_default = FALSE WHERE user_id = $1 AND is_default = TRUE`,

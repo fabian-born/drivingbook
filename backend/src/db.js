@@ -1,5 +1,5 @@
 // ============================================================
-// Datenbank: Pool, Transaktionen, Migrationen
+// Database: pool, transactions, migrations
 // ============================================================
 
 import fs   from "fs";
@@ -9,14 +9,14 @@ import { fileURLToPath } from "url";
 
 const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
-// Beliebige feste Zahl: verhindert, dass zwei Backend-Instanzen gleichzeitig migrieren
+// Arbitrary fixed number: prevents two backend instances from migrating at once
 const MIGRATION_LOCK_ID = 4711_2026;
 
 export function createPool(dbConfig) {
   return new pg.Pool(dbConfig);
 }
 
-// Führt fn(client) in einer Transaktion aus
+// Runs fn(client) inside a transaction
 export async function withTransaction(pool, fn) {
   const client = await pool.connect();
   try {
@@ -32,7 +32,7 @@ export async function withTransaction(pool, fn) {
   }
 }
 
-// Wartet, bis die Datenbank erreichbar ist (z. B. direkt nach Container-Start)
+// Waits until the database is reachable (e.g. right after container start)
 export async function waitForDatabase(pool, { attempts = 15, delayMs = 2000 } = {}) {
   for (let i = 1; ; i++) {
     try {
@@ -46,8 +46,8 @@ export async function waitForDatabase(pool, { attempts = 15, delayMs = 2000 } = 
   }
 }
 
-// Spielt alle noch nicht angewendeten SQL-Dateien aus migrations/ ein
-// (alphabetisch sortiert, jede Datei in einer eigenen Transaktion)
+// Applies all not-yet-applied SQL files from migrations/
+// (sorted alphabetically, each file in its own transaction)
 export async function runMigrations(pool) {
   const client = await pool.connect();
   try {

@@ -1,5 +1,5 @@
 // ============================================================
-// Express-App (ohne Serverstart, damit sie in Tests nutzbar ist)
+// Express app (without starting the server, so tests can use it)
 // ============================================================
 
 import fs      from "fs";
@@ -16,7 +16,7 @@ import { exportRoutes } from "./routes/export.js";
 import { vehicleRoutes } from "./routes/vehicles.js";
 import { backupRoutes } from "./routes/backup.js";
 
-// Version aus release.ver (wird beim Commit automatisch hochgezählt)
+// Version from release.ver (bumped automatically on commit)
 export const VERSION = (() => {
   try {
     return fs.readFileSync(new URL("../release.ver", import.meta.url), "utf8").trim();
@@ -32,12 +32,12 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
     app.set("trust proxy", config.trustProxy);
   }
   app.disable("x-powered-by");
-  // Sicherungen können groß sein (eigene Limits in den Routen); alle anderen Requests bleiben klein
+  // Backups can be large (own limits in the routes); all other requests stay small
   const GROSSE_UPLOADS = new Set(["/api/vehicles/import", "/api/backup/restore"]);
   const jsonKlein = express.json({ limit: "100kb" });
   app.use((req, res, next) => (GROSSE_UPLOADS.has(req.path) ? next() : jsonKlein(req, res, next)));
 
-  // Ohne CORS_ORIGIN keine CORS-Header → Browser erlauben nur Aufrufe von der gleichen Origin
+  // Without CORS_ORIGIN no CORS headers → browsers only allow same-origin calls
   if (config.corsOrigins.length > 0) {
     app.use(cors({ origin: config.corsOrigins }));
   }
@@ -45,7 +45,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   const { requireAuth, requireAdmin } = createAuth({ pool, config });
   const deps = { pool, config, requireAuth, requireAdmin, geocode };
 
-  // GET /api/health  →  für Container-Healthchecks
+  // GET /api/health  →  for container health checks
   app.get("/api/health", asyncHandler(async (req, res) => {
     await pool.query("SELECT 1");
     res.json({ status: "ok", version: VERSION });

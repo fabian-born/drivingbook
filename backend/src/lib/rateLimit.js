@@ -1,11 +1,11 @@
 // ============================================================
-// Einfaches Rate-Limit (In-Memory, pro Prozess)
+// Simple rate limit (in-memory, per process)
 // ============================================================
 
 export function createLimiter({ max, windowMs }) {
   const hits = new Map();
 
-  // Abgelaufene Einträge regelmäßig entfernen
+  // Periodically remove expired entries
   setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of hits) {

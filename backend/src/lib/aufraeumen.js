@@ -1,11 +1,11 @@
 // ============================================================
-// Datenbank aufräumen (Admin): doppelte Fahrten und Fahrten ohne Fahrzeug
+// Database cleanup (admin): duplicate trips and trips without a vehicle
 //
-// Doppelt = gleicher User, gleiches Fahrzeug, gleicher km-Stand, gleiches
-// Ziel, gleiche Fahrtart und höchstens DUPLIKAT_SEKUNDEN auseinander
-// (typisch: Doppelklick oder doppelt nachgereichte Offline-Fahrt).
-// Behalten wird die Fahrt mit dem meisten Änderungsverlauf, bei Gleichstand
-// die älteste. Jede Aktion wird mit Quelle "admin" protokolliert.
+// Duplicate = same user, same vehicle, same odometer reading, same
+// destination, same trip type and at most DUPLIKAT_SEKUNDEN apart
+// (typically: double click or an offline trip submitted twice).
+// The trip with the most change history is kept; on a tie, the oldest.
+// Every action is written to the audit log with source "admin".
 // ============================================================
 
 import { writeAudit } from "./fahrten.js";
@@ -34,7 +34,7 @@ export async function findeDuplikate(db) {
     [DUPLIKAT_SEKUNDEN]
   )).rows;
 
-  // Aufeinanderfolgende Kandidaten mit gleichem Schlüssel und kleinem Zeitabstand bilden eine Gruppe
+  // Consecutive candidates with the same key and a small time gap form a group
   const gruppen = [];
   let aktuell = null;
   for (const f of kandidaten) {
@@ -91,9 +91,9 @@ export async function bericht(db) {
 
 const RETURNING = `id, odometer_km, destination, trip_type, timestamp, vehicle_id`;
 
-// Löscht die überzähligen Fahrten aller (oder der angegebenen) Duplikat-Gruppen.
-// ids: nur diese Fahrten – jede muss aktuell als „remove“ erkannt sein
-// db: Client in einer Transaktion
+// Deletes the surplus trips of all (or the given) duplicate groups.
+// ids: only these trips – each must currently be detected as "remove"
+// db: client within a transaction
 export async function entferneDuplikate(db, ids = null) {
   const zuEntfernen = (await findeDuplikate(db)).flatMap(g => g.remove.map(f => f.id));
   const auswahl = ids ? zuEntfernen.filter(id => ids.includes(id)) : zuEntfernen;
@@ -105,9 +105,9 @@ export async function entferneDuplikate(db, ids = null) {
   return { removed: auswahl.length, rejected: ids ? ids.filter(id => !auswahl.includes(id)) : [] };
 }
 
-// Fahrten eines Users ohne Fahrzeug einem seiner Fahrzeuge zuordnen oder löschen
-// db: Client in einer Transaktion
-// action: "assign" (vehicle_id nötig) oder "delete"
+// Assign a user's trips without a vehicle to one of their vehicles, or delete them
+// db: client within a transaction
+// action: "assign" (vehicle_id required) or "delete"
 export async function bearbeiteOhneFahrzeug(db, { user_id, action, vehicle_id }) {
   const fahrten = (await db.query(
     `SELECT ${RETURNING} FROM trips WHERE user_id = $1 AND vehicle_id IS NULL FOR UPDATE`,

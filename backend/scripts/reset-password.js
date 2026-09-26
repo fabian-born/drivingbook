@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 // ============================================================
-// Passwort eines Benutzers zurücksetzen (z. B. vergessenes Admin-Passwort)
+// Reset a user's password (e.g. a forgotten admin password)
 //
-//   node scripts/reset-password.js [benutzername]     Standard: admin
+//   node scripts/reset-password.js [username]     default: admin
 //
-// Im Terminal wird das neue Passwort verdeckt abgefragt (leer lassen =
-// zufälliges Passwort erzeugen). Ohne Terminal wird immer ein zufälliges
-// Passwort erzeugt und ausgegeben.
+// In a terminal the new password is prompted for hidden (leave empty =
+// generate a random password). Without a terminal a random password
+// is always generated and printed.
 //
-// Im Container (Prod):
+// In the container (prod):
 //   docker exec -it drivingbook-backend node scripts/reset-password.js admin
 //
-// Datenbank über DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
-// (im Container bereits gesetzt).
+// Database via DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+// (already set in the container).
 // ============================================================
 
 import bcrypt   from "bcrypt";
@@ -21,9 +21,9 @@ import pg       from "pg";
 import readline from "readline";
 
 const MIN_LAENGE = 8;
-const MAX_LAENGE = 72;   // bcrypt verarbeitet höchstens 72 Byte
+const MAX_LAENGE = 72;   // bcrypt processes at most 72 bytes
 
-// Verdeckte Eingabe (keine Ausgabe der getippten Zeichen)
+// Hidden input (typed characters are not echoed)
 function frageVerdeckt(text) {
   return new Promise(resolve => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
@@ -53,7 +53,7 @@ async function neuesPasswort() {
 }
 
 async function main() {
-  // exakt wie angegeben, sonst klein geschrieben (Benutzernamen sind seit Migration 005 klein)
+  // exactly as given, otherwise lower case (usernames are lower case since migration 005)
   const eingabe = (process.argv[2] || "admin").trim();
 
   const pool = new pg.Pool({

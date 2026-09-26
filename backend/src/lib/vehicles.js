@@ -1,13 +1,13 @@
 // ============================================================
-// Fahrzeuge
-// Jedes Fahrzeug bekommt neben der internen ID einen 6-stelligen,
-// eindeutigen Code (öffentliche Kennung für API-Aufrufe).
+// Vehicles
+// Besides its internal ID, every vehicle gets a unique 6-character
+// code (public identifier for API calls).
 // ============================================================
 
 import crypto from "crypto";
 import { HttpError } from "../http.js";
 
-// Ohne 0/O/1/I zur besseren Lesbarkeit
+// Without 0/O/1/I for better readability
 const CODE_CHARS  = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
 const MAX_ATTEMPTS = 5;
@@ -20,7 +20,7 @@ function randomCode() {
   return code;
 }
 
-// db: Pool oder Client (für Transaktionen)
+// db: pool or client (for transactions)
 export async function createVehicle(db, userId, name, isDefault) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -32,15 +32,15 @@ export async function createVehicle(db, userId, name, isDefault) {
       );
       return result.rows[0];
     } catch (err) {
-      // 23505 = unique_violation → Code-Kollision, nochmal versuchen
+      // 23505 = unique_violation → code collision, try again
       if (err.code === "23505" && attempt < MAX_ATTEMPTS) continue;
       throw err;
     }
   }
 }
 
-// Liefert die interne ID eines Fahrzeugs des Users anhand seines Codes
-// (undefined → null, d. h. keine Einschränkung). Fremde/unbekannte Codes → 404.
+// Returns the internal ID of one of the user's vehicles by its code
+// (undefined → null, i.e. no restriction). Foreign/unknown codes → 404.
 export async function vehicleIdByCode(db, userId, code) {
   if (code === undefined) return null;
   const result = await db.query(

@@ -1,12 +1,12 @@
 // ============================================================
-// Konfiguration aus Umgebungsvariablen
+// Configuration from environment variables
 // ============================================================
 
-// Wirft einen Fehler, wenn die Konfiguration unsicher oder unvollständig ist
+// Throws if the configuration is insecure or incomplete
 export function loadConfig(env = process.env) {
   const jwtSecret = env.JWT_SECRET;
 
-  // Ohne sicheres Secret könnte jeder gültige (Admin-)JWTs fälschen
+  // Without a secure secret anyone could forge valid (admin) JWTs
   if (!jwtSecret || jwtSecret.length < 32 || jwtSecret.includes("CHANGE_ME")) {
     throw new Error(
       "JWT_SECRET fehlt oder ist unsicher (mind. 32 zufällige Zeichen erforderlich).\n" +
@@ -38,23 +38,23 @@ export function loadConfig(env = process.env) {
       password: env.ADMIN_PASSWORD || null,
     },
 
-    // Kommagetrennte Liste erlaubter Frontend-Origins.
-    // Nur nötig, wenn das Frontend die API von einer anderen Origin aufruft.
+    // Comma-separated list of allowed frontend origins.
+    // Only needed if the frontend calls the API from a different origin.
     corsOrigins: (env.CORS_ORIGIN || "").split(",").map(o => o.trim()).filter(Boolean),
 
-    // Registrierung ist standardmäßig erlaubt; ALLOW_REGISTRATION=false schaltet sie ab
+    // Registration is allowed by default; ALLOW_REGISTRATION=false disables it
     allowRegistration: env.ALLOW_REGISTRATION !== "false",
 
-    // Hinter Reverse-Proxys nötig, damit req.ip die echte Client-IP ist
+    // Needed behind reverse proxies so that req.ip is the real client IP
     trustProxy,
 
-    // Reverse-Geocoding von GPS-Koordinaten im Ziel (Nominatim)
+    // Reverse geocoding of GPS coordinates in the destination (Nominatim)
     geocoding: {
       enabled: env.GEOCODING !== "false",
       email:   env.NOMINATIM_EMAIL || null,
     },
 
-    // Zeitzone, in der Monate und Jahre ausgewertet werden
+    // Time zone in which months and years are evaluated
     timezone: "Europe/Berlin",
   };
 }

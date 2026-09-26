@@ -5,7 +5,7 @@ import { setup } from "./helpers.js";
 const fahrt = (odometer_km, timestamp, extra = {}) =>
   ({ odometer_km, destination: `Ziel ${odometer_km}`, trip_type: "private", timestamp, ...extra });
 
-describe("Fahrten", () => {
+describe("Trips", () => {
   let t, user, other;
   const post = body => t.http().post("/api/trips").set(user).send(body);
   const month = m => t.http().get(`/api/export/json?month=${m}`).set(user);
@@ -17,7 +17,7 @@ describe("Fahrten", () => {
   });
   after(() => t.close());
 
-  it("validiert neue Fahrten", async () => {
+  it("validates new trips", async () => {
     const cases = [
       [fahrt("abc", "2026-01-01T08:00:00Z"), /km-Stand/],
       [fahrt(-5, "2026-01-01T08:00:00Z"), /km-Stand/],
@@ -32,7 +32,7 @@ describe("Fahrten", () => {
     }
   });
 
-  it("akzeptiert odometer_km als String (Formular) und fremde Fahrzeuge nicht", async () => {
+  it("accepts odometer_km as a string (form) but not foreign vehicles", async () => {
     const ok = await post(fahrt("1000", "2026-01-05T08:00:00Z"));
     assert.equal(ok.status, 200);
 
@@ -40,9 +40,9 @@ describe("Fahrten", () => {
     assert.equal(foreign.status, 404);
   });
 
-  it("bearbeitet per ID die richtige Fahrt, auch wenn sich die Reihenfolge ändert", async () => {
+  it("edits the correct trip by ID even when the order changes", async () => {
     const b = (await post(fahrt(1200, "2026-01-10T08:00:00Z"))).body.id;
-    // nachträglich eine frühere Fahrt einfügen → Positionen verschieben sich
+    // insert an earlier trip afterwards → positions shift
     await post(fahrt(900, "2026-01-02T08:00:00Z"));
 
     const res = await t.http().put(`/api/trips/${b}`).set(user).send({ destination: "Geändert" });
@@ -53,9 +53,9 @@ describe("Fahrten", () => {
     assert.equal(list.filter(f => f.destination === "Geändert").length, 1);
   });
 
-  it("erlaubt Teil-Updates mit odometer_km 0 und vehicle_id null (mit force)", async () => {
-    // Liegt vor allen anderen Fahrten, damit km-Stand 0 die Plausibilität späterer Tests nicht stört
-    // (force nötig, da frühere Fahrten ohne vehicle_code jetzt ebenfalls das Default-Fahrzeug nutzen)
+  it("allows partial updates with odometer_km 0 and vehicle_id null (with force)", async () => {
+    // Precedes all other trips so that odometer reading 0 does not affect plausibility in later tests
+    // (force needed since earlier trips without vehicle_code now also use the default vehicle)
     const id = (await post(fahrt(5000, "2020-02-01T08:00:00Z", { vehicle_code: user.vehicle.code, force: true }))).body.id;
     const res = await t.http().put(`/api/trips/${id}`).set(user).send({ odometer_km: 0, vehicle_code: null, force: true });
     assert.equal(res.status, 200);
@@ -63,7 +63,7 @@ describe("Fahrten", () => {
     assert.equal(res.body.trip.vehicle_id, null);
   });
 
-  it("lehnt leere Updates, ungültige IDs und fremde Fahrten ab", async () => {
+  it("rejects empty updates, invalid IDs and foreign trips", async () => {
     const id = (await post(fahrt(1300, "2026-01-15T08:00:00Z"))).body.id;
     assert.equal((await t.http().put(`/api/trips/${id}`).set(user).send({})).status, 400);
     assert.equal((await t.http().put("/api/trips/abc").set(user).send({ destination: "x" })).status, 400);
@@ -71,30 +71,30 @@ describe("Fahrten", () => {
     assert.equal((await t.http().delete(`/api/trips/${id}`).set(other)).status, 404);
   });
 
-  it("hat die alten Index-Routen nicht mehr", async () => {
+  it("no longer has the old index routes", async () => {
     const res = await t.http().put("/api/trips/2026-01/0").set(user).send({ destination: "x" });
     assert.equal(res.status, 404);
   });
 
-  it("ordnet Monate nach deutscher Zeit zu", async () => {
-    // 31.03. 22:30 UTC = 01.04. 00:30 Sommerzeit
+  it("assigns months by German local time", async () => {
+    // 31.03. 22:30 UTC = 01.04. 00:30 summer time
     const id = (await post(fahrt(20000, "2026-03-31T22:30:00Z", { vehicle_code: user.vehicle.code }))).body.id;
     const april = (await month("2026-04")).body;
     assert.ok(april.some(f => f.id === id));
 
-    // Verschieben per PUT: neuer Monat steht in der Antwort
+    // moving via PUT: the new month is in the response
     const moved = await t.http().put(`/api/trips/${id}`).set(user).send({ timestamp: "2026-05-10T10:00:00Z" });
     assert.equal(moved.body.trip.month, "2026-05");
   });
 
-  it("löscht per ID", async () => {
+  it("deletes by ID", async () => {
     const id = (await post(fahrt(1400, "2026-01-20T08:00:00Z"))).body.id;
     assert.equal((await t.http().delete(`/api/trips/${id}`).set(user)).status, 200);
     assert.ok(!(await month("2026-01")).body.some(f => f.id === id));
   });
 });
 
-describe("km-Plausibilität", () => {
+describe("Odometer plausibility", () => {
   let t, user, vcode;
   const post = body => t.http().post("/api/trips").set(user).send({ vehicle_code: vcode, ...body });
 
@@ -107,23 +107,23 @@ describe("km-Plausibilität", () => {
   });
   after(() => t.close());
 
-  it("lehnt kleinere km-Stände als bei der vorherigen Fahrt ab", async () => {
+  it("rejects odometer readings lower than the previous trip", async () => {
     const res = await post(fahrt(900, "2026-06-05T08:00:00Z"));
     assert.equal(res.status, 409);
     assert.equal(res.body.code, "KM_PLAUSIBILITY");
   });
 
-  it("lehnt größere km-Stände als bei der folgenden Fahrt ab", async () => {
+  it("rejects odometer readings higher than the following trip", async () => {
     const res = await post(fahrt(2500, "2026-06-05T08:00:00Z"));
     assert.equal(res.status, 409);
   });
 
-  it("akzeptiert passende Werte und force", async () => {
+  it("accepts matching values and force", async () => {
     assert.equal((await post(fahrt(1500, "2026-06-05T08:00:00Z"))).status, 200);
     assert.equal((await post({ ...fahrt(10, "2026-06-06T08:00:00Z"), force: true })).status, 200);
   });
 
-  it("prüft je Fahrzeug getrennt", async () => {
+  it("checks each vehicle separately", async () => {
     const zweites = await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" });
     const res = await t.http().post("/api/trips").set(user)
       .send({ ...fahrt(50, "2026-06-07T08:00:00Z"), vehicle_code: zweites.body.code });
@@ -131,7 +131,7 @@ describe("km-Plausibilität", () => {
   });
 });
 
-describe("Änderungsprotokoll", () => {
+describe("Audit log", () => {
   let t, user, id;
 
   before(async () => {
@@ -142,7 +142,7 @@ describe("Änderungsprotokoll", () => {
   });
   after(() => t.close());
 
-  it("protokolliert Anlage und Änderung mit altem und neuem Wert", async () => {
+  it("logs creation and changes with old and new values", async () => {
     const res = await t.http().get(`/api/trips/${id}/history`).set(user);
     assert.deepEqual(res.body.map(e => e.action), ["create", "update"]);
     assert.equal(res.body[1].old_data.destination, "Ziel 100");
@@ -150,12 +150,12 @@ describe("Änderungsprotokoll", () => {
     assert.equal(res.body[1].source, "web");
   });
 
-  it("markiert geänderte Fahrten im Export", async () => {
+  it("marks modified trips in the export", async () => {
     const list = (await t.http().get("/api/export/json?month=2026-07").set(user)).body;
     assert.equal(list[0].edited, true);
   });
 
-  it("behält Löschungen im Jahresprotokoll und merkt sich die Quelle", async () => {
+  it("keeps deletions in the yearly log and records the source", async () => {
     await t.http().delete(`/api/trips/${id}`).set("X-API-Token", user.apiToken).expect(200);
     const res = await t.http().get("/api/audit?year=2026").set(user);
     assert.deepEqual(res.body.map(e => e.action), ["delete", "update"]);
@@ -163,7 +163,7 @@ describe("Änderungsprotokoll", () => {
     assert.equal(res.body[0].source, "api_token");
   });
 
-  it("filtert das Jahresprotokoll nach Fahrzeug", async () => {
+  it("filters the yearly log by vehicle", async () => {
     const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
     const mit1 = await t.http().get(`/api/audit?year=2026&vehicle=${user.vehicle.code}`).set(user);
     const mit2 = await t.http().get(`/api/audit?year=2026&vehicle=${zweites.code}`).set(user);
@@ -171,14 +171,14 @@ describe("Änderungsprotokoll", () => {
     assert.deepEqual(mit2.body, []);
   });
 
-  it("zeigt fremde Protokolle nicht", async () => {
+  it("does not show other users' logs", async () => {
     const other = await t.registerUser("neugierig");
     assert.equal((await t.http().get(`/api/trips/${id}/history`).set(other)).status, 404);
     assert.deepEqual((await t.http().get("/api/audit?year=2026").set(other)).body, []);
   });
 });
 
-describe("Fahrtart Arbeitsweg", () => {
+describe("Trip type commute", () => {
   let t, user;
   const post = body => t.http().post("/api/trips").set(user).send(body);
   before(async () => {
@@ -187,13 +187,13 @@ describe("Fahrtart Arbeitsweg", () => {
   });
   after(() => t.close());
 
-  it("hat die frühere deutsche Adresse POST /api/fahrt nicht mehr", async () => {
+  it("no longer has the former German route POST /api/fahrt", async () => {
     const res = await t.http().post("/api/fahrt").set("X-API-Token", user.apiToken)
       .send({ kmstand: 40, ziel: "Home Assistant", fahrtart: "geschäftlich", timestamp: "2027-02-01T08:00:00Z" });
     assert.equal(res.status, 404);
   });
 
-  it("kennt die Fahrtart Arbeitsweg und zählt sie getrennt", async () => {
+  it("supports the commute trip type and counts it separately", async () => {
     const res = await post(fahrt(5, "2027-01-02T08:00:00Z", { trip_type: "commute" }));
     assert.equal(res.status, 200);
     await post(fahrt(25, "2027-01-03T08:00:00Z", { trip_type: "commute" }));

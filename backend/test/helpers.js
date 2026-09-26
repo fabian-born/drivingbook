@@ -1,9 +1,9 @@
 // ============================================================
-// Test-Helfer: frische Datenbank + App pro Testdatei
-// Benötigt eine erreichbare PostgreSQL-Instanz (DB_HOST, DB_PORT,
-// DB_NAME, DB_USER, DB_PASSWORD). ACHTUNG: Das Schema "public" der
-// Test-Datenbank wird bei jedem Lauf komplett geleert – der Datenbankname
-// muss deshalb "test" enthalten, sonst bricht der Lauf ab.
+// Test helpers: fresh database + app per test file
+// Requires a reachable PostgreSQL instance (DB_HOST, DB_PORT,
+// DB_NAME, DB_USER, DB_PASSWORD). WARNING: the "public" schema of the
+// test database is wiped completely on every run – the database name
+// must therefore contain "test", otherwise the run aborts.
 // ============================================================
 
 import request from "supertest";
@@ -27,9 +27,9 @@ export function testConfig(overrides = {}) {
   };
 }
 
-// Leert die Datenbank. `beforeMigrations(pool)` kann z. B. ein altes Schema anlegen.
+// Wipes the database. `beforeMigrations(pool)` can e.g. create a legacy schema.
 export async function resetDatabase(pool, { beforeMigrations } = {}) {
-  // Schutz: nie eine echte Datenbank leeren
+  // Safeguard: never wipe a real database
   const { current_database: name } = (await pool.query("SELECT current_database()")).rows[0];
   if (!/test/i.test(name)) {
     throw new Error(`Datenbank "${name}" sieht nicht nach einer Testdatenbank aus (Name muss "test" enthalten) – Abbruch`);
@@ -49,14 +49,14 @@ export async function setup({ config: configOverrides, beforeMigrations } = {}) 
   const app  = createApp({ pool, config, geocode: async ziel => ziel });
   const http = () => request(app);
 
-  // Loggt ein und liefert den Authorization-Header
+  // Logs in and returns the Authorization header
   async function login(username = "admin", password = ADMIN_PASSWORD) {
     const res = await http().post("/api/login").send({ username, password });
     if (res.status !== 200) throw new Error(`Login fehlgeschlagen: ${res.status} ${JSON.stringify(res.body)}`);
     return { Authorization: `Bearer ${res.body.token}` };
   }
 
-  // Registriert einen neuen User und liefert den Authorization-Header
+  // Registers a new user and returns the Authorization header
   async function registerUser(username, password = "password123") {
     const res = await http().post("/api/register").send({ username, password });
     if (res.status !== 201) throw new Error(`Registrierung fehlgeschlagen: ${res.status}`);

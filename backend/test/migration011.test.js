@@ -11,7 +11,7 @@ import { resetDatabase, testConfig } from "./helpers.js";
 
 const MIGRATIONS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
-// Stand vor 011: Migrationen 001–010 einspielen und als angewendet vermerken
+// State before 011: apply migrations 001–010 and mark them as applied
 async function schemaVor011(pool) {
   await pool.query(`CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
   for (const datei of fs.readdirSync(MIGRATIONS).filter(f => f.endsWith(".sql") && f < "011").sort()) {
@@ -20,14 +20,14 @@ async function schemaVor011(pool) {
   }
 }
 
-describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () => {
+describe("Migration 011: convert existing German data to English", () => {
   let pool, http, token, vehicleId, fahrtId;
 
   before(async () => {
     const config = testConfig();
     pool = createPool(config.db);
 
-    // Altbestand mit deutschen Namen, Werten und Protokoll anlegen
+    // create legacy data with German names, values and audit log
     await resetDatabase(pool, {
       beforeMigrations: async p => {
         await schemaVor011(p);
@@ -56,7 +56,7 @@ describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () =
   });
   after(() => pool.end());
 
-  it("benennt Tabellen, Spalten und Werte um", async () => {
+  it("renames tables, columns and values", async () => {
     const tabellen = (await pool.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1`)).rows.map(r => r.table_name);
     assert.ok(tabellen.includes("trips") && tabellen.includes("trip_audit"));
@@ -70,11 +70,11 @@ describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () =
     const vehicle = (await pool.query(`SELECT drive_type FROM vehicles WHERE id = $1`, [vehicleId])).rows[0];
     assert.equal(vehicle.drive_type, "electric_high_price");
 
-    // alte Werte werden abgelehnt
+    // old values are rejected
     await assert.rejects(pool.query(`UPDATE trips SET trip_type = 'privat'`), err => err.code === "23514");
   });
 
-  it("schreibt das Änderungsprotokoll um", async () => {
+  it("rewrites the audit log", async () => {
     const eintraege = (await pool.query(`SELECT trip_id, old_data, new_data FROM trip_audit ORDER BY id`)).rows;
     assert.equal(eintraege[0].trip_id, fahrtId);
     assert.equal(eintraege[0].old_data, null);
@@ -84,7 +84,7 @@ describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () =
     assert.equal(eintraege[1].new_data.trip_type, "business");
   });
 
-  it("liefert die umgestellten Daten über die (englische) API", async () => {
+  it("returns the converted data via the (English) API", async () => {
     const auth = { Authorization: `Bearer ${token}` };
     const jahr = await http().get("/api/trips?year=2026&vehicle=ALT123").set(auth);
     assert.deepEqual(jahr.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[1000, "Kunde", "business"], [1050, "Büro", "commute"]]);
@@ -103,8 +103,8 @@ describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () =
     assert.equal(neu.status, 200);
   });
 
-  it("läuft nur einmal", async () => {
-    await runMigrations(pool);   // nichts mehr zu tun
+  it("runs only once", async () => {
+    await runMigrations(pool);   // nothing left to do
     const n = (await pool.query(`SELECT COUNT(*)::int AS n FROM schema_migrations WHERE name LIKE '011%'`)).rows[0].n;
     assert.equal(n, 1);
   });

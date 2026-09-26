@@ -1,5 +1,5 @@
 // ============================================================
-// Login & Registrierung (öffentlich)
+// Login & registration (public)
 // ============================================================
 
 import express from "express";
@@ -15,9 +15,9 @@ import { loginBody, registerBody } from "../schemas.js";
 export function authRoutes({ pool, config }) {
   const router = express.Router();
 
-  // Fehlgeschlagene Logins: 10 pro 15 Minuten je IP + Benutzername
+  // Failed logins: 10 per 15 minutes per IP + username
   const loginLimiter    = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
-  // Registrierungen: 5 pro Stunde je IP
+  // Registrations: 5 per hour per IP
   const registerLimiter = createLimiter({ max: 5,  windowMs: 60 * 60 * 1000 });
 
   const signJwt = user => jwt.sign(
@@ -26,7 +26,7 @@ export function authRoutes({ pool, config }) {
     { expiresIn: config.jwtExpires }
   );
 
-  // POST /api/login  →  JWT zurückgeben
+  // POST /api/login  →  return a JWT
   router.post("/login", asyncHandler(async (req, res) => {
     const { username, password } = parse(loginBody, req.body);
 
@@ -35,8 +35,8 @@ export function authRoutes({ pool, config }) {
       throw new HttpError(429, "Zu viele fehlgeschlagene Anmeldeversuche – bitte später erneut versuchen");
     }
 
-    // Alte Konten, die sich nur in Groß-/Kleinschreibung unterscheiden ("Max"/"max",
-    // siehe Migration 005), bleiben erreichbar: es gilt das Konto mit passendem Passwort
+    // Old accounts that differ only in letter case ("Max"/"max",
+    // see migration 005) stay reachable: the account with the matching password wins
     const kandidaten = (await pool.query(
       `SELECT id, username, password, role FROM users WHERE LOWER(username) = $1 ORDER BY (username = $1) DESC, id`,
       [username]
@@ -55,8 +55,8 @@ export function authRoutes({ pool, config }) {
     return res.json({ token: signJwt(user), user: { username: user.username, role: user.role } });
   }));
 
-  // POST /api/register  →  Neuen User registrieren
-  // Body: { username, password, vehicleName? }  (vehicle_name wird ebenfalls akzeptiert)
+  // POST /api/register  →  register a new user
+  // Body: { username, password, vehicleName? }  (vehicle_name is accepted as well)
   router.post("/register", asyncHandler(async (req, res) => {
     if (!config.allowRegistration) {
       throw new HttpError(403, "Registrierung ist deaktiviert");
@@ -91,7 +91,7 @@ export function authRoutes({ pool, config }) {
     const { user, token, vehicle } = created;
     console.log(`✅ Neuer User registriert: ${user.username} (ID: ${user.id})`);
 
-    // JWT direkt mitgeben → sofort eingeloggt nach Registrierung
+    // Include the JWT directly → logged in right after registration
     return res.status(201).json({
       token:         signJwt(user),
       user:          { username: user.username, role: user.role },

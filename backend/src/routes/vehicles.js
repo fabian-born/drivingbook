@@ -1,6 +1,6 @@
 // ============================================================
-// Auto-Info: Fahrzeugdaten, Kennzahlen, Jahreskosten und
-// Vergleich 1-%-Regel ↔ Fahrtenbuch
+// Car info: vehicle data, key figures, annual costs and
+// comparison 1% rule ↔ logbook
 // ============================================================
 
 import express from "express";
@@ -30,7 +30,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     return result.rows[0];
   }
 
-  // PATCH /api/vehicles/:id  →  Name, Kennzeichen, Listenpreis, Antrieb ändern
+  // PATCH /api/vehicles/:id  →  change name, license plate, list price, drive type
   router.patch("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const changes = parse(vehicleUpdateBody, req.body);
@@ -52,7 +52,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     return res.json(result.rows[0]);
   }));
 
-  // GET /api/vehicles/:id/info?year=YYYY  →  Fahrzeug, Kennzahlen, Kosten, Vergleich
+  // GET /api/vehicles/:id/info?year=YYYY  →  vehicle, key figures, costs, comparison
   router.get("/vehicles/:id/info", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const year = parse(infoQuery, req.query).year
@@ -91,7 +91,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     });
   }));
 
-  // GET /api/vehicles/:id/export  →  Sicherung aller Daten des Fahrzeugs (JSON-Datei)
+  // GET /api/vehicles/:id/export  →  backup of all vehicle data (JSON file)
   router.get("/vehicles/:id/export", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const daten = await sichereFahrzeug(pool, req.userId, id);
@@ -102,8 +102,8 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     return res.json(daten);
   }));
 
-  // POST /api/vehicles/import  →  Fahrzeug-Sicherung wiederherstellen (ergänzt nur)
-  // Fahrzeug mit gleichem Code wird ergänzt, sonst neu angelegt. Akzeptiert Format v2 und v1.
+  // POST /api/vehicles/import  →  restore a vehicle backup (only adds)
+  // A vehicle with the same code is extended, otherwise created. Accepts format v2 and v1.
   router.post("/vehicles/import", requireAuth, express.json({ limit: "25mb" }), asyncHandler(async (req, res) => {
     const daten = parse(importBody, ohneAltformat(req.body));
     const ergebnis = await withTransaction(pool, client => stelleFahrzeugWiederHer(client, req.userId, daten));
@@ -114,7 +114,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     return res.status(created ? 201 : 200).json({ vehicle: fahrzeug, created, imported });
   }));
 
-  // GET /api/vehicles/:id/check?year=YYYY  →  Ampel (status) + Auffälligkeiten (findings) eines Jahres
+  // GET /api/vehicles/:id/check?year=YYYY  →  traffic light (status) + findings of one year
   router.get("/vehicles/:id/check", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const year = parse(infoQuery, req.query).year
@@ -150,7 +150,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     });
   }));
 
-  // PUT /api/vehicles/:id/years/:year  →  Jahreskosten speichern
+  // PUT /api/vehicles/:id/years/:year  →  save annual costs
   router.put("/vehicles/:id/years/:year", requireAuth, asyncHandler(async (req, res) => {
     const { id, year } = parse(vehicleYearParam, req.params);
     const k = parse(vehicleYearBody, req.body);

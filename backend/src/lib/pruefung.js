@@ -1,14 +1,14 @@
 // ============================================================
-// Prüfung eines Jahres vor der Steuererklärung
-// Markiert, was bei einer Betriebsprüfung auffallen könnte.
-// Stufen (level): error (rot) · warning (gelb) · info (nur Hinweis)
-// Ergebnis: { status: "green" | "yellow" | "red", findings: [...] }
+// Check of a year before the tax return
+// Flags what could stand out in a tax audit.
+// Levels: error (red) · warning (yellow) · info (note only)
+// Result: { status: "green" | "yellow" | "red", findings: [...] }
 // ============================================================
 
 export const GRENZEN = {
-  grosseStrecke: 1000,  // km zwischen zwei Fahrten
-  pauseTage:     30,    // Tage ohne Fahrt …
-  pauseKm:       300,   // … bei gleichzeitig so vielen gefahrenen km
+  grosseStrecke: 1000,  // km between two trips
+  pauseTage:     30,    // days without a trip …
+  pauseKm:       300,   // … while this many km were driven
 };
 
 const KOORDINATEN = /^\s*-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*$/;
@@ -16,7 +16,7 @@ const TAG_MS = 24 * 60 * 60 * 1000;
 
 const km = n => `${n.toLocaleString("de-DE")} km`;
 
-// fahrten: aus jahresFahrten() (ein Fahrzeug)
+// fahrten: from jahresFahrten() (one vehicle)
 // extra:   { geaendert, geloescht, ohneFahrzeug, jetzt }
 export function pruefeJahr(fahrten, { geaendert = 0, geloescht = 0, ohneFahrzeug = 0, jetzt = new Date() } = {}) {
   const befunde = [];

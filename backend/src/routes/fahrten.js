@@ -1,5 +1,5 @@
 // ============================================================
-// Fahrten: Anlegen, Bearbeiten, Löschen, Änderungsprotokoll
+// Trips: create, edit, delete, audit log
 // ============================================================
 
 import express from "express";
@@ -13,10 +13,10 @@ import { auditQuery, idParam, tripCreate, tripUpdate, yearQuery } from "../schem
 export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   const router = express.Router();
 
-  // Löst einen vehicle_code zur internen vehicle_id auf.
-  // code === undefined → nicht angegeben: Default-Fahrzeug des Users (oder null, falls keins)
-  // code === null      → explizit kein Fahrzeug
-  // code === "ABC123"  → muss ein Fahrzeug des Users sein
+  // Resolves a vehicle_code to the internal vehicle_id.
+  // code === undefined → not given: the user's default vehicle (or null if none)
+  // code === null      → explicitly no vehicle
+  // code === "ABC123"  → must be one of the user's vehicles
   async function resolveVehicleId(code, userId) {
     if (code === undefined) {
       const result = await pool.query(
@@ -29,7 +29,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     return vehicleIdByCode(pool, userId, code);
   }
 
-  // Fahrt anlegen (geprüfte Eingabe im neuen Format)
+  // Create a trip (validated input in the new format)
   async function legeFahrtAn(req, { force, vehicle_code, ...fahrt }) {
     fahrt.vehicle_id  = await resolveVehicleId(vehicle_code, req.userId);
     fahrt.destination = await geocode(fahrt.destination);
@@ -55,17 +55,17 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     return row;
   }
 
-  // POST /api/trips  →  Neue Fahrt speichern
+  // POST /api/trips  →  save a new trip
   // Body: { odometer_km, destination, trip_type, timestamp, vehicle_code?, force? }
-  // Ohne vehicle_code wird das Default-Fahrzeug des Users verwendet (falls vorhanden).
+  // Without vehicle_code the user's default vehicle is used (if any).
   router.post("/trips", requireAuth, asyncHandler(async (req, res) => {
     const row = await legeFahrtAn(req, parse(tripCreate, req.body));
     return res.json({ message: "Fahrt gespeichert", id: row.id });
   }));
 
-  // PUT /api/trips/:id  →  Fahrt bearbeiten
-  // Body: beliebige Teilmenge von { odometer_km, destination, trip_type, timestamp, vehicle_code }, optional force
-  // Ein neuer timestamp verschiebt die Fahrt ggf. in einen anderen Monat.
+  // PUT /api/trips/:id  →  edit a trip
+  // Body: any subset of { odometer_km, destination, trip_type, timestamp, vehicle_code }, optional force
+  // A new timestamp may move the trip to a different month.
   router.put("/trips/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const { force, ...changes } = parse(tripUpdate, req.body);
@@ -75,7 +75,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       delete changes.vehicle_code;
     }
 
-    const fields = Object.keys(changes);  // nur Felder aus dem Schema (= Spaltennamen)
+    const fields = Object.keys(changes);  // only fields from the schema (= column names)
     if (fields.length === 0) {
       throw new HttpError(400, "Keine Felder zum Aktualisieren angegeben");
     }
@@ -139,7 +139,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     return res.json({ message: "Fahrt gelöscht" });
   }));
 
-  // GET /api/trips/:id/history  →  Alle Protokolleinträge einer Fahrt
+  // GET /api/trips/:id/history  →  all audit log entries of a trip
   router.get("/trips/:id/history", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const result = await pool.query(
@@ -155,8 +155,8 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     return res.json(result.rows);
   }));
 
-  // GET /api/trips?year=YYYY[&vehicle=CODE]  →  Fahrten eines Jahres mit Strecken,
-  // Monatsübersicht und Jahressumme
+  // GET /api/trips?year=YYYY[&vehicle=CODE]  →  trips of one year with distances,
+  // monthly overview and yearly total
   router.get("/trips", requireAuth, asyncHandler(async (req, res) => {
     const { year, vehicle } = parse(yearQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
@@ -180,7 +180,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     });
   }));
 
-  // GET /api/audit?year=YYYY[&vehicle=CODE]  →  Änderungen und Löschungen an Fahrten eines Jahres
+  // GET /api/audit?year=YYYY[&vehicle=CODE]  →  edits and deletions of trips in one year
   router.get("/audit", requireAuth, asyncHandler(async (req, res) => {
     const { year, vehicle } = parse(auditQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);

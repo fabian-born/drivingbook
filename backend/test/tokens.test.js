@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
 
-describe("API-Tokens", () => {
+describe("API tokens", () => {
   let t, user;
   before(async () => {
     t = await setup();
@@ -10,14 +10,14 @@ describe("API-Tokens", () => {
   });
   after(() => t.close());
 
-  it("authentifiziert per Bearer und X-API-Token", async () => {
+  it("authenticates via Bearer and X-API-Token", async () => {
     const bearer = await t.http().get("/api/vehicles").set("Authorization", `Bearer ${user.apiToken}`);
     const header = await t.http().get("/api/vehicles").set("X-API-Token", user.apiToken);
     assert.equal(bearer.status, 200);
     assert.equal(header.status, 200);
   });
 
-  it("gibt neue Tokens genau einmal im Klartext zurück und listet sie ohne Wert", async () => {
+  it("returns new tokens in plain text exactly once and lists them without value", async () => {
     const created = await t.http().post("/api/tokens").set(user).send({ label: "Skript" });
     assert.equal(created.status, 201);
     assert.match(created.body.token, /^[0-9a-f]{64}$/);
@@ -26,35 +26,35 @@ describe("API-Tokens", () => {
     assert.ok(list.body.every(tok => tok.token === undefined && tok.token_hash === undefined));
   });
 
-  it("setzt beim neuen Default-Token den alten zurück", async () => {
+  it("unsets the old default token when a new one is set", async () => {
     await t.http().post("/api/tokens").set(user).send({ label: "Neu", is_default: true });
     const list = await t.http().get("/api/tokens").set(user);
     assert.equal(list.body.filter(tok => tok.is_default).length, 1);
     assert.equal(list.body.find(tok => tok.is_default).label, "Neu");
   });
 
-  it("macht gelöschte Tokens sofort ungültig", async () => {
+  it("invalidates deleted tokens immediately", async () => {
     const created = await t.http().post("/api/tokens").set(user).send({ label: "Wegwerf" });
     await t.http().delete(`/api/tokens/${created.body.id}`).set(user).expect(200);
     const res = await t.http().get("/api/vehicles").set("X-API-Token", created.body.token);
     assert.equal(res.status, 401);
   });
 
-  it("hat keinen Reveal-Endpunkt mehr", async () => {
+  it("no longer has a reveal endpoint", async () => {
     const res = await t.http().get("/api/tokens/1/reveal").set(user);
     assert.equal(res.status, 404);
   });
 
-  it("validiert IDs", async () => {
+  it("validates IDs", async () => {
     const res = await t.http().delete("/api/tokens/abc").set(user);
     assert.equal(res.status, 400);
   });
 });
 
-describe("Migration alter Klartext-Tokens", () => {
+describe("Migration of old plain-text tokens", () => {
   let t;
   before(async () => {
-    // Schema wie von der alten init.sql angelegt, mit Klartext-Tokens
+    // schema as created by the old init.sql, with plain-text tokens
     t = await setup({
       beforeMigrations: async pool => {
         await pool.query(`
@@ -76,17 +76,17 @@ describe("Migration alter Klartext-Tokens", () => {
   });
   after(() => t.close());
 
-  it("hasht bestehende Tokens, sodass sie weiter funktionieren", async () => {
+  it("hashes existing tokens so they keep working", async () => {
     const res = await t.http().get("/api/vehicles").set("X-API-Token", "bestehender-token-123");
     assert.equal(res.status, 200);
   });
 
-  it("widerruft den vorhersagbaren Seed-Token", async () => {
+  it("revokes the predictable seed token", async () => {
     const res = await t.http().get("/api/vehicles").set("X-API-Token", "fahrtenbuch-default-token-CHANGE-ME-1");
     assert.equal(res.status, 401);
   });
 
-  it("entfernt die Klartext-Spalte", async () => {
+  it("removes the plain-text column", async () => {
     const cols = await t.pool.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'api_tokens'`
     );

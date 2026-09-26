@@ -1,18 +1,18 @@
 // ============================================================
-// Sicherung und Wiederherstellung
+// Backup and restore
 //
-// Einzelsicherung (Auto-Info):  { format: "drivingbook-vehicle", version: 2,
+// Single backup (vehicle info): { format: "drivingbook-vehicle", version: 2,
 //                                 created_at, vehicle, years, trips, audit }
-// Gesamtsicherung (Konto):      { format: "drivingbook-backup", version: 2,
+// Full backup (account):        { format: "drivingbook-backup", version: 2,
 //                                 created_at, vehicles: [...], unassigned }
-// Dateien im alten Format v1 (deutsch) vorher mit scripts/convert-backup.js umwandeln.
+// Convert files in the old v1 format (German) with scripts/convert-backup.js first.
 //
-// Wiederherstellen ergänzt nur: Fahrzeuge werden über ihren Code wieder-
-// erkannt (fehlt eins, wird es neu angelegt, der Code bleibt sofern frei),
-// vorhandene Fahrten (Zeitpunkt + km-Stand), Jahreskosten und Protokoll-
-// einträge bleiben unangetastet. Fahrten, die nach dem Löschen eines
-// Fahrzeugs ohne Fahrzeug übrig geblieben sind, werden wieder zugeordnet. Das Änderungsprotokoll wird unverändert
-// übernommen; nur Fahrt- und Fahrzeug-IDs werden auf die neuen IDs umgeschrieben.
+// Restoring only adds: vehicles are matched by their code (if one is
+// missing, it is created, keeping its code if still available);
+// existing trips (timestamp + odometer reading), annual costs and audit
+// log entries are left untouched. Trips left without a vehicle after a
+// vehicle was deleted are reassigned. The audit log is taken over
+// unchanged; only trip and vehicle IDs are rewritten to the new IDs.
 // ============================================================
 
 import { HttpError } from "../http.js";
@@ -20,7 +20,7 @@ import { BACKUP_FORMAT, BACKUP_VERSION, VEHICLE_BACKUP_FORMAT } from "../schemas
 import { createVehicle } from "./vehicles.js";
 import { AUDIT_FIELDS } from "./fahrten.js";
 
-// Dateien im alten Format v1 nimmt das Backend nicht mehr an – mit Hinweis ablehnen
+// The backend no longer accepts files in the old v1 format – reject with a hint
 export function ohneAltformat(daten) {
   if (daten?.version === 1) {
     throw new HttpError(400, "Sicherung im alten Format v1 – bitte zuerst mit scripts/convert-backup.js umwandeln");
@@ -28,10 +28,10 @@ export function ohneAltformat(daten) {
   return daten;
 }
 
-// Fahrt-Spalten im Sicherungsformat
+// Trip columns in the backup format
 const SICHERUNG_FAHRT = "id, odometer_km, destination, trip_type, timestamp";
 
-// ── Sichern ──────────────────────────────────────────────────
+// ── Backup ───────────────────────────────────────────────────
 
 async function fahrzeugDaten(db, userId, vehicleId) {
   const [vehicle, jahre, fahrten, protokoll] = await Promise.all([
@@ -51,7 +51,7 @@ async function fahrzeugDaten(db, userId, vehicleId) {
        FROM trips WHERE user_id = $1 AND vehicle_id = $2 ORDER BY timestamp, id`,
       [userId, vehicleId]
     ),
-    // Auch Einträge gelöschter oder umgehängter Fahrten dieses Fahrzeugs
+    // Also entries of deleted or reassigned trips of this vehicle
     db.query(
       `SELECT trip_id, action, old_data, new_data, source, changed_at
        FROM   trip_audit
@@ -106,15 +106,15 @@ export async function sichereAlles(db, userId) {
   };
 }
 
-// ── Wiederherstellen ─────────────────────────────────────────
+// ── Restore ──────────────────────────────────────────────────
 
-// Erkennt denselben Protokolleintrag wieder
+// Identifies the same audit log entry
 function auditSchluessel(action, changedAt, oldData, newData) {
   const d = oldData ?? newData ?? {};
   return `${action}|${new Date(changedAt).toISOString()}|${d.timestamp ? new Date(d.timestamp).toISOString() : ""}|${d.odometer_km ?? ""}`;
 }
 
-// Reserviert n neue Fahrt-IDs aus der Sequenz der Tabelle trips
+// Reserves n new trip IDs from the sequence of the trips table
 async function neueFahrtIds(db, n) {
   if (n === 0) return [];
   const result = await db.query(
@@ -124,13 +124,13 @@ async function neueFahrtIds(db, n) {
   return result.rows.map(r => r.id);
 }
 
-// Vergibt Fahrt-IDs für einzuspielende Fahrten bzw. Protokolleinträge. Die
-// ursprüngliche ID wird wiederverwendet, wenn diese Datenbank sie selbst schon
-// vergeben hat (≤ Stand der Sequenz), keine Fahrt sie belegt und ein dort
-// vorhandenes Protokoll nachweislich zu genau dieser Fahrt gehört – so hängt
-// eine wiederhergestellte Fahrt wieder an ihrem Verlauf. Sonst neue ID.
-// Die Sequenz wird nie verstellt (eine präparierte Datei mit riesigen IDs
-// könnte sie sonst für alle Benutzer erschöpfen).
+// Assigns trip IDs for trips or audit log entries being imported. The
+// original ID is reused if this database has already issued it itself
+// (≤ current sequence value), no trip occupies it and any audit log present
+// there provably belongs to exactly this trip – so a restored trip is
+// reattached to its history. Otherwise a new ID is used.
+// The sequence is never adjusted (a crafted file with huge IDs could
+// otherwise exhaust it for all users).
 async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
   const idMap = new Map();
   if (alteIds.length === 0) return idMap;
@@ -168,7 +168,7 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
   return idMap;
 }
 
-// Protokolldaten auf die bekannten Felder beschränken, Fahrzeug-IDs umschreiben
+// Restrict audit data to the known fields, rewrite vehicle IDs
 function mappeAuditDaten(daten, vehicleMap) {
   if (!daten) return null;
   const ergebnis = {};
@@ -181,8 +181,8 @@ function mappeAuditDaten(daten, vehicleMap) {
   return ergebnis;
 }
 
-// Fahrzeug des Users mit gleichem Code – sonst neu anlegen (Name und Code bleiben, sofern frei).
-// Beim vorhandenen Fahrzeug werden nur leere Felder ergänzt.
+// User's vehicle with the same code – otherwise create it (name and code kept if available).
+// For an existing vehicle, only empty fields are filled in.
 async function zielFahrzeug(db, userId, fahrzeug) {
   if (fahrzeug.code) {
     const vorhanden = await db.query(
@@ -219,9 +219,9 @@ async function zielFahrzeug(db, userId, fahrzeug) {
   return { id: vehicle.id, created: true };
 }
 
-// Spielt Jahreskosten, Fahrten und Protokoll in ein Fahrzeug ein (vehicleId null = ohne Fahrzeug).
-// bekannteAudits: Set der vorhandenen Protokolleinträge des Users (wird fortgeschrieben)
-// alteVehicleId:  ID des Fahrzeugs in der Sicherung (für verwaiste Fahrten)
+// Imports annual costs, trips and audit log into a vehicle (vehicleId null = no vehicle).
+// bekannteAudits: set of the user's existing audit log entries (kept up to date)
+// alteVehicleId:  ID of the vehicle in the backup (for orphaned trips)
 async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit: protokoll }, vehicleId, vehicleMap, bekannteAudits, alteVehicleId = null) {
   let jahreNeu = 0;
   if (vehicleId != null) {
@@ -235,9 +235,9 @@ async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit:
     }
   }
 
-  // Fahrten (Zeitpunkt + km-Stand) über alle Fahrzeuge des Users wiedererkennen:
-  // vorhanden → überspringen (auch wenn sie inzwischen zu einem anderen Fahrzeug
-  // gehört); ohne Fahrzeug (Fahrzeug wurde gelöscht) → wieder zuordnen
+  // Match trips (timestamp + odometer reading) across all of the user's vehicles:
+  // existing → skip (even if it now belongs to a different vehicle);
+  // without vehicle (vehicle was deleted) → reassign
   const vorhanden = await db.query(
     `SELECT id, timestamp, odometer_km, vehicle_id FROM trips WHERE user_id = $1`,
     [userId]
@@ -264,7 +264,7 @@ async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit:
 
   if (zuordnen.length > 0) {
     await db.query(`UPDATE trips SET vehicle_id = $1 WHERE id = ANY($2::int[])`, [vehicleId, zuordnen]);
-    // Protokoll dieser Fahrten zeigt wieder auf das (neue) Fahrzeug
+    // Audit log of these trips points to the (new) vehicle again
     if (alteVehicleId != null && alteVehicleId !== vehicleId) {
       for (const spalte of ["old_data", "new_data"]) {
         await db.query(
@@ -276,7 +276,7 @@ async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit:
     }
   }
 
-  // Protokoll: Einträge übersprungener Fahrten und bereits vorhandene Einträge weglassen
+  // Audit log: omit entries of skipped trips and entries that already exist
   const eintraege = protokoll.filter(e => {
     if (uebersprungen.has(e.trip_id)) return false;
     const key = auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data);
@@ -285,7 +285,7 @@ async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit:
     return true;
   });
 
-  // IDs für neue Fahrten und für Protokolleinträge gelöschter Fahrten
+  // IDs for new trips and for audit log entries of deleted trips
   const alteIds = [...new Set([...neu.map(f => f.id), ...eintraege.map(e => e.trip_id)])];
   const idMap   = await vergebeFahrtIds(db, userId, alteIds, protokoll);
   const ids     = neu.map(f => idMap.get(f.id));
@@ -323,7 +323,7 @@ async function bekannteAuditSchluessel(db, userId) {
   return new Set(result.rows.map(e => auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data)));
 }
 
-// Einzelsicherung (Format v2) wiederherstellen (db: Client in einer Transaktion)
+// Restore a single backup (format v2) (db: client within a transaction)
 export async function stelleFahrzeugWiederHer(db, userId, daten) {
   const ziel = await zielFahrzeug(db, userId, daten.vehicle);
   const vehicleMap = new Map(daten.vehicle.id != null ? [[daten.vehicle.id, ziel.id]] : []);
@@ -331,9 +331,9 @@ export async function stelleFahrzeugWiederHer(db, userId, daten) {
   return { vehicle_id: ziel.id, created: ziel.created, ...ergebnis };
 }
 
-// Gesamtsicherung wiederherstellen (db: Client in einer Transaktion)
+// Restore a full backup (db: client within a transaction)
 export async function stelleAllesWiederHer(db, userId, sicherung) {
-  // Erst alle Fahrzeuge zuordnen, damit Umhängungen im Protokoll korrekt abgebildet werden
+  // Map all vehicles first so reassignments in the audit log are represented correctly
   const ziele = [];
   const vehicleMap = new Map();
   for (const f of sicherung.vehicles) {
@@ -353,13 +353,13 @@ export async function stelleAllesWiederHer(db, userId, sicherung) {
   return { vehicles: fahrzeuge, unassigned: ohneFahrzeug };
 }
 
-// ── Erinnerung ───────────────────────────────────────────────
+// ── Reminder ─────────────────────────────────────────────────
 
 export const ERINNERUNG_TAGE = 30;
 
-// Je Fahrzeug: letzte Sicherung und Änderungen seitdem. Erinnern, wenn es
-// Änderungen gibt und die letzte Sicherung (bzw. die Anlage) länger als
-// ERINNERUNG_TAGE zurückliegt.
+// Per vehicle: last backup and changes since then. Remind if there are
+// changes and the last backup (or the creation) was more than
+// ERINNERUNG_TAGE ago.
 export async function sicherungsStatus(db, userId) {
   const result = await db.query(
     `SELECT v.id, v.name, v.code, v.last_backup_at,

@@ -1,10 +1,10 @@
 // ============================================================
-// Auth-Middleware
-// Akzeptiert:
-//   1. Authorization: Bearer <JWT>        (Login-Flow)
-//   2. Authorization: Bearer <API-Token>  (direkter API-Zugriff)
-//   3. X-API-Token: <API-Token>           (alternative für API-Clients)
-// Setzt req.userId, req.role und req.authSource ('web' | 'api_token').
+// Auth middleware
+// Accepts:
+//   1. Authorization: Bearer <JWT>        (login flow)
+//   2. Authorization: Bearer <API-Token>  (direct API access)
+//   3. X-API-Token: <API-Token>           (alternative for API clients)
+// Sets req.userId, req.role and req.authSource ('web' | 'api_token').
 // ============================================================
 
 import jwt from "jsonwebtoken";
@@ -26,7 +26,7 @@ export function createAuth({ pool, config }) {
       throw new HttpError(401, "Kein Token angegeben");
     }
 
-    // ── Versuch 1: JWT ─────────────────────────────────────
+    // ── Attempt 1: JWT ─────────────────────────────────────
     try {
       const payload = jwt.verify(rawToken, config.jwtSecret);
       req.userId     = payload.userId;
@@ -34,10 +34,10 @@ export function createAuth({ pool, config }) {
       req.authSource = "web";
       return next();
     } catch {
-      // kein gültiges JWT → weiter mit API-Token-Prüfung
+      // no valid JWT → continue with API token check
     }
 
-    // ── Versuch 2: API-Token aus DB ────────────────────────
+    // ── Attempt 2: API token from DB ───────────────────────
     const result = await pool.query(
       `SELECT u.id, u.role
        FROM   api_tokens t

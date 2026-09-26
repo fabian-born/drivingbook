@@ -1,14 +1,14 @@
 // ============================================================
-// Eingabe-Schemas (zod)
-// Unbekannte Felder werden verworfen, Strings getrimmt.
+// Input schemas (zod)
+// Unknown fields are dropped, strings are trimmed.
 // ============================================================
 
 import { z } from "zod";
 
 export const TRIP_TYPES  = ["business", "private", "commute"];
-const MAX_INT            = 2147483647;  // Obergrenze von PostgreSQL INTEGER
+const MAX_INT            = 2147483647;  // Upper bound of PostgreSQL INTEGER
 
-// Zahl oder rein numerischer String (Formulare senden Strings)
+// Number or purely numeric string (forms send strings)
 const numeric = schema => z.preprocess(
   v => (typeof v === "string" && /^\s*\d+\s*$/.test(v)) ? Number(v) : v,
   schema
@@ -17,7 +17,7 @@ const numeric = schema => z.preprocess(
 const text = (msg, max) =>
   z.string({ error: msg }).trim().min(1, { error: msg }).max(max, { error: `Höchstens ${max} Zeichen erlaubt` });
 
-// ── Parameter ────────────────────────────────────────────────
+// ── Parameters ───────────────────────────────────────────────
 export const idParam = z.object({
   id: z.string().regex(/^\d{1,9}$/, { error: "Ungültige ID" }).transform(Number),
 });
@@ -26,7 +26,7 @@ export const yearParam = z.object({
   year: z.string().regex(/^\d{4}$/, { error: "Ungültiges Jahr" }).transform(Number),
 });
 
-// ?vehicle=CODE schränkt Abfragen auf ein Fahrzeug ein; ohne Angabe: alle Fahrzeuge
+// ?vehicle=CODE limits queries to one vehicle; if omitted: all vehicles
 const vehicleFilter = z.string().trim().toUpperCase()
   .regex(/^[A-Z0-9]{6}$/, { error: "Ungültiger Fahrzeug-Code" }).optional();
 
@@ -49,7 +49,7 @@ export const auditQuery = z.object({
   vehicle: vehicleFilter,
 });
 
-// ── Fahrten ──────────────────────────────────────────────────
+// ── Trips ────────────────────────────────────────────────────
 const KM_MSG = "km-Stand muss eine ganze Zahl ≥ 0 sein";
 const TS_MSG = "Ungültiger Zeitpunkt";
 
@@ -72,26 +72,26 @@ export const tripFields = {
   timestamp:   zeitpunkt,
 };
 
-// vehicle_code ist immer optional; null entfernt die Zuordnung,
-// fehlt das Feld komplett wird das Default-Fahrzeug verwendet (nur beim Anlegen)
+// vehicle_code is always optional; null removes the assignment,
+// if the field is missing entirely the default vehicle is used (on create only)
 const vehicleCode = z.union(
   [z.null(), z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6}$/, { error: "Ungültiger Fahrzeug-Code" })],
   { error: "Ungültiger Fahrzeug-Code" }
 ).optional();
 
-// force: true speichert trotz Warnung der km-Plausibilitätsprüfung
+// force: true saves despite a warning from the odometer plausibility check
 const force = z.boolean({ error: "force muss true oder false sein" }).optional();
 
 export const tripCreate = z.object({ ...tripFields, vehicle_code: vehicleCode, force });
 export const tripUpdate = z.object({ ...tripFields, vehicle_code: vehicleCode, force }).partial();
 
 
-// ── Auth & Benutzer ──────────────────────────────────────────
+// ── Auth & users ─────────────────────────────────────────────
 const PASSWORD_MSG = "Passwort muss mindestens 8 Zeichen haben";
-// bcrypt verarbeitet höchstens 72 Byte; längere Eingaben sind nutzlos
+// bcrypt processes at most 72 bytes; longer input is pointless
 const password = z.string({ error: PASSWORD_MSG }).min(8, { error: PASSWORD_MSG })
   .max(72, { error: "Passwort darf höchstens 72 Zeichen haben" });
-// Benutzernamen werden immer klein geschrieben gespeichert und verglichen
+// Usernames are always stored and compared in lower case
 const username = text("Benutzername und Passwort erforderlich", 100).toLowerCase();
 
 export const loginBody = z.object({
@@ -104,7 +104,7 @@ export const registerBody = z.object({
   username,
   password,
   vehicleName:  z.string().trim().max(100).optional(),
-  vehicle_name: z.string().trim().max(100).optional(),   // ältere API-Clients
+  vehicle_name: z.string().trim().max(100).optional(),   // older API clients
 }).transform(({ vehicleName, vehicle_name, ...rest }) => ({
   ...rest,
   vehicleName: vehicleName || vehicle_name || "Fahrzeug 1",
@@ -113,7 +113,7 @@ export const registerBody = z.object({
 export const createUserBody = z.object({
   username,
   password,
-  // Unbekannte Rollen werden wie bisher zu "user"
+  // Unknown roles become "user", as before
   role: z.unknown().optional().transform(r => (r === "admin" ? "admin" : "user")),
 });
 
@@ -124,7 +124,7 @@ export const changePasswordBody = z.object({
     .max(72, { error: "Passwort darf höchstens 72 Zeichen haben" }),
 });
 
-// ── Fahrzeuge & Tokens ───────────────────────────────────────
+// ── Vehicles & tokens ────────────────────────────────────────
 export const vehicleBody = z.object({
   name: text("Name erforderlich", 100),
   is_default: z.unknown().optional().transform(v => v === true),
@@ -139,14 +139,14 @@ export const tokenBody = z.object({
 // ── Auto-Info ────────────────────────────────────────────────
 export const DRIVE_TYPES = ["combustion", "hybrid", "electric", "electric_high_price"];
 
-// Dezimalzahl; Formulare senden Strings, ggf. mit Komma ("1.234,56" oder "1234,56").
-// Leerer String → null
+// Decimal number; forms send strings, possibly with a comma ("1.234,56" or "1234,56").
+// Empty string → null
 const decimal = (msg, max) => z.preprocess(
   v => {
     if (typeof v !== "string") return v;
     const s = v.trim();
     if (s === "") return null;
-    // "1.234,56" / "1234,56" (deutsch), "45.000" (Tausenderpunkt ohne Komma), "1234.5"
+    // "1.234,56" / "1234,56" (German), "45.000" (thousands dot without comma), "1234.5"
     const normalisiert = s.includes(",")
       ? s.replace(/\./g, "").replace(",", ".")
       : (/^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, "") : s);
@@ -187,18 +187,18 @@ export const vehicleYearBody = z.object({
     .transform(v => v ?? null),
 }).refine(d => d.depreciation <= d.total_costs, { error: "AfA/Leasing darf die Gesamtkosten nicht übersteigen" });
 
-// ── Sicherung: einzelnes Fahrzeug oder ganzes Konto ─────────
-// Format v2 (englisch). Dateien im Format v1 (deutsch, bis 09/2026) vorher
-// mit scripts/convert-backup.js umwandeln.
-export const VEHICLE_BACKUP_FORMAT = "drivingbook-vehicle";   // Einzelsicherung (Auto-Info)
-export const BACKUP_FORMAT         = "drivingbook-backup";    // Gesamtsicherung (Konto)
+// ── Backup: single vehicle or whole account ─────────────────
+// Format v2 (English). Convert files in format v1 (German, until 09/2026)
+// with scripts/convert-backup.js first.
+export const VEHICLE_BACKUP_FORMAT = "drivingbook-vehicle";   // single backup (car info)
+export const BACKUP_FORMAT         = "drivingbook-backup";    // full backup (account)
 export const BACKUP_VERSION        = 2;
 const MAX_IMPORT_TRIPS = 100_000;
 const MAX_IMPORT_AUDIT = 500_000;
 const tripId = z.number().int().min(1).max(MAX_INT);
 
-// Protokolldaten feldweise prüfen – ungültige Werte würden später Auswertungen
-// (Casts auf timestamptz/int in SQL) scheitern lassen; unbekannte Felder entfallen
+// Check audit log data field by field – invalid values would later break reports
+// (casts to timestamptz/int in SQL); unknown fields are dropped
 const auditData = z.object({
   odometer_km: tripFields.odometer_km.optional(),
   destination: z.string().max(500).optional(),
@@ -226,7 +226,7 @@ const importAudit = z.array(z.object({
   .max(MAX_IMPORT_AUDIT, { error: `Höchstens ${MAX_IMPORT_AUDIT} Protokolleinträge pro Fahrzeug` })
   .optional().default([]);
 
-// Alle Daten eines Fahrzeugs (Teil beider Formate)
+// All data of one vehicle (part of both formats)
 const vehicleData = z.object({
   vehicle: z.object({
     id:            z.number().int().min(1).max(MAX_INT).nullable().optional().catch(null),
@@ -261,7 +261,7 @@ export const backupBody = z.object({
     .optional().default({ trips: [], audit: [] }),
 });
 
-// ── Admin: Datenbank aufräumen ───────────────────────────────
+// ── Admin: database cleanup ──────────────────────────────────
 const idListe = z.array(z.number().int().positive(), { error: "ids muss eine Liste von Fahrt-IDs sein" });
 
 export const duplicatesBody = z.object({ ids: idListe.optional() });
@@ -272,7 +272,7 @@ export const unassignedBody = z.object({
   vehicle_id: z.number().int().positive().optional(),
 }).refine(d => d.action !== "assign" || d.vehicle_id, { error: "vehicle_id erforderlich zum Zuordnen" });
 
-// DELETE /api/vehicles/:id?target=ID – Zielfahrzeug für vorhandene Fahrten
+// DELETE /api/vehicles/:id?target=ID – target vehicle for existing trips
 export const vehicleDeleteQuery = z.object({
   target: z.string().regex(/^\d{1,9}$/, { error: "Ungültiges Zielfahrzeug" }).transform(Number).optional(),
 });

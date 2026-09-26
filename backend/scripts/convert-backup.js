@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // ============================================================
-// Sicherungsdatei im alten Format v1 (deutsche Feldnamen und Werte,
-// bis 09/2026) in das aktuelle Format v2 umwandeln. Das Backend
-// nimmt nur noch v2 an.
+// Converts a backup file in the old format v1 (German field names and
+// values, until 09/2026) to the current format v2. The backend
+// only accepts v2 now.
 //
-//   node scripts/convert-backup.js alt.json [neu.json]
+//   node scripts/convert-backup.js old.json [new.json]
 //
-// Ohne Zieldatei wird <alt>-v2.json geschrieben. Ohne Abhängigkeiten,
-// läuft also auch außerhalb des Containers mit Node ≥ 20.
-// Unbekannte Werte bleiben stehen und fallen beim Einspielen auf.
+// Without a target file, <old>-v2.json is written. No dependencies,
+// so it also runs outside the container with Node ≥ 20.
+// Unknown values are kept as-is and get flagged on restore.
 // ============================================================
 
 import fs   from "fs";
@@ -54,7 +54,7 @@ function vehicleData({ fahrzeug = {}, jahre, fahrten, protokoll }) {
   };
 }
 
-// Liefert die Datei im Format v2; andere Eingaben unverändert
+// Returns the file in format v2; other input unchanged
 export function ausAltformat(daten) {
   if (!daten || daten.version !== 1) return daten;
   const created_at = daten.erstellt_am ?? daten.exportiert_am;

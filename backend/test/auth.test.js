@@ -4,8 +4,8 @@ import { loadConfig } from "../src/config.js";
 import { hashToken } from "../src/lib/tokens.js";
 import { ADMIN_PASSWORD, setup } from "./helpers.js";
 
-describe("Konfiguration", () => {
-  it("verweigert fehlendes, kurzes oder Platzhalter-JWT_SECRET", () => {
+describe("Configuration", () => {
+  it("rejects a missing, short or placeholder JWT_SECRET", () => {
     assert.throws(() => loadConfig({}), /JWT_SECRET/);
     assert.throws(() => loadConfig({ JWT_SECRET: "kurz" }), /JWT_SECRET/);
     assert.throws(() => loadConfig({ JWT_SECRET: "CHANGE_ME_IN_PRODUCTION".padEnd(40, "x") }), /JWT_SECRET/);
@@ -13,25 +13,25 @@ describe("Konfiguration", () => {
   });
 });
 
-describe("Login & Registrierung", () => {
+describe("Login & registration", () => {
   let t;
   before(async () => { t = await setup(); });
   after(() => t.close());
 
-  it("legt beim ersten Start den Admin an und erlaubt den Login", async () => {
+  it("creates the admin on first start and allows login", async () => {
     const res = await t.http().post("/api/login").send({ username: "admin", password: ADMIN_PASSWORD });
     assert.equal(res.status, 200);
     assert.equal(res.body.user.role, "admin");
   });
 
-  it("lehnt falsche Zugangsdaten und unbekannte User gleich ab", async () => {
+  it("rejects wrong credentials and unknown users identically", async () => {
     const wrong   = await t.http().post("/api/login").send({ username: "admin", password: "falsch" });
     const unknown = await t.http().post("/api/login").send({ username: "gibtsnicht", password: "x" });
     assert.equal(wrong.status, 401);
     assert.deepEqual(wrong.body, unknown.body);
   });
 
-  it("sperrt nach 10 Fehlversuchen je IP + Benutzername", async () => {
+  it("locks out after 10 failed attempts per IP + username", async () => {
     for (let i = 0; i < 10; i++) {
       await t.http().post("/api/login").send({ username: "sperre", password: "x" });
     }
@@ -39,7 +39,7 @@ describe("Login & Registrierung", () => {
     assert.equal(res.status, 429);
   });
 
-  it("registriert mit Fahrzeugname, Default-Token und direktem Login", async () => {
+  it("registers with vehicle name, default token and immediate login", async () => {
     const res = await t.http().post("/api/register")
       .send({ username: "fabian", password: "password123", vehicleName: "Golf" });
     assert.equal(res.status, 201);
@@ -51,13 +51,13 @@ describe("Login & Registrierung", () => {
     assert.equal(profile.body.user.username, "fabian");
   });
 
-  it("akzeptiert vehicle_name von älteren API-Clients", async () => {
+  it("accepts vehicle_name from older API clients", async () => {
     const res = await t.http().post("/api/register")
       .send({ username: "alt", password: "password123", vehicle_name: "Polo" });
     assert.equal(res.body.vehicle.name, "Polo");
   });
 
-  it("speichert Benutzernamen klein und meldet sich unabhängig von Groß-/Kleinschreibung an", async () => {
+  it("stores usernames in lowercase and logs in case-insensitively", async () => {
     const admin = await t.login();
     const created = await t.http().post("/api/users").set(admin).send({ username: "  GrossKlein ", password: "password123" });
     assert.equal(created.status, 201);
@@ -71,21 +71,21 @@ describe("Login & Registrierung", () => {
     assert.equal(dup.status, 409);
   });
 
-  it("meldet doppelte Benutzernamen und zu kurze Passwörter", async () => {
+  it("reports duplicate usernames and too-short passwords", async () => {
     const dup = await t.http().post("/api/register").send({ username: "fabian", password: "password123" });
     assert.equal(dup.status, 409);
     const short = await t.http().post("/api/register").send({ username: "neu", password: "kurz" });
     assert.equal(short.status, 400);
   });
 
-  it("speichert API-Tokens nur als Hash", async () => {
+  it("stores API tokens only as hashes", async () => {
     const res = await t.http().post("/api/register").send({ username: "hash", password: "password123" });
     const rows = (await t.pool.query("SELECT token_hash FROM api_tokens")).rows.map(r => r.token_hash);
     assert.ok(rows.includes(hashToken(res.body.default_token)));
     assert.ok(!rows.includes(res.body.default_token));
   });
 
-  it("liefert JSON-Fehler für unbekannte Endpunkte und kaputtes JSON", async () => {
+  it("returns JSON errors for unknown endpoints and malformed JSON", async () => {
     const unknown = await t.http().get("/api/gibtsnicht");
     assert.equal(unknown.status, 404);
     assert.ok(unknown.body.error);
@@ -94,35 +94,35 @@ describe("Login & Registrierung", () => {
     assert.equal(broken.status, 400);
   });
 
-  it("meldet Gesundheit über /api/health", async () => {
+  it("reports health via /api/health", async () => {
     const res = await t.http().get("/api/health");
     assert.equal(res.body.status, "ok");
     assert.match(res.body.version, /^(\d{4}\.\d{2}\.\d{2}\.\d+|dev)$/);
   });
 
-  it("sendet ohne CORS_ORIGIN keine CORS-Header", async () => {
+  it("sends no CORS headers without CORS_ORIGIN", async () => {
     const res = await t.http().get("/api/health").set("Origin", "https://evil.example");
     assert.equal(res.headers["access-control-allow-origin"], undefined);
   });
 });
 
-describe("Registrierung deaktiviert", () => {
+describe("Registration disabled", () => {
   let t;
   before(async () => { t = await setup({ config: { allowRegistration: false } }); });
   after(() => t.close());
 
-  it("antwortet mit 403", async () => {
+  it("responds with 403", async () => {
     const res = await t.http().post("/api/register").send({ username: "x", password: "password123" });
     assert.equal(res.status, 403);
   });
 });
 
-describe("Eindeutige Benutzernamen in der Datenbank", () => {
+describe("Unique usernames in the database", () => {
   let t;
   before(async () => { t = await setup(); });
   after(() => t.close());
 
-  it("verhindert Namen, die sich nur in Groß-/Kleinschreibung unterscheiden", async () => {
+  it("prevents names that differ only in case", async () => {
     await assert.rejects(
       t.pool.query(`INSERT INTO users (username, password) VALUES ('ADMIN', 'x')`),
       err => err.code === "23505"
@@ -130,10 +130,10 @@ describe("Eindeutige Benutzernamen in der Datenbank", () => {
   });
 });
 
-describe("Altkonten mit Groß-/Kleinschreibung", () => {
+describe("Legacy accounts with mixed case", () => {
   let t;
   before(async () => {
-    // "Max" und "max" existieren schon vor Migration 005 → "Max" bleibt, kein Unique-Index
+    // "Max" and "max" already exist before migration 005 → "Max" stays, no unique index
     t = await setup({
       beforeMigrations: async pool => {
         await pool.query(`CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL,
@@ -146,7 +146,7 @@ describe("Altkonten mit Groß-/Kleinschreibung", () => {
   });
   after(() => t.close());
 
-  it("meldet jedes Konto mit seinem eigenen Passwort an", async () => {
+  it("logs in each account with its own password", async () => {
     const gross = await t.http().post("/api/login").send({ username: "Max", password: "passwort-gross" });
     const klein = await t.http().post("/api/login").send({ username: "MAX", password: "passwort-klein" });
     assert.equal(gross.status, 200);

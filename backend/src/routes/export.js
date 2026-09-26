@@ -1,5 +1,5 @@
 // ============================================================
-// Export: JSON (Monat), CSV und PDF (Jahr)
+// Export: JSON (month), CSV and PDF (year)
 // ============================================================
 
 import express from "express";
@@ -10,14 +10,14 @@ import { vehicleIdByCode } from "../lib/vehicles.js";
 import { jahresFahrten } from "../lib/strecken.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
-// CSV ist für Menschen (Excel) – Fahrtart wie bisher deutsch
+// CSV is for humans (Excel) – trip type stays German as before
 const FAHRTART_CSV = { private: "privat", business: "geschäftlich", commute: "arbeitsweg" };
 
 export function exportRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
   const tz = config.timezone;
 
-  // Alle Exporte akzeptieren ?vehicle=CODE; vehicleId === null → alle Fahrzeuge
+  // All exports accept ?vehicle=CODE; vehicleId === null → all vehicles
   const yearTrips = (userId, year, vehicleId) => pool.query(
     `SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
             v.name AS vehicle_name,
@@ -34,7 +34,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
     [userId, year, tz, vehicleId]
   );
 
-  // GET /api/export/json?month=YYYY-MM[&vehicle=CODE]  →  Fahrten eines Monats
+  // GET /api/export/json?month=YYYY-MM[&vehicle=CODE]  →  trips of one month
   router.get("/export/json", requireAuth, asyncHandler(async (req, res) => {
     const { month, vehicle } = parse(monthQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
@@ -53,7 +53,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
       [req.userId, month, tz, vehicleId]
     );
 
-    // Das Frontend erkennt Monate ohne Fahrten am 404
+    // The frontend detects months without trips by the 404
     if (result.rows.length === 0) {
       throw new HttpError(404, "Keine Daten für diesen Monat");
     }
@@ -66,7 +66,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
       timestamp:    r.timestamp,
       vehicle_id:   r.vehicle_id,
       vehicle_name: r.vehicle_name,
-      edited:       r.edited,     // nachträglich geändert (siehe Änderungsprotokoll)
+      edited:       r.edited,     // edited afterwards (see audit log)
     })));
   }));
 
@@ -86,17 +86,17 @@ export function exportRoutes({ pool, config, requireAuth }) {
 
     res.header("Content-Type", "text/csv; charset=utf-8");
     res.attachment(`fahrten_${year}.csv`);
-    return res.send("﻿" + csv);  // BOM für Excel
+    return res.send("﻿" + csv);  // BOM for Excel
   }));
 
-  // GET /api/export/pdf/year/:year  →  Druckfertiges Fahrtenbuch eines Jahres
+  // GET /api/export/pdf/year/:year  →  print-ready logbook for one year
   router.get("/export/pdf/year/:year", requireAuth, asyncHandler(async (req, res) => {
     const { year } = parse(yearParam, req.params);
     const { vehicle } = parse(vehicleQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
 
     const [trips, audit, user] = await Promise.all([
-      // Fahrten mit Strecke – dieselbe Berechnung wie Dashboard und Auto-Info
+      // Trips with distance – same calculation as dashboard and car info
       jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
       pool.query(
         `SELECT trip_id, action, old_data, new_data, changed_at

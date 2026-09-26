@@ -1,13 +1,13 @@
 // ============================================================
-// Fahrten: km-Plausibilität und Änderungsprotokoll
+// Trips: odometer plausibility and audit log
 // ============================================================
 
 import { HttpError } from "../http.js";
 
-// Felder, die im Änderungsprotokoll festgehalten werden
+// Fields recorded in the audit log
 export const AUDIT_FIELDS = ["odometer_km", "destination", "trip_type", "timestamp", "vehicle_id"];
 
-// Spalten einer Fahrt (für SELECT/RETURNING)
+// Columns of a trip (for SELECT/RETURNING)
 export const TRIP_COLUMNS = "id, odometer_km, destination, trip_type, timestamp, vehicle_id";
 
 function snapshot(row) {
@@ -19,7 +19,7 @@ function snapshot(row) {
   return data;
 }
 
-// Schreibt einen Eintrag ins Änderungsprotokoll (db: Client in Transaktion)
+// Writes an entry to the audit log (db: client within a transaction)
 export async function writeAudit(db, { fahrtId, userId, action, oldRow, newRow, source }) {
   await db.query(
     `INSERT INTO trip_audit (trip_id, user_id, action, old_data, new_data, source)
@@ -28,8 +28,8 @@ export async function writeAudit(db, { fahrtId, userId, action, oldRow, newRow, 
   );
 }
 
-// Prüft, ob der km-Stand zu den zeitlich benachbarten Fahrten desselben
-// Fahrzeugs passt. Wirft 409, außer `force` ist gesetzt.
+// Checks whether the odometer reading fits the chronologically adjacent trips
+// of the same vehicle. Throws 409 unless `force` is set.
 // fahrt: { id?, odometer_km, timestamp, vehicle_id }
 export async function checkKmPlausibility(db, userId, fahrt, force) {
   if (force) return;

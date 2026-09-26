@@ -1,5 +1,5 @@
 // ============================================================
-// Benutzerverwaltung (nur Admin)
+// User management (admin only)
 // ============================================================
 
 import express from "express";
@@ -14,7 +14,7 @@ import { createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   const router = express.Router();
 
-  // GET /api/users  →  Alle User
+  // GET /api/users  →  all users
   router.get("/users", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const result = await pool.query(
       `SELECT id, username, role, created_at FROM users ORDER BY id ASC`
@@ -22,7 +22,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
     return res.json(result.rows);
   }));
 
-  // POST /api/users  →  Neuen User inkl. Default-Token anlegen
+  // POST /api/users  →  create a new user incl. default token
   router.post("/users", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const { username, password, role } = parse(createUserBody, req.body);
     const hash = await bcrypt.hash(password, 12);
@@ -44,7 +44,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
     }
   }));
 
-  // POST /api/admin/users/:id/vehicle  →  Fahrzeug für anderen User anlegen
+  // POST /api/admin/users/:id/vehicle  →  create a vehicle for another user
   router.post("/admin/users/:id/vehicle", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const { name, is_default } = parse(vehicleBody, req.body);
@@ -66,15 +66,15 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
     return res.status(201).json(created);
   }));
 
-  // ── Datenbank aufräumen ────────────────────────────────────
+  // ── Database cleanup ───────────────────────────────────────
 
-  // GET /api/admin/cleanup  →  Bericht: doppelte Fahrten, Fahrten ohne Fahrzeug
+  // GET /api/admin/cleanup  →  report: duplicate trips, trips without vehicle
   router.get("/admin/cleanup", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     return res.json(await bericht(pool));
   }));
 
-  // POST /api/admin/cleanup/duplicates  →  überzählige Duplikate löschen
-  // Body: { ids? }  ohne ids: alle aktuell erkannten
+  // POST /api/admin/cleanup/duplicates  →  delete surplus duplicates
+  // Body: { ids? }  without ids: all currently detected
   router.post("/admin/cleanup/duplicates", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const { ids } = parse(duplicatesBody, req.body);
     const ergebnis = await withTransaction(pool, client => entferneDuplikate(client, ids ?? null));
@@ -82,7 +82,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
     return res.json(ergebnis);
   }));
 
-  // POST /api/admin/cleanup/unassigned  →  Fahrten ohne Fahrzeug zuordnen oder löschen
+  // POST /api/admin/cleanup/unassigned  →  assign or delete trips without vehicle
   // Body: { user_id, action: "assign" | "delete", vehicle_id? }
   router.post("/admin/cleanup/unassigned", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const daten = parse(unassignedBody, req.body);

@@ -1,7 +1,7 @@
 // ============================================================
-// Startwerte
-// - Leere DB: Admin mit ADMIN_PASSWORD (oder Zufallspasswort) anlegen
-// - Warnen, falls der Admin noch das Passwort "admin" hat
+// Initial data
+// - Empty DB: create admin with ADMIN_PASSWORD (or a random password)
+// - Warn if the admin still has the password "admin"
 // ============================================================
 
 import bcrypt from "bcrypt";

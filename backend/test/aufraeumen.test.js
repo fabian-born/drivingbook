@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
 
-describe("Admin: Datenbank aufräumen", () => {
+describe("Admin: database cleanup", () => {
   let t, admin, user, other, bearbeitet;
   const post = (who, body) => t.http().post("/api/trips").set(who)
     .send({ destination: "Kunde", trip_type: "private", force: true, ...body });
@@ -14,27 +14,27 @@ describe("Admin: Datenbank aufräumen", () => {
     user  = await t.registerUser("aufraeumen");
     other = await t.registerUser("aufraeumen2");
 
-    // Doppelklick: 3 × gleiche Fahrt innerhalb von Sekunden; die mittlere wurde bearbeitet
+    // Double click: 3 × the same trip within seconds; the middle one was edited
     await post(user, { odometer_km: 100, timestamp: "2026-03-01T08:00:00.000Z" });
     bearbeitet = (await post(user, { odometer_km: 100, timestamp: "2026-03-01T08:00:00.400Z" })).body.id;
     await t.http().put(`/api/trips/${bearbeitet}`).set(user).send({ trip_type: "private" });
     await post(user, { odometer_km: 100, timestamp: "2026-03-01T08:00:02.000Z" });
-    // kein Duplikat: anderes Ziel / zu großer Abstand / anderes Fahrzeug
+    // not a duplicate: different destination / gap too large / different vehicle
     await post(user, { odometer_km: 100, timestamp: "2026-03-01T08:00:03.000Z", destination: "Anderes Ziel" });
     await post(user, { odometer_km: 100, timestamp: "2026-03-01T09:00:00.000Z" });
     await post(user, { odometer_km: 100, timestamp: "2026-03-01T08:00:01.000Z", vehicle_code: null });
-    // Fahrten ohne Fahrzeug beim zweiten User
+    // trips without a vehicle for the second user
     await post(other, { odometer_km: 10, timestamp: "2026-03-02T08:00:00Z", vehicle_code: null });
     await post(other, { odometer_km: 20, timestamp: "2026-03-03T08:00:00Z", vehicle_code: null });
   });
   after(() => t.close());
 
-  it("ist nur für Admins", async () => {
+  it("is admin-only", async () => {
     assert.equal((await t.http().get("/api/admin/cleanup").set(user)).status, 403);
     assert.equal((await t.http().post("/api/admin/cleanup/duplicates").set(user).send({})).status, 403);
   });
 
-  it("findet Duplikate und behält die Fahrt mit Verlauf", async () => {
+  it("finds duplicates and keeps the trip with history", async () => {
     const b = await bericht();
     assert.equal(b.duplicates.groups.length, 1);
     const g = b.duplicates.groups[0];
@@ -44,13 +44,13 @@ describe("Admin: Datenbank aufräumen", () => {
     assert.equal(b.duplicates.to_remove, 2);
   });
 
-  it("listet Fahrten ohne Fahrzeug je Benutzer mit dessen Fahrzeugen", async () => {
+  it("lists trips without a vehicle per user along with their vehicles", async () => {
     const b = await bericht();
     assert.deepEqual(b.unassigned.map(o => [o.username, o.count]), [["aufraeumen", 1], ["aufraeumen2", 2]]);
     assert.equal(b.unassigned[1].vehicles[0].code, other.vehicle.code);
   });
 
-  it("löscht nur ausgewählte, tatsächlich doppelte Fahrten und protokolliert das", async () => {
+  it("deletes only selected, actual duplicate trips and logs it", async () => {
     const g = (await bericht()).duplicates.groups[0];
     const res = await t.http().post("/api/admin/cleanup/duplicates").set(admin)
       .send({ ids: [g.remove[0].id, bearbeitet] });
@@ -64,7 +64,7 @@ describe("Admin: Datenbank aufräumen", () => {
     assert.equal((await bericht()).duplicates.groups.length, 0);
   });
 
-  it("ordnet Fahrten ohne Fahrzeug einem Fahrzeug des Benutzers zu", async () => {
+  it("assigns trips without a vehicle to one of the user's vehicles", async () => {
     const ziel = (await bericht()).unassigned.find(o => o.username === "aufraeumen2");
     const fremd = await t.http().post("/api/admin/cleanup/unassigned").set(admin)
       .send({ user_id: ziel.user_id, action: "assign", vehicle_id: user.vehicle.id });
@@ -82,7 +82,7 @@ describe("Admin: Datenbank aufräumen", () => {
     assert.deepEqual(verlauf.body.map(e => [e.action, e.source]), [["create", "web"], ["update", "admin"]]);
   });
 
-  it("löscht Fahrten ohne Fahrzeug auf Wunsch", async () => {
+  it("deletes trips without a vehicle on request", async () => {
     const ziel = (await bericht()).unassigned.find(o => o.username === "aufraeumen");
     const res = await t.http().post("/api/admin/cleanup/unassigned").set(admin)
       .send({ user_id: ziel.user_id, action: "delete" });

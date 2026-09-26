@@ -1,6 +1,6 @@
 // ============================================================
-// Gesamtsicherung des Kontos: alle Fahrzeuge inkl. Fahrten,
-// Jahreskosten und Änderungsprotokoll
+// Full account backup: all vehicles incl. trips,
+// annual costs and audit log
 // ============================================================
 
 import express from "express";
@@ -12,14 +12,14 @@ import { backupBody } from "../schemas.js";
 export function backupRoutes({ pool, requireAuth }) {
   const router = express.Router();
 
-  // GET /api/backup  →  Gesamtsicherung als JSON-Datei
+  // GET /api/backup  →  full backup as a JSON file
   router.get("/backup", requireAuth, asyncHandler(async (req, res) => {
     const sicherung = await sichereAlles(pool, req.userId);
     res.attachment(`fahrtenbuch_sicherung_${sicherung.created_at.slice(0, 10)}.json`);
     return res.json(sicherung);
   }));
 
-  // POST /api/backup/restore  →  Gesamtsicherung wiederherstellen (ergänzt nur; Format v2 und v1)
+  // POST /api/backup/restore  →  restore a full backup (only adds; format v2 and v1)
   router.post("/backup/restore", requireAuth, express.json({ limit: "50mb" }), asyncHandler(async (req, res) => {
     const sicherung = parse(backupBody, ohneAltformat(req.body));
     const ergebnis  = await withTransaction(pool, client => stelleAllesWiederHer(client, req.userId, sicherung));
@@ -28,7 +28,7 @@ export function backupRoutes({ pool, requireAuth }) {
     return res.json(ergebnis);
   }));
 
-  // GET /api/backup/status  →  Letzte Sicherung je Fahrzeug + Erinnerung
+  // GET /api/backup/status  →  last backup per vehicle + reminder
   router.get("/backup/status", requireAuth, asyncHandler(async (req, res) => {
     return res.json(await sicherungsStatus(pool, req.userId));
   }));

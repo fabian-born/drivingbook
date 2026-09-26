@@ -1,7 +1,7 @@
 // ============================================================
-// Fahrtenbuch – Backend
+// Logbook – backend
 // Node.js + Express + PostgreSQL
-// Auth: JWT (Login) + API-Token (direkte API-Nutzung)
+// Auth: JWT (login) + API token (direct API access)
 // ============================================================
 
 import { loadConfig } from "./src/config.js";
@@ -36,7 +36,7 @@ async function start() {
     console.log(`   DB_HOST     : ${config.db.host}`);
   });
 
-  // Sauber beenden, wenn Docker den Container stoppt
+  // Shut down cleanly when Docker stops the container
   const shutdown = signal => {
     console.log(`${signal} empfangen – fahre herunter …`);
     server.close(() => pool.end().finally(() => process.exit(0)));
