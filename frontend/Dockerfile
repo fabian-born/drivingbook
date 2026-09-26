@@ -7,6 +7,7 @@ COPY *.html *.png release.ver manifest.webmanifest sw.js /usr/share/nginx/html/
 COPY js/    /usr/share/nginx/html/js/
 COPY css/   /usr/share/nginx/html/css/
 COPY icons/ /usr/share/nginx/html/icons/
+COPY lang/  /usr/share/nginx/html/lang/
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

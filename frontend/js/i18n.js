@@ -40,7 +40,10 @@
       xhr.open("GET", `lang/${sprache}.json`, false);   // bewusst synchron (siehe oben)
       xhr.send();
       if (xhr.status === 200) return JSON.parse(xhr.responseText);
-    } catch { /* Rückfall unten */ }
+      console.error(`Sprachdatei lang/${sprache}.json: HTTP ${xhr.status}`);
+    } catch (err) {
+      console.error(`Sprachdatei lang/${sprache}.json nicht lesbar:`, err);
+    }
     return {};
   }
 
@@ -73,18 +76,25 @@
     return ersetze(finde(key, params), params, v => String(v ?? ""));
   }
 
+  const vorhanden = key => finde(key) !== key;
+
   function tHtml(key, params) {
     return ersetze(finde(key, params), params, escape);
   }
 
-  // Übersetzt statisches HTML (auch nachträglich eingefügte Bereiche)
+  // Übersetzt statisches HTML (auch nachträglich eingefügte Bereiche).
+  // Fehlt eine Übersetzung, bleibt der deutsche Text aus dem HTML stehen.
   function uebersetze(wurzel = document) {
-    wurzel.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
-    wurzel.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    wurzel.querySelectorAll("[data-i18n]").forEach(el => {
+      if (vorhanden(el.dataset.i18n)) el.textContent = t(el.dataset.i18n);
+    });
+    wurzel.querySelectorAll("[data-i18n-html]").forEach(el => {
+      if (vorhanden(el.dataset.i18nHtml)) el.innerHTML = t(el.dataset.i18nHtml);
+    });
     wurzel.querySelectorAll("[data-i18n-attr]").forEach(el => {
       for (const paar of el.dataset.i18nAttr.split(";")) {
         const [attr, key] = paar.split(":").map(s => s.trim());
-        if (attr && key) el.setAttribute(attr, t(key));
+        if (attr && key && vorhanden(key)) el.setAttribute(attr, t(key));
       }
     });
   }

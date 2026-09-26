@@ -20,6 +20,18 @@ test("alle eigenen Seiten, Skripte und Stylesheets sind offline verfügbar (APP_
   }
 });
 
+test("das Docker-Image enthält alle Dateien des Offline-Caches", () => {
+  const appShell = JSON.parse(lies("sw.js").match(/const APP_SHELL = (\[[\s\S]*?\]);/)[1].replace(/,\s*\]/, "]"));
+  // Quellen aller COPY-Zeilen ins Web-Root (Dateimuster oder Ordner mit "/")
+  const quellen = [...lies("Dockerfile").matchAll(/^COPY\s+(.+?)\s+\/usr\/share\/nginx\/html\/\S*\s*$/gm)]
+    .flatMap(m => m[1].split(/\s+/));
+  const passt = (datei, quelle) => quelle.endsWith("/")
+    ? datei.startsWith(quelle)
+    : new RegExp(`^${quelle.replace(/\./g, "\\.").replace(/\*/g, "[^/]*")}$`).test(datei);
+  const fehlend = appShell.filter(d => d !== "./" && !quellen.some(q => passt(d, q)));
+  expect(fehlend).toEqual([]);
+});
+
 test("Service-Worker-Cache trägt die Frontend-Version", () => {
   const version = lies("release.ver").trim();
   expect(lies("sw.js")).toContain(`const CACHE = "fahrtenbuch-${version}";`);
