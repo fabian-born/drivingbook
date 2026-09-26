@@ -87,6 +87,18 @@ describe("Trips", () => {
     assert.equal(moved.body.trip.month, "2026-05");
   });
 
+  it("does not store an identical trip twice (offline queue re-sends)", async () => {
+    const body = trip(30000, "2026-08-01T08:00:00.123Z", { vehicle_code: user.vehicle.code });
+    const first  = await post(body);
+    const second = await post(body);
+    assert.equal(second.status, 200);
+    assert.equal(second.body.id, first.body.id);
+    const list = (await month("2026-08")).body;
+    assert.equal(list.filter(f => f.odometer_km === 30000).length, 1);
+    // a different time is a new trip
+    assert.notEqual((await post({ ...body, timestamp: "2026-08-01T08:00:01.123Z" })).body.id, first.body.id);
+  });
+
   it("deletes by ID", async () => {
     const id = (await post(trip(1400, "2026-01-20T08:00:00Z"))).body.id;
     assert.equal((await t.http().delete(`/api/trips/${id}`).set(user)).status, 200);

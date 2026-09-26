@@ -29,12 +29,24 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
     return vehicleIdByCode(pool, userId, code);
   }
 
-  // Create a trip (validated input in the new format)
+  // Create a trip (validated input in the new format).
+  // A trip that already exists identically (same timestamp to the millisecond,
+  // odometer, destination, type and vehicle) is not inserted again: the offline
+  // queue re-sends a trip if the page was left before the response arrived.
   async function createTrip(req, { force, vehicle_code, ...trip }) {
     trip.vehicle_id  = await resolveVehicleId(vehicle_code, req.userId);
     trip.destination = await geocode(trip.destination);
 
     const row = await withTransaction(pool, async client => {
+      const existing = (await client.query(
+        `SELECT ${TRIP_COLUMNS} FROM trips
+         WHERE  user_id = $1 AND vehicle_id IS NOT DISTINCT FROM $2 AND timestamp = $3
+           AND  odometer_km = $4 AND destination = $5 AND trip_type = $6
+         LIMIT  1`,
+        [req.userId, trip.vehicle_id ?? null, trip.timestamp, trip.odometer_km, trip.destination, trip.trip_type]
+      )).rows[0];
+      if (existing) return { ...existing, duplicate: true };
+
       await checkKmPlausibility(client, req.userId, trip, force);
 
       const inserted = (await client.query(
@@ -51,7 +63,9 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
       return inserted;
     });
 
-    console.log(`✅ Fahrt gespeichert (ID: ${row.id}, User: ${req.userId})`);
+    console.log(row.duplicate
+      ? `↩️ Fahrt bereits vorhanden (ID: ${row.id}, User: ${req.userId})`
+      : `✅ Fahrt gespeichert (ID: ${row.id}, User: ${req.userId})`);
     return row;
   }
 
