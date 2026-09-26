@@ -58,7 +58,9 @@ prod "docker exec -i $DB sh -c 'psql -q -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_D
 BEGIN TRANSACTION READ ONLY;
 SELECT 'Benutzernamen mit Großbuchstaben: ' || COUNT(*) FROM users WHERE username <> LOWER(username);
 SELECT 'Index auf LOWER(username):        ' || EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'users_username_lower_key');
-SELECT 'Fahrten ohne Fahrzeug:            ' || COUNT(*) FROM fahrten WHERE vehicle_id IS NULL;
+-- Tabelle heißt ab Migration 011 "trips", davor "fahrten"
+SELECT COALESCE(to_regclass('public.trips'), to_regclass('public.fahrten')) AS fahrten_tabelle \gset
+SELECT 'Fahrten ohne Fahrzeug:            ' || COUNT(*) FROM :fahrten_tabelle WHERE vehicle_id IS NULL;
 SELECT 'Fahrzeuge (letzte Sicherung):     ' || COALESCE(string_agg(name || ' = ' || COALESCE(to_char(last_backup_at, 'DD.MM.YYYY'), 'nie'), ', ' ORDER BY id), '–') FROM vehicles;
 ROLLBACK;
 SQL

@@ -188,16 +188,28 @@ als bei der folgenden Fahrt desselben Fahrzeugs, antwortet die API mit
 gespeichert.
 
 **Änderungsprotokoll:** Jede Anlage, Änderung und Löschung einer Fahrt wird mit
-altem und neuem Stand sowie der Quelle (`web` oder `api_token`) in
-`fahrten_audit` festgehalten. Gelöschte Fahrten bleiben dort nachvollziehbar.
+altem und neuem Stand sowie der Quelle (`web`, `api_token` oder `admin`) in
+`trip_audit` festgehalten. Gelöschte Fahrten bleiben dort nachvollziehbar.
 
 ---
 
 ## 7. Datenbank-Zugriff (Wartung)
 
 ```bash
-docker exec -it fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch
+docker exec -it fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch   # Prod: drivingbook-db
 ```
+
+**Namen:** Die Datenbank verwendet seit Migration 011 englische Namen, die API bleibt
+deutsch (für Frontend, Home Assistant und Sicherungsdateien). Übersetzt wird ausschließlich
+in `src/lib/dbschema.js` – neue SQL-Zugriffe auf Fahrten bitte über dessen Helfer.
+
+| API (deutsch) | Datenbank (englisch) |
+|---|---|
+| Tabelle Fahrten / Protokoll | `trips` / `trip_audit` |
+| `kmstand`, `ziel`, `fahrtart` | `odometer_km`, `destination`, `trip_type` |
+| `fahrt_id` (Protokoll) | `trip_id` |
+| `privat`, `geschäftlich`, `arbeitsweg` | `private`, `business`, `commute` |
+| `verbrenner`, `hybrid`, `elektro`, `elektro_teuer` | `combustion`, `hybrid`, `electric`, `electric_high_price` |
 
 Nützliche Queries:
 ```sql

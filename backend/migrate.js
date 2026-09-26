@@ -29,6 +29,7 @@ import pg       from "pg";
 import fs       from "fs";
 import path     from "path";
 import readline from "readline";
+import { COL, TAB, fahrtartZuDb } from "./src/lib/dbschema.js";
 
 const { Pool } = pg;
 
@@ -209,17 +210,17 @@ async function main() {
 
       // Duplikat-Prüfung
       const dup = await client.query(
-        `SELECT id FROM fahrten WHERE user_id=$1 AND timestamp=$2 AND kmstand=$3`,
+        `SELECT id FROM ${TAB.fahrten} WHERE user_id=$1 AND timestamp=$2 AND ${COL.kmstand}=$3`,
         [userId, ts, kmstand]
       );
       if (dup.rows.length > 0) { doppelt++; continue; }
 
       try {
         await client.query(
-          `INSERT INTO fahrten (user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
+          `INSERT INTO ${TAB.fahrten} (user_id, vehicle_id, ${COL.kmstand}, ${COL.ziel}, ${COL.fahrtart}, timestamp)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [userId, opts.vehicleId || null, kmstand,
-           (f.ziel || "").trim() || "–", parseFahrtart(f.fahrtart), ts]
+           (f.ziel || "").trim() || "–", fahrtartZuDb(parseFahrtart(f.fahrtart)), ts]
         );
         erfolg++;
       } catch (err) {
