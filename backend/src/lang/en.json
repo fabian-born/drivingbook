@@ -72,7 +72,11 @@
     "vehicleHasTrips_one": "The vehicle has {{count}} trip – please specify which vehicle it moves to",
     "vehicleHasTrips_other": "The vehicle has {{count}} trips – please specify which vehicle they move to",
     "kmBelowPrevious": "Odometer reading {{km}} is lower than on the previous trip ({{otherKm}} km on {{date}})",
-    "kmAboveNext": "Odometer reading {{km}} is higher than on the next trip ({{otherKm}} km on {{date}})"
+    "kmAboveNext": "Odometer reading {{km}} is higher than on the next trip ({{otherKm}} km on {{date}})",
+    "invalidRole": "Role must be 'user' or 'admin'",
+    "invalidCountry": "Country is not supported",
+    "cannotDemoteSelf": "You cannot remove your own admin rights",
+    "lastAdmin": "The last admin cannot be turned into a user"
   },
   "messages": {
     "costsSaved": "Costs saved",
@@ -82,7 +86,8 @@
     "tokenDeleted": "Token deleted",
     "tripSaved": "Trip saved",
     "tripUpdated": "Trip updated",
-    "tripDeleted": "Trip deleted"
+    "tripDeleted": "Trip deleted",
+    "userUpdated": "User saved"
   },
   "defaults": {
     "vehicleName": "Vehicle 1"

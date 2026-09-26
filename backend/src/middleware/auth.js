@@ -56,12 +56,16 @@ export function createAuth({ pool, config }) {
     return next();
   });
 
-  function requireAdmin(req, res, next) {
-    if (req.role !== "admin") {
-      return next(new HttpError(403, "errors.adminOnly"));
+  // Checks the current role in the database – a revoked admin role applies
+  // immediately, not only when the login token expires
+  const requireAdmin = asyncHandler(async (req, res, next) => {
+    const result = await pool.query(`SELECT role FROM users WHERE id = $1`, [req.userId]);
+    if (result.rows[0]?.role !== "admin") {
+      throw new HttpError(403, "errors.adminOnly");
     }
+    req.role = "admin";
     return next();
-  }
+  });
 
   return { requireAuth, requireAdmin };
 }

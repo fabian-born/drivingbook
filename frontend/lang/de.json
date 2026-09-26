@@ -453,7 +453,13 @@
       "new": "Neuer Benutzer",
       "role": "Rolle",
       "created": "Erstellt",
-      "loading": "Lade…"
+      "loading": "Lade…",
+      "country": "Land",
+      "roleHint": "Rolle und Land werden sofort gespeichert. Neue Admins sehen den Menüpunkt „Admin“ nach dem nächsten Login; entzogene Rechte gelten sofort. Die eigene Rolle lässt sich nicht ändern.",
+      "saved": "„{{name}}“ gespeichert.",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "confirmAdmin": "„{{name}}“ zum Admin machen? Admins können alle Benutzer verwalten und die Datenbank aufräumen.",
+      "ownRole": "Die eigene Rolle lässt sich nicht ändern"
     },
     "modal": {
       "title": "Neuen Benutzer anlegen",

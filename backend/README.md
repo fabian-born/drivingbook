@@ -148,6 +148,7 @@ Pfade, Feldnamen und Werte der API sind englisch (seit 09/2026); Fehlermeldungen
 | PATCH | `/api/vehicles/:id` | Name, Kennzeichen, Listenpreis, Antrieb (`drive_type`) ändern |
 | DELETE | `/api/vehicles/:id[?target=ID]` | Fahrzeug löschen; hat es Fahrten, ziehen sie in Fahrzeug `target` um (protokolliert), ohne `target` → 409 `HAS_TRIPS` |
 | GET  | `/api/vehicles/:id/info?year=YYYY` | Auto-Info: Kennzahlen, Jahreskosten, Vergleich 1-%-Regel ↔ Fahrtenbuch (`comparison`) |
+| PATCH | `/api/profile` | Eigene Einstellungen (`language`: `de`/`en`/`null`) |
 | PATCH | `/api/vehicles/:id/default` | Fahrzeug als Standard markieren |
 | PUT  | `/api/vehicles/:id/years/:year` | Jahreskosten speichern |
 | GET  | `/api/vehicles/:id/check?year=YYYY` | Prüfung eines Jahres: `status` (green/yellow/red) + `findings` |
@@ -164,6 +165,8 @@ Pfade, Feldnamen und Werte der API sind englisch (seit 09/2026); Fehlermeldungen
 | DELETE | `/api/tokens/:id` | API-Token löschen |
 | POST | `/api/users` | User anlegen *(nur Admin)* |
 | GET  | `/api/users` | Alle User *(nur Admin)* |
+| PATCH | `/api/admin/users/:id` | Rolle (`user`/`admin`) und/oder Land eines Users ändern *(nur Admin; nicht die eigene Rolle)* |
+| GET  | `/api/admin/countries` | Länder, die der Steuervergleich unterstützt *(nur Admin)* |
 | POST | `/api/users/change-password` | Eigenes Passwort ändern |
 
 Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE`) und liefern dann

@@ -453,7 +453,13 @@
       "new": "New user",
       "role": "Role",
       "created": "Created",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "country": "Country",
+      "roleHint": "Role and country are saved immediately. New admins see the “Admin” menu item after their next login; revoked rights apply immediately. You cannot change your own role.",
+      "saved": "“{{name}}” saved.",
+      "saveFailed": "Saving failed",
+      "confirmAdmin": "Make “{{name}}” an admin? Admins can manage all users and clean up the database.",
+      "ownRole": "You cannot change your own role"
     },
     "modal": {
       "title": "Create new user",

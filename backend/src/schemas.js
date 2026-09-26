@@ -140,6 +140,13 @@ export const tokenBody = z.object({
 // Countries whose tax rules the tax comparison implements (ISO 3166-1 alpha-2)
 export const TAX_COUNTRIES = ["DE"];
 
+// Admin: change another user's role or country
+export const ROLES = ["user", "admin"];
+export const adminUserUpdateBody = z.object({
+  role:    z.enum(ROLES, { error: "errors.invalidRole" }).optional(),
+  country: z.enum(TAX_COUNTRIES, { error: "errors.invalidCountry" }).optional(),
+}).refine(d => d.role !== undefined || d.country !== undefined, { error: "errors.noFields" });
+
 // ── Language ─────────────────────────────────────────────────
 // UI languages (ISO 639-1); null = automatic (browser language)
 export const LANGUAGES = ["de", "en"];

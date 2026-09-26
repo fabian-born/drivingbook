@@ -72,7 +72,11 @@
     "vehicleHasTrips_one": "Das Fahrzeug hat {{count}} Fahrt – bitte angeben, zu welchem Fahrzeug sie umzieht",
     "vehicleHasTrips_other": "Das Fahrzeug hat {{count}} Fahrten – bitte angeben, zu welchem Fahrzeug sie umziehen",
     "kmBelowPrevious": "km-Stand {{km}} ist kleiner als bei der vorherigen Fahrt ({{otherKm}} km am {{date}})",
-    "kmAboveNext": "km-Stand {{km}} ist größer als bei der folgenden Fahrt ({{otherKm}} km am {{date}})"
+    "kmAboveNext": "km-Stand {{km}} ist größer als bei der folgenden Fahrt ({{otherKm}} km am {{date}})",
+    "invalidRole": "Rolle muss 'user' oder 'admin' sein",
+    "invalidCountry": "Land wird nicht unterstützt",
+    "cannotDemoteSelf": "Du kannst dir die Admin-Rechte nicht selbst entziehen",
+    "lastAdmin": "Der letzte Admin kann nicht zum Benutzer gemacht werden"
   },
   "messages": {
     "costsSaved": "Kosten gespeichert",
@@ -82,7 +86,8 @@
     "tokenDeleted": "Token gelöscht",
     "tripSaved": "Fahrt gespeichert",
     "tripUpdated": "Fahrt aktualisiert",
-    "tripDeleted": "Fahrt gelöscht"
+    "tripDeleted": "Fahrt gelöscht",
+    "userUpdated": "Benutzer gespeichert"
   },
   "defaults": {
     "vehicleName": "Fahrzeug 1"

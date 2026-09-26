@@ -9,7 +9,7 @@ import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
 import { handleUnassigned, report, removeDuplicates } from "../lib/cleanup.js";
-import { createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } from "../schemas.js";
+import { TAX_COUNTRIES, adminUserUpdateBody, createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   const router = express.Router();
@@ -17,7 +17,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   // GET /api/users  →  all users
   router.get("/users", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const result = await pool.query(
-      `SELECT id, username, role, created_at FROM users ORDER BY id ASC`
+      `SELECT id, username, role, country, created_at FROM users ORDER BY id ASC`
     );
     return res.json(result.rows);
   }));
@@ -42,6 +42,36 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
       if (err.code === "23505") throw new HttpError(409, "errors.usernameTaken");
       throw err;
     }
+  }));
+
+  // GET /api/admin/countries  →  countries the tax comparison supports
+  router.get("/admin/countries", requireAuth, requireAdmin, (req, res) => res.json({ countries: TAX_COUNTRIES }));
+
+  // PATCH /api/admin/users/:id  →  change role and/or country of a user
+  // Body: { role?: "user" | "admin", country?: "DE" }
+  // An admin cannot demote themselves, and the last admin always stays admin.
+  router.patch("/admin/users/:id", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    const { id } = parse(idParam, req.params);
+    const { role, country } = parse(adminUserUpdateBody, req.body);
+    if (role === "user" && id === req.userId) throw new HttpError(400, "errors.cannotDemoteSelf");
+
+    const user = await withTransaction(pool, async client => {
+      // Serializes concurrent role changes (last-admin check)
+      await client.query(`SELECT id FROM users WHERE role = 'admin' FOR UPDATE`);
+      const current = (await client.query(`SELECT role FROM users WHERE id = $1`, [id])).rows[0];
+      if (!current) throw new HttpError(404, "errors.userNotFound");
+      if (role === "user" && current.role === "admin") {
+        const admins = (await client.query(`SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin'`)).rows[0].n;
+        if (admins <= 1) throw new HttpError(409, "errors.lastAdmin");
+      }
+      return (await client.query(
+        `UPDATE users SET role = COALESCE($2, role), country = COALESCE($3, country)
+         WHERE id = $1 RETURNING id, username, role, country, created_at`,
+        [id, role ?? null, country ?? null]
+      )).rows[0];
+    });
+    console.log(`👤 User ${id} geändert von Admin ${req.userId}: ${JSON.stringify({ role, country })}`);
+    return res.json({ message: req.t("messages.userUpdated"), user });
   }));
 
   // POST /api/admin/users/:id/vehicle  →  create a vehicle for another user

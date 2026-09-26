@@ -38,3 +38,23 @@ test("Aufräumen ist für normale Benutzer nicht sichtbar", async ({ page }) => 
   await expect(page.locator("#adminNoAccess")).toBeVisible();
   await expect(page.locator("#aufraeumenPanel")).toBeHidden();
 });
+
+test("Admin macht einen Benutzer zum Admin, die eigene Rolle ist gesperrt", async ({ page }) => {
+  const user = await neuerUser(["Golf"], { prefix: "chef" });
+  page.on("dialog", d => d.accept());
+  await loginImBrowser(page, { username: "admin", password: ADMIN_PASSWORD, vehicles: [{}] });
+  await page.goto("/admin.html");
+
+  await expect(page.locator('tr[data-username="admin"] .user-rolle')).toBeDisabled();
+  const zeile = page.locator(`tr[data-username="${user.username}"]`);
+  await expect(zeile.locator(".user-land")).toHaveValue("DE");
+  await zeile.locator(".user-rolle").selectOption("admin");
+  await expect(page.locator("#adminAlert")).toContainText(`„${user.username}“ gespeichert`);
+
+  // gilt sofort – auch mit dem bestehenden Login-Token des Benutzers
+  const res = await fetch("http://localhost:8099/api/users", { headers: { Authorization: `Bearer ${user.token}` } });
+  expect(res.status).toBe(200);
+
+  await page.reload();
+  await expect(page.locator(`tr[data-username="${user.username}"] .user-rolle`)).toHaveValue("admin");
+});

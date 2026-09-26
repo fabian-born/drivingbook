@@ -27,20 +27,67 @@ async function ladeUsers() {
   }
 
   const data  = await res.json();
+  const laender = await ladeLaender();
+  const ich   = tokenPayload()?.userId;
   const tbody = document.getElementById("userTabelle");
 
+  const option = (wert, text, gewaehlt) =>
+    `<option value="${escapeHtml(wert)}" ${wert === gewaehlt ? "selected" : ""}>${escapeHtml(text)}</option>`;
+
   tbody.innerHTML = data.map(u => `
-    <tr>
+    <tr data-user-id="${escapeHtml(u.id)}" data-username="${escapeHtml(u.username)}">
       <td class="d-none d-sm-table-cell">${escapeHtml(u.id)}</td>
       <td><span class="mdi mdi-account me-1"></span>${escapeHtml(u.username)}</td>
       <td>
-        <span class="badge ${u.role === 'admin' ? 'bg-danger' : 'bg-secondary'}">
-          ${escapeHtml(u.role)}
-        </span>
+        <select class="form-select form-select-sm w-auto user-rolle" data-alt="${escapeHtml(u.role)}"
+          aria-label="${escapeHtml(t("admin.users.role"))}" ${u.id === ich ? `disabled title="${escapeHtml(t("admin.users.ownRole"))}"` : ""}>
+          ${option("user", t("admin.modal.roleUser"), u.role)}${option("admin", t("admin.modal.roleAdmin"), u.role)}
+        </select>
       </td>
-      <td class="small text-muted">${formatDatum(u.created_at)}</td>
+      <td>
+        <select class="form-select form-select-sm w-auto user-land" data-alt="${escapeHtml(u.country)}"
+          aria-label="${escapeHtml(t("admin.users.country"))}">
+          ${[...new Set([...laender, u.country])].map(c => option(c, landName(c), u.country)).join("")}
+        </select>
+      </td>
+      <td class="small text-muted d-none d-md-table-cell">${formatDatum(u.created_at)}</td>
     </tr>`).join("");
 }
+
+// Länder, die der Steuervergleich kennt (Vorbereitung für weitere Länder)
+async function ladeLaender() {
+  try {
+    const res = await apiFetch("/api/admin/countries");
+    if (res.ok) return (await res.json()).countries;
+  } catch { /* Rückfall unten */ }
+  return ["DE"];
+}
+
+// Rolle oder Land direkt speichern; bei Fehler auf den alten Wert zurück
+document.getElementById("userTabelle").addEventListener("change", async e => {
+  const select = e.target.closest(".user-rolle, .user-land");
+  if (!select) return;
+  const zeile = select.closest("tr");
+  const name  = zeile.dataset.username;
+  const feld  = select.classList.contains("user-rolle") ? "role" : "country";
+
+  if (feld === "role" && select.value === "admin" && !confirm(t("admin.users.confirmAdmin", { name }))) {
+    select.value = select.dataset.alt;
+    return;
+  }
+  select.disabled = true;
+  try {
+    const res = await apiFetch(`/api/admin/users/${zeile.dataset.userId}`, { method: "PATCH", body: { [feld]: select.value } });
+    if (!res.ok) throw new Error(await apiError(res, t("admin.users.saveFailed")));
+    select.dataset.alt = select.value;
+    zeigeAlert(t("admin.users.saved", { name }));
+  } catch (err) {
+    select.value = select.dataset.alt;
+    zeigeAlert(err.message, "danger");
+  } finally {
+    select.disabled = false;
+  }
+});
 
 // ── Neuer User (Admin-Weg) ───────────────────────────────────
 
