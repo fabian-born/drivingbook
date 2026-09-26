@@ -51,7 +51,7 @@ test.describe("Hell-/Dunkelmodus", () => {
 
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
     expect(await thema(page)).toBe("light");
-    await expect(page.locator(".verlauf-druckbild")).toHaveAttribute("src", /^data:image\/png/);
+    await expect(page.locator(".history-print")).toHaveAttribute("src", /^data:image\/png/);
     await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     expect(await thema(page)).toBe("dark");
   });

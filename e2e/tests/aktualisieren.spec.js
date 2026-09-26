@@ -10,7 +10,7 @@ async function setzeSichtbar(page, sichtbar) {
   }, sichtbar);
 }
 
-const monatsKm = page => page.locator(".kennzahl-wert").first();
+const monatsKm = page => page.locator(".metric-value").first();
 
 test("Dashboard lädt neu nach Rückkehr in die App und alle 5 Minuten", async ({ page }) => {
   await page.clock.install();
@@ -52,17 +52,17 @@ test("keine Aktualisierung mitten in einer Eingabe", async ({ page }) => {
 
   await loginImBrowser(page, user);
   await page.goto("/driving.html");
-  await expect(page.locator("#letzterStand")).toContainText("5.000 km");
+  await expect(page.locator("#lastReading")).toContainText("5.000 km");
 
   await fahrt(user, { odometer_km: 5080, timestamp: new Date(Date.now() - 3600e3).toISOString() });
-  await page.fill("#kmstand", "51");                 // Nutzer tippt gerade
+  await page.fill("#odometer", "51");                 // Nutzer tippt gerade
   await page.clock.fastForward("05:01");
-  await expect(page.locator("#letzterStand")).toContainText("5.000 km");
-  await expect(page.locator("#kmstand")).toHaveValue("51");
+  await expect(page.locator("#lastReading")).toContainText("5.000 km");
+  await expect(page.locator("#odometer")).toHaveValue("51");
 
-  await page.locator("#ziel").focus();               // Feld verlassen → dann aktualisieren
-  await page.locator("#ziel").blur();
+  await page.locator("#destination").focus();               // Feld verlassen → dann aktualisieren
+  await page.locator("#destination").blur();
   await page.clock.fastForward(2_000);
-  await expect(page.locator("#letzterStand")).toContainText("5.080 km");
-  await expect(page.locator("#kmstand")).toHaveValue("51");
+  await expect(page.locator("#lastReading")).toContainText("5.080 km");
+  await expect(page.locator("#odometer")).toHaveValue("51");
 });

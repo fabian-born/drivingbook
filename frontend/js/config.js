@@ -43,7 +43,7 @@ function tokenPayload() {
     const isActive = btn.dataset.theme === window.theme?.mode();
     btn.setAttribute("aria-checked", isActive);
     btn.setAttribute("role", "menuitemradio");
-    btn.querySelector(".darstellung-haken").style.visibility = isActive ? "visible" : "hidden";
+    btn.querySelector(".theme-check").style.visibility = isActive ? "visible" : "hidden";
   });
   document.querySelectorAll("[data-theme]").forEach(btn => btn.addEventListener("click", () => {
     window.theme?.set(btn.dataset.theme);

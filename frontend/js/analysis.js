@@ -1,15 +1,15 @@
-// js/auswertung.js
+// js/analysis.js
 // Yearly analysis for dashboard and year history: key figures, breakdown
 // by trip type, trend (stacked columns) and monthly overview –
 // as a table on desktop, as month cards on smartphones.
 
 // Analysis styles (once per page)
 document.head.insertAdjacentHTML("beforeend", `<style>
-  .kennzahl-wert { font-size: clamp(1.1rem, 5vw, 1.75rem); font-weight: 600; line-height: 1.2; white-space: nowrap; }
-  .zahl, .monats-tabelle td { font-variant-numeric: tabular-nums; }
-  .verlauf-diagramm { position: relative; height: 240px; }
-  @media (min-width: 768px) { .verlauf-diagramm { height: 300px; } }
-  @media print { .verlauf-druckbild { max-height: 230px; object-fit: contain; } }
+  .metric-value { font-size: clamp(1.1rem, 5vw, 1.75rem); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+  .numeric, .month-table td { font-variant-numeric: tabular-nums; }
+  .history-chart { position: relative; height: 240px; }
+  @media (min-width: 768px) { .history-chart { height: 300px; } }
+  @media print { .history-print { max-height: 230px; object-fit: contain; } }
 </style>`);
 
 const kmText   = n => `${(n ?? 0).toLocaleString(i18n.locale)} km`;
@@ -29,7 +29,7 @@ function splitBar(values, { height: barHeight = 10 } = {}) {
     ? `<div style="flex:1;background:var(--bs-secondary-bg)"></div>`
     : TRIP_TYPES.filter(a => values[a.key] > 0).map(a =>
         `<div style="flex:${values[a.key]} 1 0;background:${a.chart}"></div>`).join("");
-  return `<div class="aufteilung-balken" role="img" aria-label="${escapeHtml(description)}"
+  return `<div class="split-bar" role="img" aria-label="${escapeHtml(description)}"
             style="display:flex;gap:2px;height:${barHeight}px;border-radius:${barHeight / 2}px;overflow:hidden">${segments}</div>`;
 }
 
@@ -40,7 +40,7 @@ function splitLegend(values) {
     <div class="d-flex align-items-center gap-2">
       <span class="rounded-1 flex-shrink-0" style="width:12px;height:12px;background:${a.chart}"></span>
       <span class="flex-grow-1">${a.label}</span>
-      <span class="fw-semibold zahl">${kmText(values[a.key])}</span>
+      <span class="fw-semibold numeric">${kmText(values[a.key])}</span>
       <span class="text-muted small text-end" style="min-width:3.5rem">${share(values[a.key], grandTotal)}</span>
     </div>`).join("");
 }
@@ -51,7 +51,7 @@ function metricTile({ label, value: rawValue, hint: hint }) {
       <div class="card h-100 shadow-sm border-0">
         <div class="card-body p-2 p-md-3">
           <div class="small text-muted text-truncate">${escapeHtml(label)}</div>
-          <div class="kennzahl-wert">${escapeHtml(rawValue)}</div>
+          <div class="metric-value">${escapeHtml(rawValue)}</div>
           ${hint ? `<div class="small text-muted text-truncate">${escapeHtml(hint)}</div>` : ""}
         </div>
       </div>
@@ -71,7 +71,7 @@ function monthTable(months) {
     </tr>`).join("");
   return `
     <div class="table-responsive">
-      <table class="table table-sm table-striped align-middle mb-0 monats-tabelle">
+      <table class="table table-sm table-striped align-middle mb-0 month-table">
         <thead class="table-dark">
           <tr><th>${t("analysis.col.month")}</th><th class="text-end">${t("analysis.col.startKm")}</th><th class="text-end">${t("analysis.col.endKm")}</th>
               <th class="text-end">${t("analysis.col.driven")}</th>${headerCells}<th class="text-end">${t("analysis.col.trips")}</th></tr>
@@ -118,7 +118,7 @@ function applyChartColors(chart) {
 }
 
 // Recolor immediately on light/dark switch (also before printing)
-document.addEventListener("themaGeaendert", () => {
+document.addEventListener("themeChanged", () => {
   for (const chart of charts) {
     if (!chart.canvas?.isConnected) { charts.delete(chart); continue; }
     applyChartColors(chart);
@@ -180,7 +180,7 @@ function showYearAnalysis(target, { year: selectedYear, months: months, sum: sum
   }
 
   target.innerHTML = `
-    <div class="row row-cols-3 g-2 g-md-3 mb-3 kennzahlen">${tiles.map(metricTile).join("")}</div>
+    <div class="row row-cols-3 g-2 g-md-3 mb-3 metrics">${tiles.map(metricTile).join("")}</div>
 
     <div class="row g-3 mb-3">
       <div class="col-lg-4">
@@ -196,8 +196,8 @@ function showYearAnalysis(target, { year: selectedYear, months: months, sum: sum
         <div class="card shadow-sm border-0 h-100">
           <div class="card-body">
             <h2 class="h6 mb-2">${t("analysis.kmPerMonth")}</h2>
-            <div class="verlauf-diagramm d-print-none"><canvas aria-label="${escapeHtml(t("analysis.kmPerMonthAria"))}" role="img"></canvas></div>
-            <img class="verlauf-druckbild d-none d-print-block w-100" alt="">
+            <div class="history-chart d-print-none"><canvas aria-label="${escapeHtml(t("analysis.kmPerMonthAria"))}" role="img"></canvas></div>
+            <img class="history-print d-none d-print-block w-100" alt="">
           </div>
         </div>
       </div>

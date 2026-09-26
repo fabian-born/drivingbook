@@ -8,15 +8,15 @@
 // The git hook (.githooks/pre-commit) sets CACHE to the frontend version
 // automatically; add new files to APP_SHELL.
 
-const CACHE = "fahrtenbuch-2026.09.26.18";
+const CACHE = "fahrtenbuch-2026.09.26.19";
 
 const APP_SHELL = [
   "./",
   "index.html", "driving.html", "view.html", "history.html",
   "profile.html", "auto.html", "admin.html", "login.html", "register.html",
-  "css/app.css", "js/theme.js", "js/i18n.js", "lang/de.json", "lang/en.json", "js/nav.js", "js/config.js", "js/auth-check.js", "js/footer.js", "js/fahrzeug.js", "js/offline.js",
+  "css/app.css", "js/theme.js", "js/i18n.js", "lang/de.json", "lang/en.json", "js/nav.js", "js/config.js", "js/auth-check.js", "js/footer.js", "js/vehicle.js", "js/offline.js",
   "js/dashboard.js", "js/dashboard-history.js", "js/driving-new.js",
-  "js/view.js", "js/profile.js", "js/auto.js", "js/sicherung.js", "js/auswertung.js", "js/admin.js", "js/login.js", "js/register.js",
+  "js/view.js", "js/profile.js", "js/auto.js", "js/backup.js", "js/analysis.js", "js/admin.js", "js/login.js", "js/register.js",
   "drivingbooklogo.png", "manifest.webmanifest", "release.ver",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png",
 ];

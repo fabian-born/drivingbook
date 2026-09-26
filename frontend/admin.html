@@ -18,7 +18,7 @@
 <body class="bg-body-tertiary d-flex flex-column min-vh-100 ">
 
 <!-- Navbar -->
-<nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
+<nav id="mainNav" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
 <div class="container py-5 flex-fill" style="max-width: 800px;">
@@ -34,7 +34,7 @@
   <div class="card shadow-sm mb-4" id="adminPanel">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span><span class="mdi mdi-account-group me-1"></span><span data-i18n="admin.users.title">Alle Benutzer</span></span>
-      <button class="btn btn-sm btn-outline-primary" id="btnNeuerUser">
+      <button class="btn btn-sm btn-outline-primary" id="btnNewUser">
         <span class="mdi mdi-account-plus me-1"></span><span data-i18n="admin.users.new">Neuer Benutzer</span>
       </button>
     </div>
@@ -58,30 +58,30 @@
   </div>
 
   <!-- ── Database cleanup ─────────────────────────────────── -->
-  <div class="card shadow-sm mb-4" id="aufraeumenPanel">
+  <div class="card shadow-sm mb-4" id="cleanupPanel">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span><span class="mdi mdi-broom me-1"></span><span data-i18n="admin.cleanup.title">Datenbank aufräumen</span></span>
-      <button class="btn btn-sm btn-outline-primary" id="btnPruefen">
+      <button class="btn btn-sm btn-outline-primary" id="btnCheck">
         <span class="mdi mdi-magnify me-1"></span><span data-i18n="admin.cleanup.check">Prüfen</span>
       </button>
     </div>
     <div class="card-body">
-      <div id="aufraeumenAlert" class="d-none mb-3"></div>
-      <p class="small text-muted mb-0" id="aufraeumenStart" data-i18n="admin.cleanup.intro">
+      <div id="cleanupAlert" class="d-none mb-3"></div>
+      <p class="small text-muted mb-0" id="cleanupStart" data-i18n="admin.cleanup.intro">
         Sucht in allen Konten nach doppelten Fahrten und nach Fahrten, die keinem Fahrzeug zugeordnet sind.
         Jede Änderung wird im Änderungsprotokoll des Benutzers mit Quelle „Admin“ festgehalten.
       </p>
 
-      <div id="aufraeumenErgebnis" class="d-none">
-        <h6 class="mt-1"><span data-i18n="admin.cleanup.duplicates">Doppelte Fahrten</span> <span class="badge text-bg-secondary" id="duplikatAnzahl">0</span></h6>
-        <p class="small text-muted" id="duplikatRegel"></p>
-        <div id="duplikatListe"></div>
-        <button class="btn btn-sm btn-danger mt-2 d-none" id="btnDuplikateLoeschen">
+      <div id="cleanupResult" class="d-none">
+        <h6 class="mt-1"><span data-i18n="admin.cleanup.duplicates">Doppelte Fahrten</span> <span class="badge text-bg-secondary" id="duplicateCount">0</span></h6>
+        <p class="small text-muted" id="duplicateRule"></p>
+        <div id="duplicateList"></div>
+        <button class="btn btn-sm btn-danger mt-2 d-none" id="btnDeleteDuplicates">
           <span class="mdi mdi-delete me-1"></span><span data-i18n="admin.cleanup.deleteSelected">Ausgewählte Duplikate löschen</span>
         </button>
 
-        <h6 class="mt-4"><span data-i18n="admin.cleanup.unassigned">Fahrten ohne Fahrzeug</span> <span class="badge text-bg-secondary" id="ohneAnzahl">0</span></h6>
-        <div id="ohneListe"></div>
+        <h6 class="mt-4"><span data-i18n="admin.cleanup.unassigned">Fahrten ohne Fahrzeug</span> <span class="badge text-bg-secondary" id="unassignedCount">0</span></h6>
+        <div id="unassignedList"></div>
       </div>
     </div>
   </div>
@@ -131,7 +131,7 @@
       </div>
       <div class="modal-footer" id="userModalFooter">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="admin.modal.cancel">Abbrechen</button>
-        <button type="button" class="btn btn-primary" id="btnUserSpeichern" data-i18n="admin.modal.create">Anlegen</button>
+        <button type="button" class="btn btn-primary" id="btnSaveUser" data-i18n="admin.modal.create">Anlegen</button>
       </div>
     </div>
   </div>
@@ -139,7 +139,7 @@
 
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/fahrzeug.js"></script>
+<script src="js/vehicle.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="js/admin.js"></script>

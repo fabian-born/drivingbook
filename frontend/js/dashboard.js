@@ -1,5 +1,5 @@
 // js/dashboard.js
-// Dashboard: analysis of the current year for the active vehicle (see auswertung.js)
+// Dashboard: analysis of the current year for the active vehicle (see analysis.js)
 
 const currentYear  = new Date().getFullYear();
 const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -7,8 +7,8 @@ const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStar
 let chartInstance = null;
 
 async function loadDashboard() {
-    const target = document.getElementById("dashboardInhalt");
-    document.getElementById("dashboardJahr").textContent = currentYear;
+    const target = document.getElementById("dashboardContent");
+    document.getElementById("dashboardYear").textContent = currentYear;
 
     // One query for the whole year; the backend computes distances (from the previous year's last odometer reading)
     const res = await apiFetch(withVehicle(`/api/trips?year=${currentYear}`));
@@ -35,17 +35,17 @@ async function loadDashboard() {
 async function checkBackup() {
     const status = await loadBackupStatus().catch(() => null);
     const due = status?.vehicles.filter(v => v.remind) ?? [];
-    const box = document.getElementById("sicherungHinweis");
+    const box = document.getElementById("backupReminder");
     box.classList.toggle("d-none", due.length === 0);
     if (due.length === 0) return;
 
     const neverBackedUp = due.every(v => !v.last_backup_at);
-    document.getElementById("sicherungHinweisText").textContent = neverBackedUp
+    document.getElementById("backupReminderText").textContent = neverBackedUp
         ? t("dashboard.neverBackedUp")
         : t("dashboard.backupOverdue", { days: status.reminder_days });
 }
 
-document.getElementById("sicherungJetztBtn").addEventListener("click", async () => {
+document.getElementById("backupNowBtn").addEventListener("click", async () => {
     await backupAll();
     checkBackup();
 });

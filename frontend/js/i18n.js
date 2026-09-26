@@ -109,11 +109,11 @@
 
   document.documentElement.lang = currentLanguage;
   // Hide until translated so no German text flashes up
-  if (currentLanguage !== DEFAULT_LANGUAGE) document.documentElement.classList.add("i18n-wartet");
-  document.head.insertAdjacentHTML("beforeend", "<style>html.i18n-wartet body { visibility: hidden; }</style>");
+  if (currentLanguage !== DEFAULT_LANGUAGE) document.documentElement.classList.add("i18n-pending");
+  document.head.insertAdjacentHTML("beforeend", "<style>html.i18n-pending body { visibility: hidden; }</style>");
   document.addEventListener("DOMContentLoaded", () => {
     translatePage();
-    document.documentElement.classList.remove("i18n-wartet");
+    document.documentElement.classList.remove("i18n-pending");
   });
 
   window.t     = t;

@@ -15,31 +15,31 @@
 <link href="css/app.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
   <style>
-    .kennzahl       { font-size: clamp(1.05rem, 5vw, 1.35rem); font-weight: 600; white-space: nowrap; }
-    .kennzahl-label { font-size: .8rem; color: var(--bs-secondary-color); }
-    .methode.gewinner { border-color: var(--bs-success) !important; box-shadow: 0 0 0 .15rem rgba(25,135,84,.25); }
+    .metric       { font-size: clamp(1.05rem, 5vw, 1.35rem); font-weight: 600; white-space: nowrap; }
+    .metric-label { font-size: .8rem; color: var(--bs-secondary-color); }
+    .method.winner { border-color: var(--bs-success) !important; box-shadow: 0 0 0 .15rem rgba(25,135,84,.25); }
     .break-even { position: relative; height: 1.25rem; }
     .break-even .marker { position: absolute; top: -.35rem; bottom: -.35rem; width: 3px; background: var(--bs-dark); }
   </style>
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
 
-<nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
+<nav id="mainNav" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
 <div class="container py-4 flex-fill" style="max-width: 900px;">
 
-  <div id="keinFahrzeug" class="alert alert-info d-none" data-i18n="auto.noVehicle">
+  <div id="noVehicle" class="alert alert-info d-none" data-i18n="auto.noVehicle">
     Du hast noch kein Fahrzeug. Lege unten unter „Meine Fahrzeuge“ eins an.
   </div>
 
-  <div id="autoInhalt" class="d-none">
+  <div id="infoContent" class="d-none">
     <!-- Header -->
     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-      <h2 class="mb-0"><span class="mdi mdi-car me-2"></span><span id="autoName">–</span></h2>
-      <span id="autoKennzeichen" class="badge text-bg-light border fs-6 d-none"></span>
+      <h2 class="mb-0"><span class="mdi mdi-car me-2"></span><span id="infoName">–</span></h2>
+      <span id="infoPlate" class="badge text-bg-light border fs-6 d-none"></span>
       <span class="ms-auto small text-muted">
-        <span data-i18n="auto.codeLabel">Code für API/Home Assistant:</span> <code id="autoCode">–</code>
+        <span data-i18n="auto.codeLabel">Code für API/Home Assistant:</span> <code id="infoCode">–</code>
         <button class="btn btn-sm btn-outline-secondary btn-icon ms-1" id="copyCodeBtn" title="Code kopieren"
           aria-label="Code kopieren" data-i18n-attr="title:auto.copyCode;aria-label:auto.copyCode"><span class="mdi mdi-content-copy"></span></button>
       </span>
@@ -50,16 +50,16 @@
     <div class="card shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><span class="mdi mdi-chart-box-outline me-2"></span><span data-i18n="auto.figures.title">Kennzahlen</span></span>
-        <select id="jahrSelect" class="form-select form-select-sm w-auto" aria-label="Jahr" data-i18n-attr="aria-label:auto.figures.year"></select>
+        <select id="yearSelect" class="form-select form-select-sm w-auto" aria-label="Jahr" data-i18n-attr="aria-label:auto.figures.year"></select>
       </div>
       <div class="card-body">
         <div class="row g-3 text-center">
-          <div class="col-6 col-md-3"><div class="kennzahl" id="kzKmAktuell">–</div><div class="kennzahl-label" data-i18n="auto.figures.odometer">aktueller km-Stand</div></div>
-          <div class="col-6 col-md-3"><div class="kennzahl" id="kzKmJahr">–</div><div class="kennzahl-label" data-i18n="auto.figures.kmYear">km im Jahr</div></div>
-          <div class="col-6 col-md-3"><div class="kennzahl" id="kzPrivat">–</div><div class="kennzahl-label" data-i18n="auto.figures.private">davon privat + Arbeitsweg</div></div>
-          <div class="col-6 col-md-3"><div class="kennzahl" id="kzFahrten">–</div><div class="kennzahl-label" data-i18n="auto.figures.trips">Fahrten im Jahr</div></div>
+          <div class="col-6 col-md-3"><div class="metric" id="kfOdometer">–</div><div class="metric-label" data-i18n="auto.figures.odometer">aktueller km-Stand</div></div>
+          <div class="col-6 col-md-3"><div class="metric" id="kfKmYear">–</div><div class="metric-label" data-i18n="auto.figures.kmYear">km im Jahr</div></div>
+          <div class="col-6 col-md-3"><div class="metric" id="kfPrivate">–</div><div class="metric-label" data-i18n="auto.figures.private">davon privat + Arbeitsweg</div></div>
+          <div class="col-6 col-md-3"><div class="metric" id="kfTrips">–</div><div class="metric-label" data-i18n="auto.figures.trips">Fahrten im Jahr</div></div>
         </div>
-        <p class="small text-muted mb-0 mt-3" id="kzZeitraum"></p>
+        <p class="small text-muted mb-0 mt-3" id="kfPeriod"></p>
       </div>
     </div>
 
@@ -67,33 +67,33 @@
     <div class="card shadow-sm mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><span class="mdi mdi-clipboard-check-outline me-2"></span><span data-i18n="auto.check.title">Prüfung vor der Steuererklärung</span></span>
-        <span id="pruefAmpel" class="badge">–</span>
+        <span id="checkBadge" class="badge">–</span>
       </div>
-      <ul id="pruefListe" class="list-group list-group-flush"></ul>
+      <ul id="checkList" class="list-group list-group-flush"></ul>
     </div>
 
     <!-- Vehicle data -->
     <div class="card shadow-sm mb-4">
       <div class="card-header"><span class="mdi mdi-card-text-outline me-2"></span><span data-i18n="auto.data.title">Fahrzeugdaten</span></div>
       <div class="card-body">
-        <div id="datenAlert" class="alert d-none"></div>
+        <div id="dataAlert" class="alert d-none"></div>
         <div class="row g-3">
           <div class="col-md-6">
-            <label for="fdName" class="form-label small" data-i18n="auto.data.name">Name</label>
-            <input type="text" id="fdName" class="form-control form-control-sm" maxlength="100">
+            <label for="vdName" class="form-label small" data-i18n="auto.data.name">Name</label>
+            <input type="text" id="vdName" class="form-control form-control-sm" maxlength="100">
           </div>
           <div class="col-md-6">
-            <label for="fdKennzeichen" class="form-label small" data-i18n="auto.data.plate">Kennzeichen</label>
-            <input type="text" id="fdKennzeichen" class="form-control form-control-sm" maxlength="20" placeholder="z. B. B-XY 123" data-i18n-attr="placeholder:auto.data.platePlaceholder" style="text-transform: uppercase">
+            <label for="vdPlate" class="form-label small" data-i18n="auto.data.plate">Kennzeichen</label>
+            <input type="text" id="vdPlate" class="form-control form-control-sm" maxlength="20" placeholder="z. B. B-XY 123" data-i18n-attr="placeholder:auto.data.platePlaceholder" style="text-transform: uppercase">
           </div>
           <div class="col-md-6">
-            <label for="fdListenpreis" class="form-label small" data-i18n="auto.data.listPrice">Bruttolistenpreis (€)</label>
-            <input type="number" id="fdListenpreis" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <label for="vdListPrice" class="form-label small" data-i18n="auto.data.listPrice">Bruttolistenpreis (€)</label>
+            <input type="number" id="vdListPrice" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
             <div class="form-text" data-i18n="auto.data.listPriceHint">Inländischer Listenpreis bei Erstzulassung inkl. Sonderausstattung und USt.</div>
           </div>
           <div class="col-md-6">
-            <label for="fdAntrieb" class="form-label small" data-i18n="auto.data.drive">Antrieb</label>
-            <select id="fdAntrieb" class="form-select form-select-sm">
+            <label for="vdDriveType" class="form-label small" data-i18n="auto.data.drive">Antrieb</label>
+            <select id="vdDriveType" class="form-select form-select-sm">
               <option value="combustion" data-i18n="auto.drive.combustion">Verbrenner – 1 %</option>
               <option value="hybrid" data-i18n="auto.drive.hybrid">Plug-in-Hybrid – 0,5 %</option>
               <option value="electric" data-i18n="auto.drive.electric">Elektro – 0,25 %</option>
@@ -102,76 +102,76 @@
             <div class="form-text" data-i18n="auto.data.driveHint">Welcher Satz gilt, hängt u. a. vom Anschaffungsdatum und Listenpreis ab.</div>
           </div>
         </div>
-        <button class="btn btn-sm btn-primary mt-3" id="datenSpeichernBtn" data-i18n="auto.data.save">Fahrzeugdaten speichern</button>
+        <button class="btn btn-sm btn-primary mt-3" id="saveDataBtn" data-i18n="auto.data.save">Fahrzeugdaten speichern</button>
       </div>
     </div>
 
     <!-- Tax comparison -->
     <div class="card shadow-sm mb-4">
-      <div class="card-header"><span class="mdi mdi-scale-balance me-2"></span><span data-i18n="auto.compare.title">1-%-Regel oder Fahrtenbuch?</span> <span id="vgJahr"></span></div>
+      <div class="card-header"><span class="mdi mdi-scale-balance me-2"></span><span data-i18n="auto.compare.title">1-%-Regel oder Fahrtenbuch?</span> <span id="cmpYear"></span></div>
       <div class="card-body">
-        <div id="kostenAlert" class="alert d-none"></div>
+        <div id="costsAlert" class="alert d-none"></div>
         <div class="row g-3">
           <div class="col-md-4">
-            <label for="kGesamt" class="form-label small" data-i18n="auto.compare.totalCosts">Gesamtkosten im Jahr (€)</label>
-            <input type="number" id="kGesamt" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <label for="cTotal" class="form-label small" data-i18n="auto.compare.totalCosts">Gesamtkosten im Jahr (€)</label>
+            <input type="number" id="cTotal" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
             <div class="form-text" data-i18n="auto.compare.totalCostsHint">Kraftstoff/Strom, Versicherung, Steuer, Wartung, Reparaturen, AfA bzw. Leasing.</div>
           </div>
           <div class="col-md-4">
-            <label for="kAfa" class="form-label small" data-i18n="auto.compare.depreciation">davon AfA / Leasing (€)</label>
-            <input type="number" id="kAfa" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
+            <label for="cDepreciation" class="form-label small" data-i18n="auto.compare.depreciation">davon AfA / Leasing (€)</label>
+            <input type="number" id="cDepreciation" class="form-control form-control-sm" min="0" step="0.01" inputmode="decimal">
             <div class="form-text" data-i18n="auto.compare.depreciationHint">Zählt bei E-Autos und Hybriden nur anteilig.</div>
           </div>
           <div class="col-md-4">
-            <label for="kArbeitsweg" class="form-label small" data-i18n="auto.compare.commuteKm">Entfernung Wohnung–Arbeit (km)</label>
-            <input type="number" id="kArbeitsweg" class="form-control form-control-sm" min="0" step="0.1" inputmode="decimal">
+            <label for="cCommuteKm" class="form-label small" data-i18n="auto.compare.commuteKm">Entfernung Wohnung–Arbeit (km)</label>
+            <input type="number" id="cCommuteKm" class="form-control form-control-sm" min="0" step="0.1" inputmode="decimal">
             <div class="form-text" data-i18n="auto.compare.commuteKmHint">Einfache Strecke; 0,03 % je km bei der 1-%-Regel.</div>
           </div>
           <div class="col-md-4">
-            <label for="kMonate" class="form-label small" data-i18n="auto.compare.months">Monate genutzt</label>
-            <input type="number" id="kMonate" class="form-control form-control-sm" min="1" max="12" step="1" value="12">
+            <label for="cMonths" class="form-label small" data-i18n="auto.compare.months">Monate genutzt</label>
+            <input type="number" id="cMonths" class="form-control form-control-sm" min="1" max="12" step="1" value="12">
           </div>
           <div class="col-md-4">
-            <label for="kSteuersatz" class="form-label small"><span data-i18n="auto.compare.taxRate">Grenzsteuersatz (%)</span> <span class="text-muted" data-i18n="auto.compare.optional">optional</span></label>
-            <input type="number" id="kSteuersatz" class="form-control form-control-sm" min="0" max="60" step="0.1" inputmode="decimal">
+            <label for="cTaxRate" class="form-label small"><span data-i18n="auto.compare.taxRate">Grenzsteuersatz (%)</span> <span class="text-muted" data-i18n="auto.compare.optional">optional</span></label>
+            <input type="number" id="cTaxRate" class="form-control form-control-sm" min="0" max="60" step="0.1" inputmode="decimal">
             <div class="form-text" data-i18n="auto.compare.taxRateHint">Für die geschätzte Steuerersparnis.</div>
           </div>
           <div class="col-md-4 d-flex align-items-end">
-            <button class="btn btn-sm btn-primary w-100" id="kostenSpeichernBtn" data-i18n="auto.compare.save">Berechnen &amp; speichern</button>
+            <button class="btn btn-sm btn-primary w-100" id="saveCostsBtn" data-i18n="auto.compare.save">Berechnen &amp; speichern</button>
           </div>
         </div>
 
-        <div id="vgHinweis" class="alert alert-light border mt-4 mb-0 d-none"></div>
+        <div id="cmpHint" class="alert alert-light border mt-4 mb-0 d-none"></div>
 
-        <div id="vgErgebnis" class="d-none mt-4">
+        <div id="cmpResult" class="d-none mt-4">
           <div class="row g-3">
             <div class="col-md-6">
-              <div class="card h-100 border methode" id="vgPauschal">
+              <div class="card h-100 border method" id="cmpFlatRate">
                 <div class="card-body">
                   <h6 class="card-title" data-i18n="auto.compare.flatRate">1-%-Regel</h6>
-                  <div class="kennzahl" id="vgPauschalSumme">–</div>
-                  <div class="small text-muted" id="vgPauschalDetail"></div>
+                  <div class="metric" id="cmpFlatRateTotal">–</div>
+                  <div class="small text-muted" id="cmpFlatRateDetail"></div>
                 </div>
               </div>
             </div>
             <div class="col-md-6">
-              <div class="card h-100 border methode" id="vgFahrtenbuch">
+              <div class="card h-100 border method" id="cmpLogbook">
                 <div class="card-body">
                   <h6 class="card-title" data-i18n="auto.compare.logbook">Fahrtenbuch</h6>
-                  <div class="kennzahl" id="vgFahrtenbuchSumme">–</div>
-                  <div class="small text-muted" id="vgFahrtenbuchDetail"></div>
+                  <div class="metric" id="cmpLogbookTotal">–</div>
+                  <div class="small text-muted" id="cmpLogbookDetail"></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div id="vgEmpfehlung" class="alert mt-3 mb-3"></div>
+          <div id="cmpRecommendation" class="alert mt-3 mb-3"></div>
 
-          <div id="vgBreakEvenBox">
-            <div class="small mb-2" id="vgBreakEvenText"></div>
-            <div class="break-even progress" role="img" id="vgBreakEvenBalken">
-              <div class="progress-bar bg-success" id="vgBreakEvenZone"></div>
-              <div class="marker" id="vgPrivatMarker" title="Dein Privatanteil" data-i18n-attr="title:auto.compare.yourShare"></div>
+          <div id="cmpBreakEvenBox">
+            <div class="small mb-2" id="cmpBreakEvenText"></div>
+            <div class="break-even progress" role="img" id="cmpBreakEvenBar">
+              <div class="progress-bar bg-success" id="cmpBreakEvenZone"></div>
+              <div class="marker" id="cmpPrivateMarker" title="Dein Privatanteil" data-i18n-attr="title:auto.compare.yourShare"></div>
             </div>
             <div class="d-flex justify-content-between small text-muted mt-1"><span data-i18n="auto.compare.scaleStart">0 % privat</span><span data-i18n="auto.compare.scaleEnd">100 %</span></div>
           </div>
@@ -192,10 +192,10 @@
       <div id="importAlert" class="alert d-none" style="white-space: pre-line"></div>
       <p class="small text-muted" data-i18n-html="auto.backup.hint">Fahrzeugdaten, Jahreskosten, Fahrten und Änderungsprotokoll als JSON-Datei.
         Beim Wiederherstellen wird nur Fehlendes ergänzt; ein gelöschtes Fahrzeug wird mit seinem Code neu angelegt.
-        Alle Fahrzeuge auf einmal sicherst du unter <a href="profile.html#sicherung">Profil → Konto</a>.</p>
+        Alle Fahrzeuge auf einmal sicherst du unter <a href="profile.html#backup">Profil → Konto</a>.</p>
       <div class="d-flex flex-wrap gap-2 align-items-center">
         <button class="btn btn-sm btn-primary" id="exportBtn"><span class="mdi mdi-download me-1"></span><span data-i18n="auto.backup.export">Fahrzeug sichern</span></button>
-        <input type="file" id="importDatei" class="form-control form-control-sm w-auto" accept=".json,application/json">
+        <input type="file" id="importFile" class="form-control form-control-sm w-auto" accept=".json,application/json">
         <button class="btn btn-sm btn-outline-primary" id="importBtn"><span class="mdi mdi-upload me-1"></span><span data-i18n="auto.backup.restore">Wiederherstellen</span></button>
       </div>
     </div>
@@ -237,22 +237,22 @@
 </div>
 
 <!-- Delete vehicle with trips: choose target vehicle -->
-<div class="modal fade" id="loeschenModal" tabindex="-1" aria-labelledby="loeschenModalTitel" aria-hidden="true">
+<div class="modal fade" id="deleteVehicleModal" tabindex="-1" aria-labelledby="deleteVehicleModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="loeschenModalTitel" data-i18n="auto.delete.title">Fahrzeug löschen</h5>
+        <h5 class="modal-title" id="deleteVehicleModalTitle" data-i18n="auto.delete.title">Fahrzeug löschen</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen" data-i18n-attr="aria-label:auto.close"></button>
       </div>
       <div class="modal-body">
-        <p id="loeschenText"></p>
-        <label for="loeschenZiel" class="form-label" data-i18n="auto.delete.target">Fahrten übernehmen in</label>
-        <select id="loeschenZiel" class="form-select"></select>
+        <p id="deleteVehicleText"></p>
+        <label for="deleteVehicleTarget" class="form-label" data-i18n="auto.delete.target">Fahrten übernehmen in</label>
+        <select id="deleteVehicleTarget" class="form-select"></select>
         <p class="form-text mb-0" data-i18n="auto.delete.hint">Der Umzug wird im Änderungsprotokoll jeder Fahrt festgehalten.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="auto.cancel">Abbrechen</button>
-        <button type="button" class="btn btn-danger" id="loeschenBestaetigen" data-i18n="auto.delete.confirm">Fahrten umziehen &amp; löschen</button>
+        <button type="button" class="btn btn-danger" id="deleteVehicleConfirm" data-i18n="auto.delete.confirm">Fahrten umziehen &amp; löschen</button>
       </div>
     </div>
   </div>
@@ -260,10 +260,10 @@
 
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/fahrzeug.js"></script>
+<script src="js/vehicle.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-<script src="js/sicherung.js"></script>
+<script src="js/backup.js"></script>
 <script src="js/auto.js"></script>
 
 <footer class="bg-dark text-light mt-5">

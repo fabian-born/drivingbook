@@ -21,7 +21,7 @@ async function loadUsers() {
 
   if (res.status === 403) {
     document.getElementById("adminPanel").classList.add("d-none");
-    document.getElementById("aufraeumenPanel").classList.add("d-none");
+    document.getElementById("cleanupPanel").classList.add("d-none");
     document.getElementById("adminNoAccess").classList.remove("d-none");
     return;
   }
@@ -39,13 +39,13 @@ async function loadUsers() {
       <td class="d-none d-sm-table-cell">${escapeHtml(u.id)}</td>
       <td><span class="mdi mdi-account me-1"></span>${escapeHtml(u.username)}</td>
       <td>
-        <select class="form-select form-select-sm w-auto user-rolle" data-previous="${escapeHtml(u.role)}"
+        <select class="form-select form-select-sm w-auto user-role" data-previous="${escapeHtml(u.role)}"
           aria-label="${escapeHtml(t("admin.users.role"))}" ${u.id === currentUserId ? `disabled title="${escapeHtml(t("admin.users.ownRole"))}"` : ""}>
           ${option("user", t("admin.modal.roleUser"), u.role)}${option("admin", t("admin.modal.roleAdmin"), u.role)}
         </select>
       </td>
       <td>
-        <select class="form-select form-select-sm w-auto user-land" data-previous="${escapeHtml(u.country)}"
+        <select class="form-select form-select-sm w-auto user-country" data-previous="${escapeHtml(u.country)}"
           aria-label="${escapeHtml(t("admin.users.country"))}">
           ${[...new Set([...countries, u.country])].map(c => option(c, countryName(c), u.country)).join("")}
         </select>
@@ -65,11 +65,11 @@ async function loadCountries() {
 
 // Save role or country immediately; revert to the old value on error
 document.getElementById("userTabelle").addEventListener("change", async e => {
-  const select = e.target.closest(".user-rolle, .user-land");
+  const select = e.target.closest(".user-role, .user-country");
   if (!select) return;
   const rowEl = select.closest("tr");
   const name  = rowEl.dataset.username;
-  const fieldName  = select.classList.contains("user-rolle") ? "role" : "country";
+  const fieldName  = select.classList.contains("user-role") ? "role" : "country";
 
   if (fieldName === "role" && select.value === "admin" && !confirm(t("admin.users.confirmAdmin", { name }))) {
     select.value = select.dataset.previous;
@@ -93,7 +93,7 @@ document.getElementById("userTabelle").addEventListener("change", async e => {
 
 const userModal = new bootstrap.Modal(document.getElementById("userModal"));
 
-document.getElementById("btnNeuerUser").addEventListener("click", () => {
+document.getElementById("btnNewUser").addEventListener("click", () => {
   document.getElementById("newUsername").value     = "";
   document.getElementById("newUserPassword").value = "";
   document.getElementById("newUserVehicle").value  = "";
@@ -101,8 +101,8 @@ document.getElementById("btnNeuerUser").addEventListener("click", () => {
   document.getElementById("newUserTokenBox").classList.add("d-none");
   document.getElementById("userModalFooter").innerHTML = `
     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t("admin.modal.cancel")}</button>
-    <button type="button" class="btn btn-primary" id="btnUserSpeichern">${t("admin.modal.create")}</button>`;
-  document.getElementById("btnUserSpeichern").addEventListener("click", createUser);
+    <button type="button" class="btn btn-primary" id="btnSaveUser">${t("admin.modal.create")}</button>`;
+  document.getElementById("btnSaveUser").addEventListener("click", createUser);
   userModal.show();
 });
 
@@ -158,7 +158,7 @@ loadUsers();
 const dateTime = iso => new Date(iso).toLocaleString(i18n.locale);
 
 function showCleanupMessage(text, type) {
-  const box = document.getElementById("aufraeumenAlert");
+  const box = document.getElementById("cleanupAlert");
   box.className   = `alert alert-${type}`;
   box.textContent = text;
 }
@@ -176,17 +176,17 @@ function tripRow(f, status) {
 }
 
 function showDuplicates({ groups: groups, to_remove: toRemove }, seconds) {
-  document.getElementById("duplikatAnzahl").textContent = toRemove;
-  document.getElementById("duplikatRegel").textContent =
+  document.getElementById("duplicateCount").textContent = toRemove;
+  document.getElementById("duplicateRule").textContent =
     t("admin.cleanup.rule", { minutes: seconds / 60 });
-  document.getElementById("btnDuplikateLoeschen").classList.toggle("d-none", groups.length === 0);
+  document.getElementById("btnDeleteDuplicates").classList.toggle("d-none", groups.length === 0);
 
-  document.getElementById("duplikatListe").innerHTML = groups.length === 0
+  document.getElementById("duplicateList").innerHTML = groups.length === 0
     ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>${t("admin.cleanup.noDuplicates")}</p>`
     : groups.map((g, i) => `
       <div class="border rounded p-2 mb-2">
         <div class="form-check mb-1">
-          <input class="form-check-input duplikat-gruppe" type="checkbox" id="dup${i}" checked
+          <input class="form-check-input duplicate-group" type="checkbox" id="dup${i}" checked
             data-ids="${g.remove.map(f => f.id).join(",")}">
           <label class="form-check-label small fw-semibold" for="dup${i}">
             ${escapeHtml(g.username)} · ${escapeHtml(g.vehicle_name ?? t("admin.cleanup.withoutVehicle"))} · ${escapeHtml(tripTypeInfo(g.keep.trip_type).label)}
@@ -201,27 +201,27 @@ function showDuplicates({ groups: groups, to_remove: toRemove }, seconds) {
 }
 
 function showWithoutVehicle(listEl) {
-  document.getElementById("ohneAnzahl").textContent = listEl.reduce((n, o) => n + o.count, 0);
-  document.getElementById("ohneListe").innerHTML = listEl.length === 0
+  document.getElementById("unassignedCount").textContent = listEl.reduce((n, o) => n + o.count, 0);
+  document.getElementById("unassignedList").innerHTML = listEl.length === 0
     ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>${t("admin.cleanup.allAssigned")}</p>`
     : `<div class="list-group">${listEl.map(o => `
-        <div class="list-group-item ohne-eintrag" data-user="${o.user_id}">
+        <div class="list-group-item unassigned-entry" data-user="${o.user_id}">
           <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
             <strong>${escapeHtml(o.username)}</strong>
             <span class="small text-muted">${tHtml("admin.cleanup.tripsRange", { count: Number(o.count), first: formatDate(o.first), last: formatDate(o.last) })}</span>
           </div>
           <div class="d-flex flex-column flex-sm-row gap-2">
-            <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" aria-label="${tHtml("admin.cleanup.vehicleOf", { name: o.username })}"
+            <select class="form-select form-select-sm unassigned-target" data-user="${o.user_id}" aria-label="${tHtml("admin.cleanup.vehicleOf", { name: o.username })}"
               ${o.vehicles.length ? "" : "disabled"}>
               ${o.vehicles.length
                 ? o.vehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
                 : `<option>${t("admin.cleanup.noVehicle")}</option>`}
             </select>
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-primary flex-grow-1 text-nowrap ohne-zuordnen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.count}" ${o.vehicles.length ? "" : "disabled"}>${t("admin.cleanup.assign")}</button>
-              <button class="btn btn-sm btn-outline-danger ohne-loeschen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.count}" title="${t("admin.cleanup.deleteTrips")}" aria-label="${t("admin.cleanup.deleteTrips")}"><span class="mdi mdi-delete"></span></button>
+              <button class="btn btn-sm btn-outline-primary flex-grow-1 text-nowrap unassigned-assign" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
+                data-count="${o.count}" ${o.vehicles.length ? "" : "disabled"}>${t("admin.cleanup.assign")}</button>
+              <button class="btn btn-sm btn-outline-danger unassigned-delete" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
+                data-count="${o.count}" title="${t("admin.cleanup.deleteTrips")}" aria-label="${t("admin.cleanup.deleteTrips")}"><span class="mdi mdi-delete"></span></button>
             </div>
           </div>
         </div>`).join("")}</div>`;
@@ -232,19 +232,19 @@ async function checkDatabase() {
   if (!res.ok) return showCleanupMessage(await apiError(res), "danger");
   const report = await res.json();
 
-  document.getElementById("aufraeumenStart").classList.add("d-none");
-  document.getElementById("aufraeumenErgebnis").classList.remove("d-none");
+  document.getElementById("cleanupStart").classList.add("d-none");
+  document.getElementById("cleanupResult").classList.remove("d-none");
   showDuplicates(report.duplicates, report.duplicate_seconds);
   showWithoutVehicle(report.unassigned);
 }
 
-document.getElementById("btnPruefen").addEventListener("click", () => {
-  document.getElementById("aufraeumenAlert").classList.add("d-none");
+document.getElementById("btnCheck").addEventListener("click", () => {
+  document.getElementById("cleanupAlert").classList.add("d-none");
   checkDatabase();
 });
 
-document.getElementById("btnDuplikateLoeschen").addEventListener("click", async () => {
-  const ids = [...document.querySelectorAll(".duplikat-gruppe:checked")]
+document.getElementById("btnDeleteDuplicates").addEventListener("click", async () => {
+  const ids = [...document.querySelectorAll(".duplicate-group:checked")]
     .flatMap(c => c.dataset.ids.split(",").map(Number));
   if (ids.length === 0) return showCleanupMessage(t("admin.cleanup.noGroup"), "warning");
   if (!confirm(`${t("admin.cleanup.confirmDeleteDuplicates", { count: ids.length })} ${t("admin.cleanup.auditHint")}`)) return;
@@ -257,16 +257,16 @@ document.getElementById("btnDuplikateLoeschen").addEventListener("click", async 
   checkDatabase();
 });
 
-document.getElementById("ohneListe").addEventListener("click", async e => {
-  const assignBtn = e.target.closest(".ohne-zuordnen");
-  const deleteBtn = e.target.closest(".ohne-loeschen");
+document.getElementById("unassignedList").addEventListener("click", async e => {
+  const assignBtn = e.target.closest(".unassigned-assign");
+  const deleteBtn = e.target.closest(".unassigned-delete");
   const btn = assignBtn ?? deleteBtn;
   if (!btn) return;
 
   const user_id = Number(btn.dataset.user);
   let body;
   if (assignBtn) {
-    const select = document.querySelector(`.ohne-ziel[data-user="${user_id}"]`);
+    const select = document.querySelector(`.unassigned-target[data-user="${user_id}"]`);
     const name   = select.selectedOptions[0].textContent;
     if (!confirm(t("admin.cleanup.confirmAssign", { count: Number(btn.dataset.count), name: btn.dataset.name, vehicle: name }))) return;
     body = { user_id, action: "assign", vehicle_id: Number(select.value) };

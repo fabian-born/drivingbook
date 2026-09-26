@@ -65,16 +65,16 @@ function enqueueTrip(trip) {
 
 // ── Display ──────────────────────────────────────────────────
 
-// Pages can intercept "warteschlange" events (preventDefault) and display them themselves;
+// Pages can intercept "queueMessage" events (preventDefault) and display them themselves;
 // otherwise the message appears as a top-right notice.
 function notifyQueue(text, type = "success") {
-  const event = new CustomEvent("warteschlange", { detail: { text, type: type }, cancelable: true });
+  const event = new CustomEvent("queueMessage", { detail: { text, type: type }, cancelable: true });
   if (!document.dispatchEvent(event)) return;
 
-  let container = document.getElementById("hinweisContainer");
+  let container = document.getElementById("toastContainer");
   if (!container) {
     container = document.createElement("div");
-    container.id = "hinweisContainer";
+    container.id = "toastContainer";
     container.style.cssText = "position:fixed;top:1rem;right:1rem;z-index:9999;min-width:280px;";
     document.body.appendChild(container);
   }
@@ -92,10 +92,10 @@ function updateQueueDisplay() {
   const count     = allPending.length - failed.length;
   const logoutBtn = document.getElementById("logoutBtn");
 
-  let btn = document.getElementById("warteschlangeNav");
+  let btn = document.getElementById("queueNavBtn");
   if (!btn && logoutBtn) {
     btn = document.createElement("button");
-    btn.id        = "warteschlangeNav";
+    btn.id        = "queueNavBtn";
     btn.type      = "button";
     btn.className = "btn btn-warning btn-sm ms-lg-2 my-2 my-lg-0";
     btn.title     = t("offline.queueTitle");
@@ -107,7 +107,7 @@ function updateQueueDisplay() {
         synchronize();
       }
     });
-    logoutBtn.parentElement.insertBefore(btn, document.getElementById("fahrzeugKontext") ?? logoutBtn);
+    logoutBtn.parentElement.insertBefore(btn, document.getElementById("vehicleContext") ?? logoutBtn);
   }
   if (btn) {
     btn.textContent = [count ? t("offline.waiting", { count: count }) : "", failed.length ? t("offline.faulty", { count: failed.length }) : ""]
@@ -115,7 +115,7 @@ function updateQueueDisplay() {
     btn.classList.toggle("d-none", allPending.length === 0);
   }
 
-  document.dispatchEvent(new CustomEvent("warteschlangeGeaendert", { detail: { count: count, failed: failed } }));
+  document.dispatchEvent(new CustomEvent("queueChanged", { detail: { count: count, failed: failed } }));
 }
 
 // ── Send ─────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ async function synchronize() {
     if (sentCount > 0) {
       notifyQueue(t("offline.sent", { count: sentCount }));
       // Pages with analyses then reload their data
-      document.dispatchEvent(new CustomEvent("fahrtenNachgereicht", { detail: { sent: sentCount } }));
+      document.dispatchEvent(new CustomEvent("tripsSynced", { detail: { sent: sentCount } }));
     }
   } finally {
     syncRunning = false;
@@ -233,7 +233,7 @@ function runRefresh() {
   for (const fn of refreshers) Promise.resolve().then(fn).catch(err => console.warn("Aktualisieren:", err));
 }
 
-document.addEventListener("fahrtenNachgereicht", refreshView);
+document.addEventListener("tripsSynced", refreshView);
 
 let hiddenSince = null;
 document.addEventListener("visibilitychange", () => {

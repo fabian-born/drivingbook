@@ -25,7 +25,7 @@
 
   /* ── Desktop: compact table / smartphone: cards ── */
   @media (min-width: 768px) {
-    .fahrtart-select { min-width: 120px; }
+    .trip-type-select { min-width: 120px; }
     .timestamp-input { min-width: 165px; }
     .card-list       { display: none; }
   }
@@ -33,22 +33,22 @@
     .table-wrap { display: none; }
     /* easy-to-tap controls */
     .filter-bar .form-select, .filter-bar .btn,
-    .fahrt-card .form-control, .fahrt-card .form-select, .fahrt-card .btn { min-height: 44px; }
+    .trip-card .form-control, .trip-card .form-select, .trip-card .btn { min-height: 44px; }
     .filter-bar .form-select, .filter-bar .btn { font-size: 1rem; }
   }
 
   /* ── Trip card (smartphone) ── */
-  .fahrt-card {
+  .trip-card {
     background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
     border-left: 4px solid var(--fahrtart-farbe, var(--bs-secondary-color));
     border-radius: .5rem; padding: .75rem; margin-bottom: .6rem;
   }
-  .fahrt-card .card-badge { font-size: .75rem; }
-  .fahrt-card .card-meta  { font-size: .8rem; color: var(--bs-secondary-color); }
-  .fahrt-card .card-km    { font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .fahrt-card .card-ziel  { margin-top: .15rem; }
-  .fahrt-card .strecke    { font-size: .85rem; color: var(--bs-secondary-color); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .fahrt-card .km-feld    { max-width: 10.5rem; }
+  .trip-card .card-badge { font-size: .75rem; }
+  .trip-card .card-meta  { font-size: .8rem; color: var(--bs-secondary-color); }
+  .trip-card .card-km    { font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .trip-card .card-destination  { margin-top: .15rem; }
+  .trip-card .distance    { font-size: .85rem; color: var(--bs-secondary-color); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .trip-card .km-field    { max-width: 10.5rem; }
   .btn-icon { min-width: 44px; }
 
   /* Month separator row in the year view */
@@ -66,23 +66,23 @@
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
 
 <!-- Navbar -->
-<nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
+<nav id="mainNav" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
 <!-- Filter bar -->
 <div class="filter-bar">
   <div class="row g-2 align-items-end">
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="jahrSelect" data-i18n="view.year">Jahr</label>
-      <select id="jahrSelect" class="form-select form-select-sm"></select>
+      <label class="form-label mb-1 small" for="yearSelect" data-i18n="view.year">Jahr</label>
+      <select id="yearSelect" class="form-select form-select-sm"></select>
     </div>
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="monatSelect" data-i18n="view.month">Monat</label>
-      <select id="monatSelect" class="form-select form-select-sm"></select>
+      <label class="form-label mb-1 small" for="monthSelect" data-i18n="view.month">Monat</label>
+      <select id="monthSelect" class="form-select form-select-sm"></select>
     </div>
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="fahrtartFilter" data-i18n="view.tripType">Fahrtart</label>
-      <select id="fahrtartFilter" class="form-select form-select-sm">
+      <label class="form-label mb-1 small" for="tripTypeFilter" data-i18n="view.tripType">Fahrtart</label>
+      <select id="tripTypeFilter" class="form-select form-select-sm">
         <option value="alle" data-i18n="view.all">Alle</option>
         <option value="business" data-i18n="tripType.business">Geschäftlich</option>
         <option value="private" data-i18n="tripType.private">Privat</option>
@@ -108,14 +108,14 @@
 <div class="container-fluid py-3 px-3 flex-fill">
 
   <!-- Total of the current selection -->
-  <div id="auswahlSumme" class="card shadow-sm border-0 mb-3 d-none">
+  <div id="selectionSummary" class="card shadow-sm border-0 mb-3 d-none">
     <div class="card-body py-2 px-3">
       <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2">
-        <strong id="auswahlTitel"></strong>
-        <span><span id="auswahlKm" class="fw-semibold"></span> <span class="text-muted small" id="auswahlFahrten"></span></span>
+        <strong id="selectionTitle"></strong>
+        <span><span id="selectionKm" class="fw-semibold"></span> <span class="text-muted small" id="selectionTrips"></span></span>
       </div>
-      <div class="my-2" id="auswahlBalken"></div>
-      <div class="d-flex flex-wrap column-gap-3 row-gap-1 small" id="auswahlLegende"></div>
+      <div class="my-2" id="selectionBar"></div>
+      <div class="d-flex flex-wrap column-gap-3 row-gap-1 small" id="selectionLegend"></div>
     </div>
   </div>
 
@@ -134,7 +134,7 @@
             <th></th>
           </tr>
         </thead>
-        <tbody id="fahrtenTabelle">
+        <tbody id="tripsTable">
           <tr><td colspan="7" data-i18n="view.loading">Lade Daten...</td></tr>
         </tbody>
       </table>
@@ -188,10 +188,10 @@
 
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/fahrzeug.js"></script>
+<script src="js/vehicle.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-<script src="js/auswertung.js"></script>
+<script src="js/analysis.js"></script>
 <script src="js/view.js"></script>
 
 <footer class="bg-dark text-light mt-5">

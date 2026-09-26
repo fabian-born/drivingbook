@@ -20,7 +20,7 @@
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 <style>
   /* Control bar: easy to tap */
-  .steuerleiste .form-select, .steuerleiste .btn { min-height: 44px; }
+  .control-bar .form-select, .control-bar .btn { min-height: 44px; }
 
   /* ── Print: A4 landscape ───────────────────────────────────── */
   @media print {
@@ -35,28 +35,28 @@
     .print-header span { font-size: 9pt; color: #555; }
     .card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
     .card-body { padding: 4pt 6pt !important; }
-    .kennzahl-wert { font-size: 12pt !important; }
+    .metric-value { font-size: 12pt !important; }
     .col-lg-4 { width: 34% !important; } .col-lg-8 { width: 66% !important; }
-    .monats-tabelle { font-size: 8pt; }
-    .monats-tabelle th, .monats-tabelle td { padding: 2pt 4pt !important; }
-    .monats-tabelle thead th { background: #212529 !important; color: #fff !important; }
+    .month-table { font-size: 8pt; }
+    .month-table th, .month-table td { padding: 2pt 4pt !important; }
+    .month-table thead th { background: #212529 !important; color: #fff !important; }
   }
 </style>
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
 
 <!-- Navbar -->
-<nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
+<nav id="mainNav" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
 <!-- Main content -->
 <main class="container py-3 py-md-4 flex-fill">
 
   <!-- Control bar (not printed) -->
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print steuerleiste">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print control-bar">
     <h1 class="h3 mb-0 me-auto" data-i18n="nav.history">Jahreshistorie</h1>
     <div class="d-flex gap-2">
-      <select id="historyJahrSelect" class="form-select w-auto" aria-label="Jahr" data-i18n-attr="aria-label:history.year"></select>
+      <select id="historyYearSelect" class="form-select w-auto" aria-label="Jahr" data-i18n-attr="aria-label:history.year"></select>
       <button id="historyCSVExport" class="btn btn-outline-secondary" title="CSV-Export des Jahres" data-i18n-attr="title:history.csvTitle">
         <span class="mdi mdi-file-delimited-outline"></span><span class="d-none d-sm-inline ms-1">CSV</span>
       </button>
@@ -69,7 +69,7 @@
   <!-- Print header (visible in print only) -->
   <div class="print-header" style="display:none;">
     <h2 id="printHeadline" data-i18n="history.pageTitle">Fahrtenbuch – Jahreshistorie</h2>
-    <span id="printDatum"></span>
+    <span id="printDate"></span>
   </div>
 
   <div id="historyContent">
@@ -80,20 +80,20 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/fahrzeug.js"></script>
+<script src="js/vehicle.js"></script>
 <script src="js/offline.js"></script>
-<script src="js/auswertung.js"></script>
+<script src="js/analysis.js"></script>
 <script src="js/dashboard-history.js"></script>
 
 <!-- Fill print header with year + date -->
 <script>
-  document.getElementById("printDatum").textContent =
+  document.getElementById("printDate").textContent =
     t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
 
-  document.getElementById("historyJahrSelect")?.addEventListener("change", function () {
+  document.getElementById("historyYearSelect")?.addEventListener("change", function () {
     document.getElementById("printHeadline").textContent =
       t("history.printHeadline", { year: this.value });
-    document.getElementById("printDatum").textContent =
+    document.getElementById("printDate").textContent =
       t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
   });
 </script>

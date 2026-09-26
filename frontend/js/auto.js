@@ -25,7 +25,7 @@ function showAlert(id, text, type) {
 function fillYears() {
   const thisYear = new Date().getFullYear();
   for (let j = thisYear; j >= START_YEAR; j--) {
-    $("jahrSelect").insertAdjacentHTML("beforeend", `<option value="${j}">${j}</option>`);
+    $("yearSelect").insertAdjacentHTML("beforeend", `<option value="${j}">${j}</option>`);
   }
 }
 
@@ -33,10 +33,10 @@ function fillYears() {
 
 async function loadInfo() {
   if (!activeVehicle) return;
-  const selectedYear = $("jahrSelect").value;
+  const selectedYear = $("yearSelect").value;
 
   const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/info?year=${selectedYear}`);
-  if (!res.ok) return showAlert("datenAlert", await apiError(res), "danger");
+  if (!res.ok) return showAlert("dataAlert", await apiError(res), "danger");
   const info = await res.json();
 
   showVehicle(info.vehicle);
@@ -60,14 +60,14 @@ const SEVERITY = {
 
 async function loadCheck() {
   if (!activeVehicle) return;
-  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/check?year=${$("jahrSelect").value}`);
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/check?year=${$("yearSelect").value}`);
   if (!res.ok) return;
   const { status: checkStatus, findings: findings } = await res.json();
 
-  $("pruefAmpel").className   = `badge text-bg-${CHECK_STATUS[checkStatus].color}`;
-  $("pruefAmpel").textContent = CHECK_STATUS[checkStatus].text;
+  $("checkBadge").className   = `badge text-bg-${CHECK_STATUS[checkStatus].color}`;
+  $("checkBadge").textContent = CHECK_STATUS[checkStatus].text;
 
-  $("pruefListe").innerHTML = findings.length === 0
+  $("checkList").innerHTML = findings.length === 0
     ? `<li class="list-group-item text-success"><span class="mdi mdi-check-circle me-2"></span>${escapeHtml(t("auto.check.none"))}</li>`
     : findings.map(b => `
         <li class="list-group-item d-flex gap-2">
@@ -80,43 +80,43 @@ async function loadCheck() {
 }
 
 function showVehicle(v) {
-  $("autoName").textContent = v.name;
-  $("autoCode").textContent = v.code;
-  $("autoKennzeichen").textContent = v.license_plate ?? "";
-  $("autoKennzeichen").classList.toggle("d-none", !v.license_plate);
+  $("infoName").textContent = v.name;
+  $("infoCode").textContent = v.code;
+  $("infoPlate").textContent = v.license_plate ?? "";
+  $("infoPlate").classList.toggle("d-none", !v.license_plate);
 
-  $("fdName").value        = v.name;
-  $("fdKennzeichen").value = v.license_plate ?? "";
-  $("fdListenpreis").value = v.list_price ?? "";
-  $("fdAntrieb").value     = v.drive_type;
+  $("vdName").value        = v.name;
+  $("vdPlate").value = v.license_plate ?? "";
+  $("vdListPrice").value = v.list_price ?? "";
+  $("vdDriveType").value     = v.drive_type;
 }
 
 function showMetrics({ overall: grandTotal, year_totals: selectedYear, year }) {
-  $("kzKmAktuell").textContent = grandTotal.odometer_current != null ? km(grandTotal.odometer_current) : "–";
-  $("kzKmJahr").textContent    = km(selectedYear.total);
+  $("kfOdometer").textContent = grandTotal.odometer_current != null ? km(grandTotal.odometer_current) : "–";
+  $("kfKmYear").textContent    = km(selectedYear.total);
   const privateKm = selectedYear.private + selectedYear.commute;
-  $("kzPrivat").textContent    = selectedYear.total > 0
+  $("kfPrivate").textContent    = selectedYear.total > 0
     ? `${km(privateKm)} (${percent(privateKm / selectedYear.total)})`
     : "–";
-  $("kzFahrten").textContent   = selectedYear.trips.toLocaleString(i18n.locale);
-  $("kzZeitraum").textContent  = grandTotal.trips > 0
+  $("kfTrips").textContent   = selectedYear.trips.toLocaleString(i18n.locale);
+  $("kfPeriod").textContent  = grandTotal.trips > 0
     ? t("auto.figures.period", { count: grandTotal.trips, trips: grandTotal.trips.toLocaleString(i18n.locale),
                                  from: localDate(grandTotal.first_trip), to: localDate(grandTotal.last_trip) })
     : t("auto.figures.noTrips");
-  $("vgJahr").textContent = year;
+  $("cmpYear").textContent = year;
 }
 
 function showCosts(k) {
-  $("kGesamt").value     = k?.total_costs ?? "";
-  $("kAfa").value        = k?.depreciation || "";
-  $("kArbeitsweg").value = k?.commute_km || "";
-  $("kMonate").value     = k?.months ?? 12;
-  $("kSteuersatz").value = k?.tax_rate ?? "";
+  $("cTotal").value     = k?.total_costs ?? "";
+  $("cDepreciation").value        = k?.depreciation || "";
+  $("cCommuteKm").value = k?.commute_km || "";
+  $("cMonths").value     = k?.months ?? 12;
+  $("cTaxRate").value = k?.tax_rate ?? "";
 }
 
 function showComparison({ vehicle, costs: costs, year_totals: selectedYear, comparison: comparison }) {
-  const hint = $("vgHinweis");
-  $("vgErgebnis").classList.toggle("d-none", !comparison);
+  const hint = $("cmpHint");
+  $("cmpResult").classList.toggle("d-none", !comparison);
 
   if (!comparison) {
     hint.textContent = vehicle.list_price == null
@@ -129,8 +129,8 @@ function showComparison({ vehicle, costs: costs, year_totals: selectedYear, comp
 
   // 1% rule
   const rateText = percentText(comparison.rate, 3);
-  $("vgPauschalSumme").textContent = euro(comparison.flat_rate.total);
-  $("vgPauschalDetail").innerHTML = [
+  $("cmpFlatRateTotal").textContent = euro(comparison.flat_rate.total);
+  $("cmpFlatRateDetail").innerHTML = [
     tHtml("auto.compare.flatRateDetail", { count: Number(costs.months), rate: rateText, price: euro(comparison.list_price), result: euro(comparison.flat_rate.private_use) }),
     comparison.flat_rate.commute > 0 ? tHtml("auto.compare.flatRateCommute", { km: costs.commute_km.toLocaleString(i18n.locale), result: euro(comparison.flat_rate.commute) }) : "",
     comparison.flat_rate.capped ? tHtml("auto.compare.capped", { costs: euro(comparison.total_costs) }) : "",
@@ -138,17 +138,17 @@ function showComparison({ vehicle, costs: costs, year_totals: selectedYear, comp
 
   // Logbook
   const logbook = comparison.logbook;
-  $("vgFahrtenbuchSumme").textContent = logbook ? euro(logbook.total) : "–";
-  $("vgFahrtenbuchDetail").textContent = logbook
+  $("cmpLogbookTotal").textContent = logbook ? euro(logbook.total) : "–";
+  $("cmpLogbookDetail").textContent = logbook
     ? t("auto.compare.logbookDetail", { share: percent(logbook.private_share), private: km(selectedYear.private + selectedYear.commute),
                                         total: km(selectedYear.total), costs: euro(comparison.total_costs) })
     : t("auto.compare.noKm");
 
-  $("vgPauschal").classList.toggle("gewinner", comparison.recommendation === "flat_rate");
-  $("vgFahrtenbuch").classList.toggle("gewinner", comparison.recommendation === "logbook");
+  $("cmpFlatRate").classList.toggle("winner", comparison.recommendation === "flat_rate");
+  $("cmpLogbook").classList.toggle("winner", comparison.recommendation === "logbook");
 
   // Recommendation
-  const recommendation = $("vgEmpfehlung");
+  const recommendation = $("cmpRecommendation");
   recommendation.classList.toggle("d-none", !comparison.recommendation);
   if (comparison.recommendation) {
     const savings = comparison.tax_savings != null ? t("auto.compare.savings", { amount: euro(comparison.tax_savings) }) : "";
@@ -160,51 +160,51 @@ function showComparison({ vehicle, costs: costs, year_totals: selectedYear, comp
 
   // Threshold: up to which private share is the logbook worthwhile?
   const breakEven = comparison.break_even_share;
-  $("vgBreakEvenBox").classList.toggle("d-none", breakEven == null);
+  $("cmpBreakEvenBox").classList.toggle("d-none", breakEven == null);
   if (breakEven != null) {
-    $("vgBreakEvenText").innerHTML = breakEven >= 1
+    $("cmpBreakEvenText").innerHTML = breakEven >= 1
       ? escapeHtml(t("auto.compare.alwaysEven"))
       : tHtml("auto.compare.breakEven", { share: percent(breakEven) }) +
         (logbook ? (selectedYear.total ? tHtml("auto.compare.yourShareIs", { share: percent(logbook.private_share) }) : escapeHtml(t("auto.compare.yourShareOpen"))) : ".");
-    $("vgBreakEvenZone").style.width = `${Math.min(breakEven, 1) * 100}%`;
-    const marker = $("vgPrivatMarker");
+    $("cmpBreakEvenZone").style.width = `${Math.min(breakEven, 1) * 100}%`;
+    const marker = $("cmpPrivateMarker");
     marker.classList.toggle("d-none", !logbook);
     if (logbook) marker.style.left = `calc(${logbook.private_share * 100}% - 1px)`;
-    $("vgBreakEvenBalken").setAttribute("aria-label",
+    $("cmpBreakEvenBar").setAttribute("aria-label",
       t("auto.compare.barLabel", { share: percent(breakEven) }) + (logbook ? t("auto.compare.barCurrent", { share: percent(logbook.private_share) }) : ""));
   }
 }
 
 async function saveData() {
   const body = {
-    name:          $("fdName").value.trim(),
-    license_plate: $("fdKennzeichen").value.trim(),
-    list_price:    num("fdListenpreis"),
-    drive_type:    $("fdAntrieb").value,
+    name:          $("vdName").value.trim(),
+    license_plate: $("vdPlate").value.trim(),
+    list_price:    num("vdListPrice"),
+    drive_type:    $("vdDriveType").value,
   };
   const res = await apiFetch(`/api/vehicles/${activeVehicle.id}`, { method: "PATCH", body });
-  if (!res.ok) return showAlert("datenAlert", await apiError(res), "danger");
+  if (!res.ok) return showAlert("dataAlert", await apiError(res), "danger");
 
-  showAlert("datenAlert", t("auto.data.saved"), "success");
-  const option = document.querySelector(`#fahrzeugKontext option[value="${activeVehicle.code}"]`);
+  showAlert("dataAlert", t("auto.data.saved"), "success");
+  const option = document.querySelector(`#vehicleContext option[value="${activeVehicle.code}"]`);
   if (option) option.textContent = `🚗 ${body.name}`;
   await Promise.all([loadInfo(), loadVehicleList()]);
 }
 
 async function saveCosts() {
   const body = {
-    total_costs:  num("kGesamt"),
-    depreciation: num("kAfa"),
-    commute_km:   num("kArbeitsweg"),
-    months:       num("kMonate") ?? 12,
-    tax_rate:     num("kSteuersatz"),
+    total_costs:  num("cTotal"),
+    depreciation: num("cDepreciation"),
+    commute_km:   num("cCommuteKm"),
+    months:       num("cMonths") ?? 12,
+    tax_rate:     num("cTaxRate"),
   };
-  if (body.total_costs == null) return showAlert("kostenAlert", t("auto.compare.needTotal"), "warning");
+  if (body.total_costs == null) return showAlert("costsAlert", t("auto.compare.needTotal"), "warning");
 
-  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/years/${$("jahrSelect").value}`, { method: "PUT", body });
-  if (!res.ok) return showAlert("kostenAlert", await apiError(res), "danger");
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/years/${$("yearSelect").value}`, { method: "PUT", body });
+  if (!res.ok) return showAlert("costsAlert", await apiError(res), "danger");
 
-  showAlert("kostenAlert", t("auto.compare.saved"), "success");
+  showAlert("costsAlert", t("auto.compare.saved"), "success");
   await loadInfo();
 }
 
@@ -215,7 +215,7 @@ function initExportImport() {
   $("exportBtn").addEventListener("click", () => backupVehicleFile(activeVehicle));
 
   $("importBtn").addEventListener("click", async () => {
-    const file = $("importDatei").files[0];
+    const file = $("importFile").files[0];
     if (!file) return showAlert("importAlert", t("auto.backup.chooseFile"), "warning");
 
     $("importBtn").disabled = true;
@@ -259,7 +259,7 @@ async function loadVehicleList() {
       <tr>
         <td>${isActive
           ? `<strong>${escapeHtml(v.name)}</strong> <span class="badge bg-primary">${escapeHtml(t("auto.list.active"))}</span>`
-          : `<a href="#" class="waehle-vehicle" data-code="${escapeHtml(v.code)}" title="${escapeHtml(t("auto.list.select"))}">${escapeHtml(v.name)}</a>`}</td>
+          : `<a href="#" class="choose-vehicle" data-code="${escapeHtml(v.code)}" title="${escapeHtml(t("auto.list.select"))}">${escapeHtml(v.name)}</a>`}</td>
         <td class="d-none d-sm-table-cell">${escapeHtml(v.license_plate ?? "–")}</td>
         <td><code>${escapeHtml(v.code)}</code></td>
         <td>${v.is_default
@@ -302,7 +302,7 @@ function initVehicleManagement() {
   });
 
   $("vehicleTabelle").addEventListener("click", async e => {
-    const selectBtn = e.target.closest(".waehle-vehicle");
+    const selectBtn = e.target.closest(".choose-vehicle");
     if (selectBtn) {
       e.preventDefault();
       selectVehicle(selectBtn.dataset.code);
@@ -338,11 +338,11 @@ async function deleteVehicle(id) {
     return alert(t("auto.delete.noTarget", { name, count: Number(failure.count) }));
   }
 
-  $("loeschenText").textContent = t("auto.delete.moveText", { name, count: Number(failure.count) });
-  $("loeschenZiel").innerHTML = otherVehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
-  const modal = bootstrap.Modal.getOrCreateInstance($("loeschenModal"));
-  $("loeschenBestaetigen").onclick = async () => {
-    const r = await apiFetch(`/api/vehicles/${id}?target=${$("loeschenZiel").value}`, { method: "DELETE" });
+  $("deleteVehicleText").textContent = t("auto.delete.moveText", { name, count: Number(failure.count) });
+  $("deleteVehicleTarget").innerHTML = otherVehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
+  const modal = bootstrap.Modal.getOrCreateInstance($("deleteVehicleModal"));
+  $("deleteVehicleConfirm").onclick = async () => {
+    const r = await apiFetch(`/api/vehicles/${id}?target=${$("deleteVehicleTarget").value}`, { method: "DELETE" });
     if (!r.ok) return alert(await apiError(r, t("auto.delete.error")));
     modal.hide();
     location.reload();
@@ -355,14 +355,14 @@ async function deleteVehicle(id) {
 document.addEventListener("DOMContentLoaded", async () => {
   fillYears();
   initVehicleManagement();
-  $("jahrSelect").addEventListener("change", () => Promise.all([loadInfo(), loadCheck()]));
-  $("datenSpeichernBtn").addEventListener("click", saveData);
-  $("kostenSpeichernBtn").addEventListener("click", saveCosts);
-  $("copyCodeBtn").addEventListener("click", () => navigator.clipboard.writeText($("autoCode").textContent));
+  $("yearSelect").addEventListener("change", () => Promise.all([loadInfo(), loadCheck()]));
+  $("saveDataBtn").addEventListener("click", saveData);
+  $("saveCostsBtn").addEventListener("click", saveCosts);
+  $("copyCodeBtn").addEventListener("click", () => navigator.clipboard.writeText($("infoCode").textContent));
 
   await vehicleReady;
-  $("autoInhalt").classList.toggle("d-none", !activeVehicle);
-  $("keinFahrzeug").classList.toggle("d-none", !!activeVehicle);
+  $("infoContent").classList.toggle("d-none", !activeVehicle);
+  $("noVehicle").classList.toggle("d-none", !!activeVehicle);
   initExportImport();
   await Promise.all([loadInfo(), loadCheck(), loadVehicleList()]);
   onRefresh(() => Promise.all([loadInfo(), loadCheck()]));

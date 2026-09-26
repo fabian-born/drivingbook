@@ -5,18 +5,18 @@ test("offline erfasste Fahrt wird nachgereicht, sobald wieder Netz da ist", asyn
   const user = await neuerUser();
   await loginImBrowser(page, user);
   await page.goto("/driving.html");
-  await expect(page.locator("#fahrzeugName")).toHaveText("Golf");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("Golf");
 
   await context.setOffline(true);
-  await page.fill("#kmstand", "4321");
-  await page.fill("#ziel", "Offline-Ziel");
+  await page.fill("#odometer", "4321");
+  await page.fill("#destination", "Offline-Ziel");
   await page.getByRole("button", { name: "Fahrt speichern" }).click();
-  await expect(page.locator("#statusMeldung")).toHaveClass(/alert-warning/);
-  await expect(page.locator("#warteschlangeNav")).toHaveText(/1 wartend/);
+  await expect(page.locator("#statusMessage")).toHaveClass(/alert-warning/);
+  await expect(page.locator("#queueNavBtn")).toHaveText(/1 wartend/);
 
   await context.setOffline(false);
-  await expect(page.locator("#warteschlangeNav")).toBeHidden();
-  await expect(page.locator("#statusMeldung")).toContainText("nachträglich gespeichert");
+  await expect(page.locator("#queueNavBtn")).toBeHidden();
+  await expect(page.locator("#statusMessage")).toContainText("nachträglich gespeichert");
 
   const jahr = new Date().getFullYear();
   const daten = await api(`/api/trips?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token });
@@ -28,17 +28,17 @@ test("wartende Fahrten gehen nach Benutzerwechsel nicht an das falsche Konto", a
   const zweiter = await neuerUser();
   await loginImBrowser(page, erster);
   await page.goto("/driving.html");
-  await expect(page.locator("#fahrzeugName")).toHaveText("Golf");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("Golf");
 
   await context.setOffline(true);
-  await page.fill("#kmstand", "100");
-  await page.fill("#ziel", "Gehört dem Ersten");
+  await page.fill("#odometer", "100");
+  await page.fill("#destination", "Gehört dem Ersten");
   await page.getByRole("button", { name: "Fahrt speichern" }).click();
   await context.setOffline(false);
   await page.evaluate(() => localStorage.setItem("authToken", "abgelaufen"));
 
   await loginImBrowser(page, zweiter);
-  await expect(page.locator("#warteschlangeNav")).toBeHidden();
+  await expect(page.locator("#queueNavBtn")).toBeHidden();
   const jahr = new Date().getFullYear();
   expect((await api(`/api/trips?year=${jahr}`, { token: zweiter.token })).trips).toEqual([]);
 
@@ -54,14 +54,14 @@ test("eine fehlerhafte Offline-Fahrt blockiert die übrigen nicht und lässt sic
   const user = await neuerUser(["Golf", "Zweitwagen"]);
   await loginImBrowser(page, user);            // Golf aktiv
   await page.goto("/driving.html");
-  await expect(page.locator("#fahrzeugName")).toHaveText("Golf");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("Golf");
 
   await context.setOffline(true);
   for (const [km, ziel] of [["100", "Erste"], ["120", "Zweite"]]) {
-    await page.fill("#kmstand", km);
-    await page.fill("#ziel", ziel);
+    await page.fill("#odometer", km);
+    await page.fill("#destination", ziel);
     await page.getByRole("button", { name: "Fahrt speichern" }).click();
-    await expect(page.locator("#statusMeldung")).toHaveClass(/alert-warning/);
+    await expect(page.locator("#statusMessage")).toHaveClass(/alert-warning/);
   }
   // die erste Fahrt kann nicht mehr gespeichert werden (Fahrzeug-Code ungültig)
   await page.evaluate(() => {
@@ -71,11 +71,11 @@ test("eine fehlerhafte Offline-Fahrt blockiert die übrigen nicht und lässt sic
   });
 
   await context.setOffline(false);
-  await expect(page.locator("#offlineFehler")).toBeVisible();
-  await expect(page.locator("#offlineFehlerListe li")).toHaveCount(1);
-  await expect(page.locator("#offlineFehlerListe")).toContainText("Erste");
-  await expect(page.locator("#offlineFehlerListe")).toContainText("Fahrzeug-Code nicht gefunden");
-  await expect(page.locator("#warteschlangeNav")).toHaveText("⚠️ 1 fehlerhaft");
+  await expect(page.locator("#offlineErrors")).toBeVisible();
+  await expect(page.locator("#offlineErrorList li")).toHaveCount(1);
+  await expect(page.locator("#offlineErrorList")).toContainText("Erste");
+  await expect(page.locator("#offlineErrorList")).toContainText("Fahrzeug-Code nicht gefunden");
+  await expect(page.locator("#queueNavBtn")).toHaveText("⚠️ 1 fehlerhaft");
 
   // die zweite ist trotzdem angekommen
   const jahr = new Date().getFullYear();
@@ -85,6 +85,6 @@ test("eine fehlerhafte Offline-Fahrt blockiert die übrigen nicht und lässt sic
 
   page.on("dialog", d => d.accept());
   await page.getByRole("button", { name: "Verwerfen" }).click();
-  await expect(page.locator("#offlineFehler")).toBeHidden();
-  await expect(page.locator("#warteschlangeNav")).toBeHidden();
+  await expect(page.locator("#offlineErrors")).toBeHidden();
+  await expect(page.locator("#queueNavBtn")).toBeHidden();
 });

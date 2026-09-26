@@ -1,7 +1,7 @@
 const form = document.getElementById("loginForm");
 
 // Language choice before login (this device only)
-languageSelect(document.getElementById("spracheWahl"), newValue => { i18n.set(newValue); location.reload(); });
+languageSelect(document.getElementById("languageSelect"), newValue => { i18n.set(newValue); location.reload(); });
 const errorBox = document.getElementById("loginError");
 
 // Redirect from apiFetch after the session expired
@@ -62,7 +62,7 @@ async function promptVehicleChoice() {
     return;
   }
 
-  const listEl = document.getElementById("fahrzeugListe");
+  const listEl = document.getElementById("vehicleList");
   listEl.innerHTML = vehicles.map(v => `
     <button type="button" class="btn ${v.is_default ? "btn-primary" : "btn-outline-primary"}" data-code="${escapeHtml(v.code)}">
       🚗 ${escapeHtml(v.name)}${v.is_default ? t("login.default") : ""}
@@ -75,6 +75,6 @@ async function promptVehicleChoice() {
   });
 
   form.classList.add("d-none");
-  document.getElementById("fahrzeugWahl").classList.remove("d-none");
+  document.getElementById("vehicleChoice").classList.remove("d-none");
 }
 

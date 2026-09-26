@@ -2,7 +2,7 @@
 // Light/dark mode. Loaded in the <head> so the page doesn't flash light
 // first. Setting per device: "auto" (follows the system, also live),
 // "hell" or "dunkel". Printing always uses the light theme.
-// Fires "themaGeaendert" so that e.g. charts get redrawn.
+// Fires "themeChanged" so that e.g. charts get redrawn.
 
 (function () {
   const KEY    = "darstellung";
@@ -34,7 +34,7 @@
     const previousTheme = document.documentElement.getAttribute("data-bs-theme");
     document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
     if (previousTheme && previousTheme !== (dark ? "dark" : "light")) {
-      document.dispatchEvent(new CustomEvent("themaGeaendert", { detail: { dark: dark } }));
+      document.dispatchEvent(new CustomEvent("themeChanged", { detail: { dark: dark } }));
     }
   }
 

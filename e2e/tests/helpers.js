@@ -48,7 +48,7 @@ export async function loginImBrowser(page, user, username = user.username) {
   await page.fill("#password", user.password);
   await page.click("button[type=submit]");
   if (user.vehicles.length > 1) {
-    await page.locator("#fahrzeugListe button").first().click();
+    await page.locator("#vehicleList button").first().click();
   }
   await expect(page).toHaveURL(/index\.html/);
 }

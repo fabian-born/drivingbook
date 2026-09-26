@@ -11,8 +11,8 @@ test("Neue Fahrt ist auf dem Smartphone gut bedienbar", async ({ page }) => {
 
   await loginImBrowser(page, user);
   await page.goto("/driving.html");
-  await expect(page.locator("#fahrzeugName")).toHaveText("VW Golf Variant");
-  await expect(page.locator("#letzterStand")).toHaveText("Letzter Stand 13.500 km · vorgestern");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("VW Golf Variant");
+  await expect(page.locator("#lastReading")).toHaveText("Letzter Stand 13.500 km · vorgestern");
 
   // kein horizontales Scrollen, Menü-Button in der ersten Zeile
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -26,28 +26,28 @@ test("Neue Fahrt ist auf dem Smartphone gut bedienbar", async ({ page }) => {
   expect(zuKlein).toEqual([]);
 
   // Fahrtart-Kacheln: Beschriftung passt vollständig hinein
-  for (const kachel of await page.locator(".fahrtart-kachel").all()) {
+  for (const kachel of await page.locator(".trip-type-tile").all()) {
     expect(await kachel.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
   }
 
   // Live-Hinweis zum km-Stand
-  await page.fill("#kmstand", "13480");
-  await expect(page.locator("#kmHinweis")).toHaveText("Kleiner als der letzte Stand (13.500 km)");
-  await expect(page.locator("#kmstand")).toHaveClass(/is-invalid/);
-  await page.fill("#kmstand", "13520");
-  await expect(page.locator("#kmHinweis")).toHaveText("+20 km seit der letzten Fahrt");
+  await page.fill("#odometer", "13480");
+  await expect(page.locator("#odometerHint")).toHaveText("Kleiner als der letzte Stand (13.500 km)");
+  await expect(page.locator("#odometer")).toHaveClass(/is-invalid/);
+  await page.fill("#odometer", "13520");
+  await expect(page.locator("#odometerHint")).toHaveText("+20 km seit der letzten Fahrt");
 
   // Pflichtfelder
-  await page.fill("#ziel", "");
+  await page.fill("#destination", "");
   await page.getByRole("button", { name: "Fahrt speichern" }).click();
-  await expect(page.locator("#statusMeldung")).toHaveText("Bitte km-Stand und Ziel eintragen.");
+  await expect(page.locator("#statusMessage")).toHaveText("Bitte km-Stand und Ziel eintragen.");
 
-  await page.fill("#ziel", "Musterstraße 12, München");
-  await page.tap("label[for=privat]");
+  await page.fill("#destination", "Musterstraße 12, München");
+  await page.tap("label[for=typePrivate]");
   await page.getByRole("button", { name: "Fahrt speichern" }).click();
-  await expect(page.locator("#statusMeldung")).toHaveText("✅ Fahrt gespeichert!");
-  await expect(page.locator("#kmstand")).toHaveValue("");
-  await expect(page.locator("#letzterStand")).toHaveText("Letzter Stand 13.520 km · gerade eben");
+  await expect(page.locator("#statusMessage")).toHaveText("✅ Fahrt gespeichert!");
+  await expect(page.locator("#odometer")).toHaveValue("");
+  await expect(page.locator("#lastReading")).toHaveText("Letzter Stand 13.520 km · gerade eben");
 
   // Export-Buttons gibt es nicht mehr
   await expect(page.getByText("CSV Export")).toHaveCount(0);

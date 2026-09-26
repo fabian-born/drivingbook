@@ -26,24 +26,24 @@ function rememberLastReading(code, reading) {
 }
 
 function showLastReading() {
-  $("letzterStand").textContent = lastReading
+  $("lastReading").textContent = lastReading
     ? t("driving.lastReading", { km: lastReading.km.toLocaleString(i18n.locale), time: relativeTime(lastReading.time) })
     : t("driving.noTripYet");
-  $("kmstand").placeholder = lastReading ? String(lastReading.km) : "0";
+  $("odometer").placeholder = lastReading ? String(lastReading.km) : "0";
   updateKmHint();
 }
 
 async function showVehicle() {
   const vehicle = await vehicleReady;
   if (!vehicle) {
-    $("fahrzeugName").textContent = t("driving.noVehicle");
-    $("letzterStand").textContent = t("driving.manageVehicles");
+    $("vehicleHeaderName").textContent = t("driving.noVehicle");
+    $("lastReading").textContent = t("driving.manageVehicles");
     return;   // backend saves without assignment
   }
 
-  $("fahrzeugName").textContent = vehicle.name;
-  $("fahrzeugKennzeichen").textContent = vehicle.license_plate ?? "";
-  $("fahrzeugKennzeichen").classList.toggle("d-none", !vehicle.license_plate);
+  $("vehicleHeaderName").textContent = vehicle.name;
+  $("vehiclePlate").textContent = vehicle.license_plate ?? "";
+  $("vehiclePlate").classList.toggle("d-none", !vehicle.license_plate);
 
   try {
     lastReading = JSON.parse(localStorage.getItem(LAST_READING_KEY(vehicle.code)));
@@ -62,10 +62,10 @@ async function showVehicle() {
 
 // Live hint below the km field: difference to the last trip
 function updateKmHint() {
-  const hint = $("kmHinweis");
-  const rawValue    = $("kmstand").value;
+  const hint = $("odometerHint");
+  const rawValue    = $("odometer").value;
   hint.classList.remove("text-danger", "text-success");
-  $("kmstand").classList.remove("is-invalid");
+  $("odometer").classList.remove("is-invalid");
 
   if (!rawValue || !lastReading) {
     hint.innerHTML = "&nbsp;";
@@ -75,7 +75,7 @@ function updateKmHint() {
   if (diff < 0) {
     hint.textContent = t("driving.belowLast", { km: lastReading.km.toLocaleString(i18n.locale) });
     hint.classList.add("text-danger");
-    $("kmstand").classList.add("is-invalid");
+    $("odometer").classList.add("is-invalid");
   } else {
     hint.textContent = t("driving.sinceLast", { km: diff.toLocaleString(i18n.locale) });
     hint.classList.add("text-success");
@@ -86,7 +86,7 @@ function updateKmHint() {
 
 function fetchLocation() {
   if (!navigator.geolocation) return showStatus(t("driving.geoUnsupported"), "warning");
-  const btn = $("standortBtn");
+  const btn = $("locationBtn");
   btn.disabled = true;
   navigator.geolocation.getCurrentPosition(
     async position => {
@@ -105,7 +105,7 @@ function fetchLocation() {
 async function applyPosition(position) {
   const lat = position.coords.latitude.toFixed(6);
   const lon = position.coords.longitude.toFixed(6);
-  const destinationField = $("ziel");
+  const destinationField = $("destination");
 
   // Offline: enter coordinates – the backend resolves them to an address when saving
   if (!navigator.onLine) {
@@ -128,7 +128,7 @@ async function applyPosition(position) {
 // ── Status display ───────────────────────────────────────────
 
 function showStatus(text, type = "success") {
-  const box = $("statusMeldung");
+  const box = $("statusMessage");
   box.className   = `alert alert-${type}`;
   box.textContent = text;
   box.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -137,11 +137,11 @@ function showStatus(text, type = "success") {
 // ── Offline queue ────────────────────────────────────────────
 
 function updateOfflineHint(count, failed = []) {
-  $("offlineHinweis").classList.toggle("d-none", count === 0);
-  $("offlineAnzahl").textContent = t("driving.waiting", { count: count });
+  $("offlineHint").classList.toggle("d-none", count === 0);
+  $("offlineCount").textContent = t("driving.waiting", { count: count });
 
-  $("offlineFehler").classList.toggle("d-none", failed.length === 0);
-  $("offlineFehlerListe").innerHTML = failed.map((f, i) => `
+  $("offlineErrors").classList.toggle("d-none", failed.length === 0);
+  $("offlineErrorList").innerHTML = failed.map((f, i) => `
     <li class="border-top border-danger-subtle pt-2">
       <div class="small"><strong>${escapeHtml(new Date(f.timestamp).toLocaleString(i18n.locale))}</strong> ·
         ${escapeHtml(Number(f.odometer_km).toLocaleString(i18n.locale))} km · ${escapeHtml(f.destination)}</div>
@@ -159,8 +159,8 @@ let offlineErrorShown = [];
 // ── Record ───────────────────────────────────────────────────
 
 function clearForm() {
-  $("kmstand").value = "";
-  $("ziel").value = "";
+  $("odometer").value = "";
+  $("destination").value = "";
   updateKmHint();
 }
 
@@ -177,17 +177,17 @@ function onTripQueued(trip) {
 }
 
 function setSaving(isActive) {
-  $("speichernBtn").disabled = isActive;
-  $("speichernSpinner").classList.toggle("d-none", !isActive);
+  $("saveBtn").disabled = isActive;
+  $("saveSpinner").classList.toggle("d-none", !isActive);
 }
 
 async function addTrip() {
-  const odometer  = $("kmstand").value;
-  const target     = $("ziel").value.trim();
-  const tripType = document.querySelector('input[name="fahrtart"]:checked')?.value;
+  const odometer  = $("odometer").value;
+  const target     = $("destination").value.trim();
+  const tripType = document.querySelector('input[name="tripType"]:checked')?.value;
 
   if (!odometer || !target || !tripType) {
-    (odometer ? $("ziel") : $("kmstand")).focus();
+    (odometer ? $("destination") : $("odometer")).focus();
     return showStatus(t("driving.required"), "warning");
   }
 
@@ -220,15 +220,15 @@ async function addTrip() {
 // ── Start ────────────────────────────────────────────────────
 
 // Show queue messages in the form instead of as a top-right notice
-document.addEventListener("warteschlange", e => {
+document.addEventListener("queueMessage", e => {
   e.preventDefault();
   showStatus(e.detail.text, e.detail.type);
 });
-document.addEventListener("warteschlangeGeaendert", e => updateOfflineHint(e.detail.count, e.detail.failed));
+document.addEventListener("queueChanged", e => updateOfflineHint(e.detail.count, e.detail.failed));
 
 document.addEventListener("DOMContentLoaded", () => {
   updateQueueDisplay();
-  $("offlineFehlerListe").addEventListener("click", e => {
+  $("offlineErrorList").addEventListener("click", e => {
     const retryBtn    = e.target.closest("[data-resend]");
     const discardBtn = e.target.closest("[data-discard]");
     if (retryBtn) resendPending(offlineErrorShown[retryBtn.dataset.resend]);
@@ -236,10 +236,10 @@ document.addEventListener("DOMContentLoaded", () => {
       discardPending(offlineErrorShown[discardBtn.dataset.discard]);
     }
   });
-  $("syncJetzt").addEventListener("click", synchronize);
-  $("standortBtn").addEventListener("click", fetchLocation);
-  $("kmstand").addEventListener("input", updateKmHint);
-  $("fahrtFormular").addEventListener("submit", e => {
+  $("syncNow").addEventListener("click", synchronize);
+  $("locationBtn").addEventListener("click", fetchLocation);
+  $("odometer").addEventListener("input", updateKmHint);
+  $("tripForm").addEventListener("submit", e => {
     e.preventDefault();
     addTrip();
   });

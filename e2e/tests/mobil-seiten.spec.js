@@ -35,9 +35,9 @@ test("Dashboard und Jahreshistorie auf dem Smartphone", async ({ page }) => {
   await loginImBrowser(page, user);
 
   // Dashboard: Kennzahlen, Aufteilung, Diagramm, Monatskarten statt Tabelle
-  await expect(page.locator(".kennzahl-wert").first()).toBeVisible();
-  await expect(page.locator(".kennzahlen .col")).toHaveCount(3);
-  await expect(page.locator(".monats-tabelle")).toBeHidden();
+  await expect(page.locator(".metric-value").first()).toBeVisible();
+  await expect(page.locator(".metrics .col")).toHaveCount(3);
+  await expect(page.locator(".month-table")).toBeHidden();
   await expect(page.locator(".list-group-item strong")).toHaveText(["März", "Februar", "Januar"]);
   await expect(page.locator("canvas")).toBeVisible();
   await passtInDieBreite(page);
@@ -45,9 +45,9 @@ test("Dashboard und Jahreshistorie auf dem Smartphone", async ({ page }) => {
   // Jahreshistorie: Vorjahr, Buttons neben der Jahresauswahl
   await page.goto("/history.html");
   // 6 Fahrten à 80 km, die erste des Jahres hat keinen Vorgänger → 400 km
-  await expect(page.locator(".kennzahl-wert").first()).toHaveText("400 km");
-  await expect(page.locator(".monats-tabelle")).toBeHidden();
-  const auswahl = await page.locator("#historyJahrSelect").boundingBox();
+  await expect(page.locator(".metric-value").first()).toHaveText("400 km");
+  await expect(page.locator(".month-table")).toBeHidden();
+  const auswahl = await page.locator("#historyYearSelect").boundingBox();
   const drucken = await page.locator("#historyPDFExport").boundingBox();
   expect(Math.abs(auswahl.y - drucken.y)).toBeLessThan(10);
   expect(drucken.height).toBeGreaterThanOrEqual(44);
@@ -58,34 +58,34 @@ test("Fahrten anzeigen auf dem Smartphone", async ({ page }) => {
   const user = await mitDaten();
   await loginImBrowser(page, user);
   await page.goto("/view.html");
-  await page.selectOption("#jahrSelect", String(jahr));
-  await page.selectOption("#monatSelect", "01");
+  await page.selectOption("#yearSelect", String(jahr));
+  await page.selectOption("#monthSelect", "01");
 
-  await expect(page.locator(".fahrt-card")).toHaveCount(2);
-  await expect(page.locator("#auswahlTitel")).toHaveText(`Januar ${jahr}`);
-  await expect(page.locator("#auswahlKm")).toHaveText("160 km");
+  await expect(page.locator(".trip-card")).toHaveCount(2);
+  await expect(page.locator("#selectionTitle")).toHaveText(`Januar ${jahr}`);
+  await expect(page.locator("#selectionKm")).toHaveText("160 km");
   await passtInDieBreite(page);
 
   // Bedienelemente groß genug, Löschen-Button überdeckt nichts
-  const zuKlein = await page.$$eval(".filter-bar select, .filter-bar button, .fahrt-card input, .fahrt-card select, .fahrt-card .delete-btn",
+  const zuKlein = await page.$$eval(".filter-bar select, .filter-bar button, .trip-card input, .trip-card select, .trip-card .delete-btn",
     els => els.filter(e => e.getBoundingClientRect().height < 44).map(e => e.id || e.className));
   expect(zuKlein).toEqual([]);
-  for (const karte of await page.locator(".fahrt-card").all()) {
+  for (const karte of await page.locator(".trip-card").all()) {
     const loeschen = await karte.locator(".delete-btn").boundingBox();
-    const art      = await karte.locator(".card-fahrtart").boundingBox();
+    const art      = await karte.locator(".card-trip-type").boundingBox();
     expect(loeschen.y + loeschen.height <= art.y || art.y + art.height <= loeschen.y).toBe(true);
   }
 
   // Fahrtart ändern: Randfarbe und Summe folgen
-  const karte = page.locator(".fahrt-card").first();
-  await karte.locator(".card-fahrtart").selectOption("commute");
+  const karte = page.locator(".trip-card").first();
+  await karte.locator(".card-trip-type").selectOption("commute");
   await expect(karte).toHaveCSS("border-left-color", "rgb(224, 138, 0)");
-  await expect(page.locator("#auswahlLegende")).toContainText("Arbeitsweg");
+  await expect(page.locator("#selectionLegend")).toContainText("Arbeitsweg");
 
   // Jahresansicht: schreibgeschützte Karten mit Badge
-  await page.selectOption("#monatSelect", "alle");
+  await page.selectOption("#monthSelect", "alle");
   await expect(page.locator(".month-divider")).toHaveCount(3);
-  await expect(page.locator("#auswahlTitel")).toHaveText(`Jahr ${jahr}`);
+  await expect(page.locator("#selectionTitle")).toHaveText(`Jahr ${jahr}`);
   await passtInDieBreite(page);
 });
 
@@ -115,8 +115,8 @@ test("Konto, Auto-Info und Admin auf dem Smartphone", async ({ page }) => {
   const { ADMIN_PASSWORD } = await import("../konstanten.js");
   await loginImBrowser(page, { username: "admin", password: ADMIN_PASSWORD, vehicles: [{}] });
   await page.goto("/admin.html");
-  await page.click("#btnPruefen");
-  await expect(page.locator("#ohneListe .ohne-eintrag", { hasText: user.username })).toBeVisible();
+  await page.click("#btnCheck");
+  await expect(page.locator("#unassignedList .unassigned-entry", { hasText: user.username })).toBeVisible();
   await passtInDieBreite(page);
   await gutAntippbar(page);
 });

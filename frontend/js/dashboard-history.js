@@ -1,5 +1,5 @@
 // js/dashboard-history.js
-// Year history: analysis of completed years for the active vehicle (see auswertung.js)
+// Year history: analysis of completed years for the active vehicle (see analysis.js)
 
 let historyChartInstance = null;
 
@@ -33,7 +33,7 @@ async function loadHistoryDashboard(selectedYear) {
 // "beforeprint" runs after theme.js (switch to light) – also on Ctrl+P.
 window.addEventListener("beforeprint", () => {
   const canvas = document.querySelector("#historyContent canvas");
-  const image   = document.querySelector("#historyContent .verlauf-druckbild");
+  const image   = document.querySelector("#historyContent .history-print");
   if (canvas && image) image.src = canvas.toDataURL("image/png");
 });
 
@@ -42,7 +42,7 @@ function printPage() {
 }
 
 function initHistory() {
-  const yearSelect    = document.getElementById("historyJahrSelect");
+  const yearSelect    = document.getElementById("historyYearSelect");
   const currentYear = new Date().getFullYear();
 
   for (let j = currentYear - 1; j >= START_YEAR; j--) {

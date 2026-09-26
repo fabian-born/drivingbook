@@ -24,34 +24,34 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
   // Fahrzeug löschen: die Fahrten ziehen in den Polo um (Dialog), Polo wird aktiv
   page.on("dialog", d => d.accept());
   await page.locator("#vehicleTabelle tr", { hasText: "Passat" }).locator(".delete-vehicle-btn").click();
-  await expect(page.locator("#loeschenModal")).toBeVisible();
-  await expect(page.locator("#loeschenText")).toContainText("2 Fahrten");
-  await Promise.all([page.waitForEvent("load"), page.click("#loeschenBestaetigen")]);
-  await expect(page.locator("#autoName")).toHaveText("Polo");
-  await expect(page.locator("#kzFahrten")).toHaveText("2");
+  await expect(page.locator("#deleteVehicleModal")).toBeVisible();
+  await expect(page.locator("#deleteVehicleText")).toContainText("2 Fahrten");
+  await Promise.all([page.waitForEvent("load"), page.click("#deleteVehicleConfirm")]);
+  await expect(page.locator("#infoName")).toHaveText("Polo");
+  await expect(page.locator("#kfTrips")).toHaveText("2");
 
   // Sicherung einspielen: Passat kommt mit gleichem Code zurück, die Fahrten
   // sind schon im Polo vorhanden und werden nicht doppelt angelegt
-  await page.setInputFiles("#importDatei", datei);
+  await page.setInputFiles("#importFile", datei);
   await Promise.all([page.waitForEvent("load"), page.click("#importBtn")]);
-  await expect(page.locator("#autoName")).toHaveText("Passat");
-  await expect(page.locator("#autoCode")).toHaveText(passat.code);
-  await expect(page.locator("#kzFahrten")).toHaveText("0");
+  await expect(page.locator("#infoName")).toHaveText("Passat");
+  await expect(page.locator("#infoCode")).toHaveText(passat.code);
+  await expect(page.locator("#kfTrips")).toHaveText("0");
 
   // Verlauf der umgezogenen Fahrt ist vollständig
-  await Promise.all([page.waitForEvent("load"), page.selectOption("#fahrzeugKontext", { label: "🚗 Polo" })]);
+  await Promise.all([page.waitForEvent("load"), page.selectOption("#vehicleContext", { label: "🚗 Polo" })]);
   await page.goto("/view.html");
-  await page.selectOption("#jahrSelect", String(jahr));
-  await page.selectOption("#monatSelect", "02");
-  await expect(page.locator("#fahrtenTabelle [data-field=destination]")).toHaveText(["Kunde X GmbH", "Heim"]);
-  await page.locator("#fahrtenTabelle .history-btn").first().click();
+  await page.selectOption("#yearSelect", String(jahr));
+  await page.selectOption("#monthSelect", "02");
+  await expect(page.locator("#tripsTable [data-field=destination]")).toHaveText(["Kunde X GmbH", "Heim"]);
+  await page.locator("#tripsTable .history-btn").first().click();
   await expect(page.locator("#auditModalBody li")).toHaveCount(3);   // angelegt, geändert, umgezogen
 
   // Nochmal einspielen (Polo aktiv → App wechselt zum Passat): nichts Doppeltes
   let meldungen = "";
   page.on("dialog", d => { meldungen += d.message(); });
   await page.goto("/auto.html");
-  await page.setInputFiles("#importDatei", datei);
+  await page.setInputFiles("#importFile", datei);
   await Promise.all([page.waitForEvent("load"), page.click("#importBtn")]);
   expect(meldungen).toContain("0 Fahrten ergänzt, 2 bereits vorhanden");
 });
@@ -63,8 +63,8 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
 
   // Neue Fahrzeuge: noch nicht fällig
   await loginImBrowser(page, user);
-  await expect(page.locator(".monats-tabelle tbody tr")).toHaveCount(1);
-  await expect(page.locator("#sicherungHinweis")).toBeHidden();
+  await expect(page.locator(".month-table tbody tr")).toHaveCount(1);
+  await expect(page.locator("#backupReminder")).toBeHidden();
 
   // Fahrzeuge „alt“ machen → Erinnerung
   await page.route("**/api/backup/status", async route => {
@@ -74,26 +74,26 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
     await route.fulfill({ response: res, json });
   });
   await page.reload();
-  await expect(page.locator("#sicherungHinweis")).toBeVisible();
-  await expect(page.locator("#sicherungHinweisText")).toHaveText("Deine Fahrten wurden noch nie gesichert.");
+  await expect(page.locator("#backupReminder")).toBeVisible();
+  await expect(page.locator("#backupReminderText")).toHaveText("Deine Fahrten wurden noch nie gesichert.");
 
   await page.goto("/profile.html");
-  await expect(page.locator("#sicherungTabelle tr")).toHaveText([/Golf\s+noch nie/, /Tesla\s+noch nie/]);
+  await expect(page.locator("#backupTable tr")).toHaveText([/Golf\s+noch nie/, /Tesla\s+noch nie/]);
   await expect(page.locator("#profileCountry")).toHaveText("Deutschland");
-  const datei = await lade(page, testInfo, () => page.click("#sichernBtn"));
+  const datei = await lade(page, testInfo, () => page.click("#backupBtn"));
   const sicherung = JSON.parse(fs.readFileSync(datei, "utf8"));
   expect(sicherung.format).toBe("drivingbook-backup");
   expect(sicherung.vehicles.map(f => f.vehicle.name)).toEqual(["Golf", "Tesla"]);
-  await expect(page.locator("#sicherungTabelle tr").first()).not.toContainText("noch nie");
+  await expect(page.locator("#backupTable tr").first()).not.toContainText("noch nie");
 
   await page.goto("/index.html");
-  await expect(page.locator(".monats-tabelle tbody tr")).toHaveCount(1);
-  await expect(page.locator("#sicherungHinweis")).toBeHidden();
+  await expect(page.locator(".month-table tbody tr")).toHaveCount(1);
+  await expect(page.locator("#backupReminder")).toBeHidden();
 
   page.on("dialog", d => d.accept());
   await page.goto("/profile.html");
-  await page.setInputFiles("#wiederherstellenDatei", datei);
-  await page.click("#wiederherstellenBtn");
-  await expect(page.locator("#sicherungAlert")).toContainText("Golf: 0 Fahrten ergänzt, 1 bereits vorhanden");
-  await expect(page.locator("#sicherungAlert")).toContainText("Tesla: 0 Fahrten ergänzt, 1 bereits vorhanden");
+  await page.setInputFiles("#restoreFile", datei);
+  await page.click("#restoreBtn");
+  await expect(page.locator("#backupAlert")).toContainText("Golf: 0 Fahrten ergänzt, 1 bereits vorhanden");
+  await expect(page.locator("#backupAlert")).toContainText("Tesla: 0 Fahrten ergänzt, 1 bereits vorhanden");
 });

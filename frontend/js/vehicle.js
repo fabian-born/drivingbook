@@ -1,4 +1,4 @@
-// js/fahrzeug.js
+// js/vehicle.js
 // Active vehicle ("context"): chosen after login or in the navigation
 // and applies to all pages – display, statistics, export and new
 // trips refer to this vehicle only.
@@ -24,7 +24,7 @@ function showVehiclePicker() {
   if (!logoutBtn || allVehicles.length === 0) return;
 
   const select = document.createElement("select");
-  select.id        = "fahrzeugKontext";
+  select.id        = "vehicleContext";
   select.className = "form-select form-select-sm w-auto ms-lg-2 my-2 my-lg-0";
   select.title     = t("vehicle.active");
   select.setAttribute("aria-label", t("vehicle.active"));

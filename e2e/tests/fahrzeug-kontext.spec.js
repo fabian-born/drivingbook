@@ -10,28 +10,28 @@ test("Fahrtenliste, Dashboard und neue Fahrten folgen dem aktiven Fahrzeug", asy
 
   await loginImBrowser(page, user);   // wählt Golf
   // Januar: Start 1.000, Ende 1.100, 100 km gefahren – alles geschäftlich
-  await expect(page.locator(".monats-tabelle tbody tr")).toHaveText([/Januar\s+1\.000\s+1\.100\s+100\s+100 \(100 %\)/]);
+  await expect(page.locator(".month-table tbody tr")).toHaveText([/Januar\s+1\.000\s+1\.100\s+100\s+100 \(100 %\)/]);
 
   await page.goto("/view.html");
-  await page.selectOption("#jahrSelect", String(jahr));
-  await page.selectOption("#monatSelect", "01");
-  await expect(page.locator("#fahrtenTabelle [data-field=destination]")).toHaveText(["Golf 1", "Golf 2"]);
+  await page.selectOption("#yearSelect", String(jahr));
+  await page.selectOption("#monthSelect", "01");
+  await expect(page.locator("#tripsTable [data-field=destination]")).toHaveText(["Golf 1", "Golf 2"]);
 
-  await Promise.all([page.waitForEvent("load"), page.selectOption("#fahrzeugKontext", { label: "🚗 Tesla" })]);
-  await page.selectOption("#jahrSelect", String(jahr));
-  await page.selectOption("#monatSelect", "01");
-  await expect(page.locator("#fahrtenTabelle [data-field=destination]")).toHaveText(["Tesla 1"]);
+  await Promise.all([page.waitForEvent("load"), page.selectOption("#vehicleContext", { label: "🚗 Tesla" })]);
+  await page.selectOption("#yearSelect", String(jahr));
+  await page.selectOption("#monthSelect", "01");
+  await expect(page.locator("#tripsTable [data-field=destination]")).toHaveText(["Tesla 1"]);
 
   await page.goto("/driving.html");
-  await expect(page.locator("#fahrzeugName")).toHaveText("Tesla");
-  await page.fill("#kmstand", "80");
-  await page.fill("#ziel", "Neu im Tesla");
-  await page.click("label[for=arbeitsweg]");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("Tesla");
+  await page.fill("#odometer", "80");
+  await page.fill("#destination", "Neu im Tesla");
+  await page.click("label[for=typeCommute]");
   await page.getByRole("button", { name: "Fahrt speichern" }).click();
-  await expect(page.locator("#statusMeldung")).toHaveClass(/alert-success/);
+  await expect(page.locator("#statusMessage")).toHaveClass(/alert-success/);
 
   await page.goto("/view.html");
-  await page.selectOption("#jahrSelect", String(jahr));
-  await page.selectOption("#monatSelect", "alle");
-  await expect(page.locator("#fahrtenTabelle .badge")).toHaveText(["Privat", "Arbeitsweg"]);
+  await page.selectOption("#yearSelect", String(jahr));
+  await page.selectOption("#monthSelect", "alle");
+  await expect(page.locator("#tripsTable .badge")).toHaveText(["Privat", "Arbeitsweg"]);
 });

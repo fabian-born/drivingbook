@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-const yearSelect  = document.getElementById("jahrSelect");
-const monthSelect = document.getElementById("monatSelect");
-const tbody       = document.getElementById("fahrtenTabelle");
+const yearSelect  = document.getElementById("yearSelect");
+const monthSelect = document.getElementById("monthSelect");
+const tbody       = document.getElementById("tripsTable");
 const cardList    = document.getElementById("cardList") ?? document.createElement("div");
-const tripTypeFilter = document.getElementById("fahrtartFilter");
+const tripTypeFilter = document.getElementById("tripTypeFilter");
 const csvExportBtn   = document.getElementById("csvExportYear");
 
 let currentTrips = [];
@@ -13,7 +13,7 @@ let vehicles      = [];
 let vehicleById   = new Map();
 
 // ----------------- Vehicles (names in the audit log) -----------------
-// Only trips of the active vehicle are shown (see fahrzeug.js).
+// Only trips of the active vehicle are shown (see vehicle.js).
 async function loadVehicles() {
   await Promise.all([vehicleReady, initialSync]);
   vehicles    = allVehicles;
@@ -143,7 +143,7 @@ function renderTable() {
       <td>${diff}</td>
       <td contenteditable="true" data-field="destination">${escapeHtml(f.destination)}</td>
       <td>
-        <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
+        <select class="form-select form-select-sm trip-type-select" data-index="${i}">
           ${tripTypeOptions(f.trip_type)}
         </select>
       </td>
@@ -242,7 +242,7 @@ function buildCard(f, i, diff, readonly, nr) {
   const distanceText   = f.distance == null ? "" : `+${num(Math.max(diff, 0))} km`;
 
   const div = document.createElement("div");
-  div.className = "fahrt-card";
+  div.className = "trip-card";
   div.dataset.index = i;
   div.style.setProperty("--fahrtart-farbe", tripTypeInfo(f.trip_type).chart);
 
@@ -254,9 +254,9 @@ function buildCard(f, i, diff, readonly, nr) {
       </div>
       <div class="d-flex align-items-baseline gap-2 mt-1">
         <span class="card-km">${num(f.odometer_km)} km</span>
-        <span class="strecke">${distanceText}</span>
+        <span class="distance">${distanceText}</span>
       </div>
-      <div class="card-ziel">${escapeHtml(f.destination)}</div>
+      <div class="card-destination">${escapeHtml(f.destination)}</div>
       <div class="d-flex justify-content-between align-items-center mt-1">
         <span class="card-meta">#${nr ?? i + 1}</span>${historyButton(f)}
       </div>`;
@@ -271,19 +271,19 @@ function buildCard(f, i, diff, readonly, nr) {
       </div>
 
       <div class="d-flex align-items-center gap-2 mb-2">
-        <div class="input-group km-feld">
+        <div class="input-group km-field">
           <input type="number" inputmode="numeric" class="form-control card-field-km" aria-label="${t("view.odometer")}"
             data-index="${i}" data-field="odometer_km" value="${escapeHtml(f.odometer_km)}">
           <span class="input-group-text">km</span>
         </div>
-        <span class="strecke">${distanceText}</span>
+        <span class="distance">${distanceText}</span>
       </div>
 
       <input type="text" class="form-control mb-2 card-field-ziel" aria-label="${t("view.col.destination")}"
         data-index="${i}" data-field="destination" value="${escapeHtml(f.destination)}">
 
       <div class="d-flex align-items-center gap-2">
-        <select class="form-select card-fahrtart" data-index="${i}" aria-label="${t("view.tripType")}">
+        <select class="form-select card-trip-type" data-index="${i}" aria-label="${t("view.tripType")}">
           ${tripTypeOptions(f.trip_type)}
         </select>
         <span class="card-meta">#${i + 1}</span>${historyButton(f)}
@@ -295,7 +295,7 @@ function buildCard(f, i, diff, readonly, nr) {
 
 // ----------------- Total of the displayed trips -----------------
 function renderTotals() {
-  const box = document.getElementById("auswahlSumme");
+  const box = document.getElementById("selectionSummary");
   const filter = tripTypeFilter.value;
   const trips = currentTrips.filter(f => filter === "alle" || f.trip_type === filter);
   box.classList.toggle("d-none", trips.length === 0);
@@ -305,13 +305,13 @@ function renderTotals() {
   for (const f of trips) sums[tripTypeInfo(f.trip_type).key] += Math.max(f.distance ?? 0, 0);
   const grandTotal = TRIP_TYPES.reduce((n, a) => n + sums[a.key], 0);
 
-  document.getElementById("auswahlTitel").textContent = yearView
+  document.getElementById("selectionTitle").textContent = yearView
     ? t("analysis.year", { year: yearSelect.value })
     : formatMonth(`${yearSelect.value}-${monthSelect.value}`);
-  document.getElementById("auswahlKm").textContent      = kmText(grandTotal);
-  document.getElementById("auswahlFahrten").textContent = `· ${t("analysis.trips", { count: trips.length, n: trips.length })}`;
-  document.getElementById("auswahlBalken").innerHTML    = splitBar(sums, { height: 8 });
-  document.getElementById("auswahlLegende").innerHTML   = TRIP_TYPES.map(a => `
+  document.getElementById("selectionKm").textContent      = kmText(grandTotal);
+  document.getElementById("selectionTrips").textContent = `· ${t("analysis.trips", { count: trips.length, n: trips.length })}`;
+  document.getElementById("selectionBar").innerHTML    = splitBar(sums, { height: 8 });
+  document.getElementById("selectionLegend").innerHTML   = TRIP_TYPES.map(a => `
     <span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${num(sums[a.key])} km</span>`).join("");
 }
 
@@ -323,10 +323,10 @@ cardList.addEventListener("change", async e => {
   if (yearView) return;
 
   // Trip type dropdown
-  if (e.target.classList.contains("card-fahrtart")) {
+  if (e.target.classList.contains("card-trip-type")) {
     const i = e.target.dataset.index;
     currentTrips[i].trip_type = e.target.value;
-    e.target.closest(".fahrt-card").style.setProperty("--fahrtart-farbe", tripTypeInfo(e.target.value).chart);
+    e.target.closest(".trip-card").style.setProperty("--fahrtart-farbe", tripTypeInfo(e.target.value).chart);
     if (await saveTrip(i)) renderTotals();
   }
 
@@ -386,7 +386,7 @@ tbody.addEventListener("blur", async e => {
 tbody.addEventListener("change", async e => {
   if (yearView) return;
 
-  if (e.target.classList.contains("fahrtart-select")) {
+  if (e.target.classList.contains("trip-type-select")) {
     const i = e.target.dataset.index;
     currentTrips[i].trip_type = e.target.value;
     if (await saveTrip(i)) renderTotals();
@@ -522,16 +522,16 @@ function setLoading(text = t("view.loading")) {
 }
 
 function setEmpty(text) {
-  document.getElementById("auswahlSumme").classList.add("d-none");
+  document.getElementById("selectionSummary").classList.add("d-none");
   tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
 function showHint(text, type = "info") {
-  let container = document.getElementById("hinweisContainer");
+  let container = document.getElementById("toastContainer");
   if (!container) {
     container = document.createElement("div");
-    container.id = "hinweisContainer";
+    container.id = "toastContainer";
     container.style.cssText = "position:fixed;top:1rem;right:1rem;z-index:9999;min-width:280px;";
     document.body.appendChild(container);
   }

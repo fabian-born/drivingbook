@@ -9,12 +9,12 @@ test("Login unabhängig von Groß-/Kleinschreibung, Fahrzeugwahl bei mehreren Au
   await page.fill("#password", user.password);
   await page.click("button[type=submit]");
 
-  await expect(page.locator("#fahrzeugWahl")).toBeVisible();
-  await expect(page.locator("#fahrzeugListe button")).toHaveText([/Golf \(Standard\)/, /Tesla/]);
-  await page.locator("#fahrzeugListe button", { hasText: "Tesla" }).click();
+  await expect(page.locator("#vehicleChoice")).toBeVisible();
+  await expect(page.locator("#vehicleList button")).toHaveText([/Golf \(Standard\)/, /Tesla/]);
+  await page.locator("#vehicleList button", { hasText: "Tesla" }).click();
 
   await expect(page).toHaveURL(/index\.html/);
-  await expect(page.locator("#fahrzeugKontext option:checked")).toHaveText(/Tesla/);
+  await expect(page.locator("#vehicleContext option:checked")).toHaveText(/Tesla/);
 });
 
 test("Admin-Eintrag im Profil-Menü nur für Admins", async ({ page }) => {

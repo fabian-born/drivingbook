@@ -11,25 +11,25 @@ test("Steuervergleich 1-%-Regel ↔ Fahrtenbuch mit Arbeitsweg", async ({ page }
 
   await loginImBrowser(page, user);
   await page.goto("/auto.html");
-  await expect(page.locator("#kzKmJahr")).toHaveText("3.500 km");
-  await expect(page.locator("#kzPrivat")).toHaveText("300 km (8,6 %)");
-  await expect(page.locator("#vgHinweis")).toContainText("Bruttolistenpreis");
+  await expect(page.locator("#kfKmYear")).toHaveText("3.500 km");
+  await expect(page.locator("#kfPrivate")).toHaveText("300 km (8,6 %)");
+  await expect(page.locator("#cmpHint")).toContainText("Bruttolistenpreis");
 
-  await page.fill("#fdKennzeichen", "m-ab 1234");
-  await page.fill("#fdListenpreis", "42500");
-  await page.click("#datenSpeichernBtn");
-  await expect(page.locator("#autoKennzeichen")).toHaveText("M-AB 1234");
+  await page.fill("#vdPlate", "m-ab 1234");
+  await page.fill("#vdListPrice", "42500");
+  await page.click("#saveDataBtn");
+  await expect(page.locator("#infoPlate")).toHaveText("M-AB 1234");
 
-  await page.fill("#kGesamt", "8000");
-  await page.fill("#kAfa", "3500");
-  await page.fill("#kArbeitsweg", "15");
-  await page.fill("#kSteuersatz", "35");
-  await page.click("#kostenSpeichernBtn");
+  await page.fill("#cTotal", "8000");
+  await page.fill("#cDepreciation", "3500");
+  await page.fill("#cCommuteKm", "15");
+  await page.fill("#cTaxRate", "35");
+  await page.click("#saveCostsBtn");
 
-  await expect(page.locator("#vgPauschalSumme")).toHaveText("7.395,00 €");      // 5.100 + 2.295
-  await expect(page.locator("#vgFahrtenbuchSumme")).toHaveText("685,71 €");     // 8.000 × 300/3.500
-  await expect(page.locator("#vgFahrtenbuch")).toHaveClass(/gewinner/);
-  await expect(page.locator("#vgEmpfehlung")).toContainText("Das Fahrtenbuch lohnt sich");
+  await expect(page.locator("#cmpFlatRateTotal")).toHaveText("7.395,00 €");      // 5.100 + 2.295
+  await expect(page.locator("#cmpLogbookTotal")).toHaveText("685,71 €");     // 8.000 × 300/3.500
+  await expect(page.locator("#cmpLogbook")).toHaveClass(/winner/);
+  await expect(page.locator("#cmpRecommendation")).toContainText("Das Fahrtenbuch lohnt sich");
 });
 
 test("Prüfung zeigt Auffälligkeiten als Ampel", async ({ page }) => {
@@ -40,9 +40,9 @@ test("Prüfung zeigt Auffälligkeiten als Ampel", async ({ page }) => {
 
   await loginImBrowser(page, user);
   await page.goto("/auto.html");
-  await expect(page.locator("#pruefAmpel")).toHaveText("Bitte prüfen");
-  await expect(page.locator("#pruefListe li")).toHaveText([/nur eine Koordinate/, /1\.560 km seit der vorherigen Fahrt/]);
+  await expect(page.locator("#checkBadge")).toHaveText("Bitte prüfen");
+  await expect(page.locator("#checkList li")).toHaveText([/nur eine Koordinate/, /1\.560 km seit der vorherigen Fahrt/]);
 
-  await page.selectOption("#jahrSelect", String(jahr - 1));
-  await expect(page.locator("#pruefAmpel")).toHaveText("Alles in Ordnung");
+  await page.selectOption("#yearSelect", String(jahr - 1));
+  await expect(page.locator("#checkBadge")).toHaveText("Alles in Ordnung");
 });

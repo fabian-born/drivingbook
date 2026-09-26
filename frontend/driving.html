@@ -18,92 +18,92 @@
 <link href="css/app.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 <style>
-  .erfassung { max-width: 560px; }
+  .entry-form { max-width: 560px; }
 
   /* Vehicle header */
-  .fahrzeug-kopf { background: #212529; color: #fff; border-radius: .75rem .75rem 0 0; }
-  [data-bs-theme="dark"] .fahrzeug-kopf { background: #343a40; }
-  .fahrzeug-kopf .mdi-car { font-size: 1.9rem; line-height: 1; }
-  .fahrzeug-kopf .kennzeichen { background: #fff; color: #212529; border-radius: .3rem; padding: 0 .4rem;
+  .vehicle-header { background: #212529; color: #fff; border-radius: .75rem .75rem 0 0; }
+  [data-bs-theme="dark"] .vehicle-header { background: #343a40; }
+  .vehicle-header .mdi-car { font-size: 1.9rem; line-height: 1; }
+  .vehicle-header .license-plate { background: #fff; color: #212529; border-radius: .3rem; padding: 0 .4rem;
                                 font-weight: 600; font-size: .8rem; letter-spacing: .03em; }
 
   /* Odometer reading: large digits */
-  #kmstand { font-size: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  #kmstand::placeholder { font-weight: 400; color: var(--bs-secondary-color); opacity: .45; }
-  #kmstand { -moz-appearance: textfield; appearance: textfield; }
-  #kmstand::-webkit-outer-spin-button, #kmstand::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .km-einheit { font-size: 1.1rem; }
+  #odometer { font-size: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #odometer::placeholder { font-weight: 400; color: var(--bs-secondary-color); opacity: .45; }
+  #odometer { -moz-appearance: textfield; appearance: textfield; }
+  #odometer::-webkit-outer-spin-button, #odometer::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .km-unit { font-size: 1.1rem; }
 
   /* Trip type as large tiles */
-  .fahrtart-kachel { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  .trip-type-tile { display: flex; flex-direction: column; align-items: center; justify-content: center;
                      gap: .15rem; min-height: 4.5rem; padding: .5rem .25rem; line-height: 1.1;
                      font-size: clamp(.7rem, 3.3vw, .9rem); white-space: nowrap; }
-  .fahrtart-kachel .mdi { font-size: 1.5rem; line-height: 1; }
+  .trip-type-tile .mdi { font-size: 1.5rem; line-height: 1; }
 
   /* Location button square and easy to tap */
-  .btn-standort { min-width: 3.5rem; font-size: 1.35rem; }
+  .btn-location { min-width: 3.5rem; font-size: 1.35rem; }
 
   /* Sufficiently large touch targets (≥ 44 px) */
-  .erfassung .form-control-lg, .erfassung .btn-lg { min-height: 3.25rem; }
+  .entry-form .form-control-lg, .entry-form .btn-lg { min-height: 3.25rem; }
 </style>
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
 
-<nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
+<nav id="mainNav" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
-<main class="container erfassung py-3 py-md-5 flex-fill">
+<main class="container entry-form py-3 py-md-5 flex-fill">
 
-  <div id="offlineHinweis" class="d-none">
+  <div id="offlineHint" class="d-none">
     <div class="alert alert-info d-flex flex-wrap gap-2 justify-content-between align-items-center">
-      <span><span class="mdi mdi-cloud-off-outline me-1"></span><span id="offlineAnzahl"></span></span>
-      <button class="btn btn-sm btn-primary" type="button" id="syncJetzt" data-i18n="driving.sendNow">Jetzt senden</button>
+      <span><span class="mdi mdi-cloud-off-outline me-1"></span><span id="offlineCount"></span></span>
+      <button class="btn btn-sm btn-primary" type="button" id="syncNow" data-i18n="driving.sendNow">Jetzt senden</button>
     </div>
   </div>
 
-  <div id="offlineFehler" class="d-none mb-3">
+  <div id="offlineErrors" class="d-none mb-3">
     <div class="alert alert-danger mb-0">
       <strong><span class="mdi mdi-alert-outline me-1"></span><span data-i18n="driving.failedTitle">Nicht übertragene Fahrten</span></strong>
       <p class="small mb-2" data-i18n="driving.failedHint">Diese offline erfassten Fahrten konnten nicht gespeichert werden.</p>
-      <ul class="list-unstyled mb-0 d-grid gap-2" id="offlineFehlerListe"></ul>
+      <ul class="list-unstyled mb-0 d-grid gap-2" id="offlineErrorList"></ul>
     </div>
   </div>
 
-  <form id="fahrtFormular" class="card shadow-sm border-0" novalidate>
+  <form id="tripForm" class="card shadow-sm border-0" novalidate>
 
     <!-- Active vehicle + last reading -->
-    <div class="fahrzeug-kopf d-flex align-items-center gap-3 px-3 py-3">
+    <div class="vehicle-header d-flex align-items-center gap-3 px-3 py-3">
       <span class="mdi mdi-car" aria-hidden="true"></span>
       <div class="flex-grow-1 min-w-0">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <strong class="text-truncate" id="fahrzeugName" data-i18n="driving.vehicle">Fahrzeug</strong>
-          <span class="kennzeichen d-none" id="fahrzeugKennzeichen"></span>
+          <strong class="text-truncate" id="vehicleHeaderName" data-i18n="driving.vehicle">Fahrzeug</strong>
+          <span class="license-plate d-none" id="vehiclePlate"></span>
         </div>
-        <div class="small text-white-50" id="letzterStand">&nbsp;</div>
+        <div class="small text-white-50" id="lastReading">&nbsp;</div>
       </div>
     </div>
 
     <div class="card-body p-3 p-sm-4">
-      <div id="statusMeldung" class="d-none" role="status" aria-live="polite"></div>
+      <div id="statusMessage" class="d-none" role="status" aria-live="polite"></div>
 
       <!-- Odometer reading -->
       <div class="mb-3">
-        <label for="kmstand" class="form-label fw-semibold" data-i18n="driving.odometer">Kilometerstand</label>
+        <label for="odometer" class="form-label fw-semibold" data-i18n="driving.odometer">Kilometerstand</label>
         <div class="input-group input-group-lg">
-          <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" class="form-control" id="kmstand"
-            placeholder="0" autocomplete="off" aria-describedby="kmHinweis" required>
-          <span class="input-group-text km-einheit">km</span>
+          <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" class="form-control" id="odometer"
+            placeholder="0" autocomplete="off" aria-describedby="odometerHint" required>
+          <span class="input-group-text km-unit">km</span>
         </div>
-        <div class="form-text" id="kmHinweis">&nbsp;</div>
+        <div class="form-text" id="odometerHint">&nbsp;</div>
       </div>
 
       <!-- Destination -->
       <div class="mb-4">
-        <label for="ziel" class="form-label fw-semibold" data-i18n="driving.destination">Ziel / Kunde</label>
+        <label for="destination" class="form-label fw-semibold" data-i18n="driving.destination">Ziel / Kunde</label>
         <div class="input-group input-group-lg">
-          <input type="text" class="form-control" id="ziel" placeholder="Adresse oder Kunde" data-i18n-attr="placeholder:driving.destinationPlaceholder"
+          <input type="text" class="form-control" id="destination" placeholder="Adresse oder Kunde" data-i18n-attr="placeholder:driving.destinationPlaceholder"
             autocomplete="off" enterkeyhint="done" maxlength="500" required>
-          <button class="btn btn-outline-secondary btn-standort" type="button" id="standortBtn"
+          <button class="btn btn-outline-secondary btn-location" type="button" id="locationBtn"
             title="Aktuellen Standort übernehmen" aria-label="Aktuellen Standort übernehmen"
             data-i18n-attr="title:driving.useLocation;aria-label:driving.useLocation">
             <span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>
@@ -116,20 +116,20 @@
         <legend class="form-label fw-semibold fs-6" data-i18n="driving.tripType">Fahrtart</legend>
         <div class="row g-2">
           <div class="col-4">
-            <input type="radio" class="btn-check" name="fahrtart" id="geschaeftlich" value="business" checked>
-            <label class="btn btn-outline-primary w-100 fahrtart-kachel" for="geschaeftlich">
+            <input type="radio" class="btn-check" name="tripType" id="typeBusiness" value="business" checked>
+            <label class="btn btn-outline-primary w-100 trip-type-tile" for="typeBusiness">
               <span class="mdi mdi-briefcase-outline" aria-hidden="true"></span><span data-i18n="tripType.business">Geschäftlich</span>
             </label>
           </div>
           <div class="col-4">
-            <input type="radio" class="btn-check" name="fahrtart" id="privat" value="private">
-            <label class="btn btn-outline-success w-100 fahrtart-kachel" for="privat">
+            <input type="radio" class="btn-check" name="tripType" id="typePrivate" value="private">
+            <label class="btn btn-outline-success w-100 trip-type-tile" for="typePrivate">
               <span class="mdi mdi-home-outline" aria-hidden="true"></span><span data-i18n="tripType.private">Privat</span>
             </label>
           </div>
           <div class="col-4">
-            <input type="radio" class="btn-check" name="fahrtart" id="arbeitsweg" value="commute">
-            <label class="btn btn-outline-warning w-100 fahrtart-kachel text-body" for="arbeitsweg"
+            <input type="radio" class="btn-check" name="tripType" id="typeCommute" value="commute">
+            <label class="btn btn-outline-warning w-100 trip-type-tile text-body" for="typeCommute"
               title="Fahrt zwischen Wohnung und Arbeitsstätte" data-i18n-attr="title:driving.commuteHint">
               <span class="mdi mdi-office-building-outline" aria-hidden="true"></span><span data-i18n="tripType.commute">Arbeitsweg</span>
             </label>
@@ -137,8 +137,8 @@
         </div>
       </fieldset>
 
-      <button type="submit" class="btn btn-success btn-lg w-100" id="speichernBtn">
-        <span class="spinner-border spinner-border-sm me-2 d-none" id="speichernSpinner" aria-hidden="true"></span>
+      <button type="submit" class="btn btn-success btn-lg w-100" id="saveBtn">
+        <span class="spinner-border spinner-border-sm me-2 d-none" id="saveSpinner" aria-hidden="true"></span>
         <span class="mdi mdi-check me-1" aria-hidden="true"></span><span data-i18n="driving.save">Fahrt speichern</span>
       </button>
       <p class="small text-muted text-center mt-3 mb-0" data-i18n="driving.footerHint">
@@ -150,7 +150,7 @@
 
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
-<script src="js/fahrzeug.js"></script>
+<script src="js/vehicle.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="js/driving-new.js"></script>

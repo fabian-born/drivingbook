@@ -44,8 +44,8 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
 - [x] 2. Grundgerüst Frontend:
       - `i18n.js`, Sprachdateien, Einbindung in alle Seiten, Service Worker, `Accept-Language`.
       - `users.language` (Migration 013), `PATCH /api/profile`, Login-Antwort, Auswahl im Profil und beim Login.
-      - Gemeinsame Teile übersetzt: Navigation, `config.js`, `offline.js`, `sicherung.js`, Footer, Login, Registrierung.
-- [x] 3a. Seiten: Neue Fahrt, Dashboard (+ `auswertung.js`), Jahreshistorie, Fahrten anzeigen
+      - Gemeinsame Teile übersetzt: Navigation, `config.js`, `offline.js`, `backup.js`, Footer, Login, Registrierung.
+- [x] 3a. Seiten: Neue Fahrt, Dashboard (+ `analysis.js`), Jahreshistorie, Fahrten anzeigen
 - [x] 3b. Seiten: Auto-Info, Konto, Admin
 - [x] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
 - [x] 5. PDF und CSV

@@ -179,7 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Backup
   // ──────────────────────────────────────────────────────────
   const backupAlert = (text, type) => {
-    const box = document.getElementById("sicherungAlert");
+    const box = document.getElementById("backupAlert");
     box.className   = `alert alert-${type}`;
     box.textContent = text;
   };
@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function showBackupStatus() {
     const status = await loadBackupStatus();
     if (!status) return;
-    document.getElementById("sicherungTabelle").innerHTML = status.vehicles.length === 0
+    document.getElementById("backupTable").innerHTML = status.vehicles.length === 0
       ? `<tr><td colspan="3" class="text-muted">${t("profile.backup.noVehicles")}</td></tr>`
       : status.vehicles.map(v => `
         <tr class="${v.remind ? "table-warning" : ""}">
@@ -197,13 +197,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         </tr>`).join("");
   }
 
-  document.getElementById("sichernBtn").addEventListener("click", async () => {
+  document.getElementById("backupBtn").addEventListener("click", async () => {
     await backupAll();
     await showBackupStatus();
   });
 
-  document.getElementById("wiederherstellenBtn").addEventListener("click", async () => {
-    const file = document.getElementById("wiederherstellenDatei").files[0];
+  document.getElementById("restoreBtn").addEventListener("click", async () => {
+    const file = document.getElementById("restoreFile").files[0];
     if (!file) return backupAlert(t("profile.backup.chooseFile"), "warning");
     try {
       const result = await restoreBackup(file);
