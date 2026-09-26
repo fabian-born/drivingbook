@@ -1,31 +1,31 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { pruefeJahr } from "../src/lib/pruefung.js";
+import { checkYear } from "../src/lib/pruefung.js";
 import { setup } from "./helpers.js";
 
 const f = (id, odometer_km, distance, timestamp, previous_timestamp, destination = "Kunde") =>
   ({ id, odometer_km, distance, timestamp, previous_timestamp, destination });
 
 describe("Check rules", () => {
-  const jetzt = new Date("2026-12-31T00:00:00Z");
+  const now = new Date("2026-12-31T00:00:00Z");
 
   it("is green without issues", () => {
-    const r = pruefeJahr([
+    const r = checkYear([
       f(1, 1000, null, "2026-01-01T08:00:00Z", null),
       f(2, 1050, 50,   "2026-01-02T08:00:00Z", "2026-01-01T08:00:00Z"),
-    ], { jetzt });
+    ], { now });
     assert.deepEqual(r, { status: "green", findings: [] });
   });
 
   it("finds regressions, gaps, long distances, coordinates and future dates", () => {
-    const r = pruefeJahr([
+    const r = checkYear([
       f(1, 1000, 20,   "2026-01-01T08:00:00Z", "2025-12-30T08:00:00Z"),
       f(2, 900,  -100, "2026-01-02T08:00:00Z", "2026-01-01T08:00:00Z"),
       f(3, 1500, 600,  "2026-03-15T08:00:00Z", "2026-01-02T08:00:00Z"),       // 72 days, 600 km
       f(4, 2700, 1200, "2026-03-16T08:00:00Z", "2026-03-15T08:00:00Z"),
       f(5, 2710, 10,   "2026-03-17T08:00:00Z", "2026-03-16T08:00:00Z", "52.520008, 13.404954"),
       f(6, 2720, 10,   "2027-02-01T08:00:00Z", "2026-03-17T08:00:00Z"),
-    ], { jetzt, geaendert: 2, geloescht: 1, ohneFahrzeug: 3 });
+    ], { now, edited: 2, deleted: 1, unassigned: 3 });
 
     assert.equal(r.status, "red");
     assert.deepEqual(r.findings.map(b => [b.type, b.trip_id]), [
@@ -35,8 +35,8 @@ describe("Check rules", () => {
   });
 
   it("is yellow on warnings and reports empty years", () => {
-    assert.equal(pruefeJahr([], { ohneFahrzeug: 1 }).status, "yellow");
-    assert.equal(pruefeJahr([]).findings[0].type, "empty");
+    assert.equal(checkYear([], { unassigned: 1 }).status, "yellow");
+    assert.equal(checkYear([]).findings[0].type, "empty");
   });
 });
 

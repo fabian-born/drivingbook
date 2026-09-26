@@ -30,67 +30,67 @@ const driveType = v => LEGACY_DRIVE_TYPES[v] ?? v;
 
 function snapshot(d) {
   if (!d || typeof d !== "object") return d ?? null;
-  const { kmstand, ziel, fahrtart, ...rest } = d;
+  const { kmstand, ziel: target, fahrtart, ...rest } = d;
   return {
     ...rest,
     ...(kmstand  !== undefined ? { odometer_km: kmstand } : {}),
-    ...(ziel     !== undefined ? { destination: ziel } : {}),
+    ...(target   !== undefined ? { destination: target } : {}),
     ...(fahrtart !== undefined ? { trip_type: tripType(fahrtart) } : {}),
   };
 }
 
-const trips = (list = []) => list.map(({ kmstand, ziel, fahrtart, ...f }) =>
-  ({ ...f, odometer_km: kmstand, destination: ziel, trip_type: tripType(fahrtart) }));
+const trips = (list = []) => list.map(({ kmstand, ziel: target, fahrtart, ...f }) =>
+  ({ ...f, odometer_km: kmstand, destination: target, trip_type: tripType(fahrtart) }));
 
 const audit = (list = []) => list.map(({ fahrt_id, old_data, new_data, ...e }) =>
   ({ ...e, trip_id: fahrt_id, old_data: snapshot(old_data), new_data: snapshot(new_data) }));
 
-function vehicleData({ fahrzeug = {}, jahre, fahrten, protokoll }) {
+function vehicleData({ fahrzeug: vehicle = {}, jahre: years, fahrten: tripList, protokoll: auditLog }) {
   return {
-    vehicle: { ...fahrzeug, ...(fahrzeug.drive_type ? { drive_type: driveType(fahrzeug.drive_type) } : {}) },
-    years:   jahre ?? [],
-    trips:   trips(fahrten),
-    audit:   audit(protokoll),
+    vehicle: { ...vehicle, ...(vehicle.drive_type ? { drive_type: driveType(vehicle.drive_type) } : {}) },
+    years:   years ?? [],
+    trips:   trips(tripList),
+    audit:   audit(auditLog),
   };
 }
 
 // Returns the file in format v2; other input unchanged
-export function ausAltformat(daten) {
-  if (!daten || daten.version !== 1) return daten;
-  const created_at = daten.erstellt_am ?? daten.exportiert_am;
-  if (daten.format === V1_VEHICLE) {
-    return { format: VEHICLE_BACKUP_FORMAT, version: BACKUP_VERSION, created_at, ...vehicleData(daten) };
+export function fromLegacyFormat(backupData) {
+  if (!backupData || backupData.version !== 1) return backupData;
+  const created_at = backupData.erstellt_am ?? backupData.exportiert_am;
+  if (backupData.format === V1_VEHICLE) {
+    return { format: VEHICLE_BACKUP_FORMAT, version: BACKUP_VERSION, created_at, ...vehicleData(backupData) };
   }
-  if (daten.format === V1_BACKUP) {
+  if (backupData.format === V1_BACKUP) {
     return {
       format: BACKUP_FORMAT, version: BACKUP_VERSION, created_at,
-      vehicles:   (daten.fahrzeuge ?? []).map(vehicleData),
-      unassigned: { trips: trips(daten.ohne_fahrzeug?.fahrten), audit: audit(daten.ohne_fahrzeug?.protokoll) },
+      vehicles:   (backupData.fahrzeuge ?? []).map(vehicleData),
+      unassigned: { trips: trips(backupData.ohne_fahrzeug?.fahrten), audit: audit(backupData.ohne_fahrzeug?.protokoll) },
     };
   }
-  return daten;
+  return backupData;
 }
 
-function main([quelle, ziel]) {
-  if (!quelle) {
+function main([sourceFile, target]) {
+  if (!sourceFile) {
     console.error("Aufruf: node scripts/convert-backup.js alt.json [neu.json]");
     process.exit(2);
   }
-  const daten = JSON.parse(fs.readFileSync(quelle, "utf8"));
-  if (daten?.version === BACKUP_VERSION && [VEHICLE_BACKUP_FORMAT, BACKUP_FORMAT].includes(daten.format)) {
-    console.log(`${quelle} ist bereits im Format v${BACKUP_VERSION} – nichts zu tun.`);
+  const backupData = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
+  if (backupData?.version === BACKUP_VERSION && [VEHICLE_BACKUP_FORMAT, BACKUP_FORMAT].includes(backupData.format)) {
+    console.log(`${sourceFile} ist bereits im Format v${BACKUP_VERSION} – nichts zu tun.`);
     return;
   }
-  const neu = ausAltformat(daten);
-  if (neu === daten) {
-    console.error(`${quelle} ist keine Fahrtenbuch-Sicherung im Format v1.`);
+  const newValue = fromLegacyFormat(backupData);
+  if (newValue === backupData) {
+    console.error(`${sourceFile} ist keine Fahrtenbuch-Sicherung im Format v1.`);
     process.exit(1);
   }
-  ziel ??= path.join(path.dirname(quelle), `${path.basename(quelle, ".json")}-v2.json`);
-  fs.writeFileSync(ziel, JSON.stringify(neu, null, 2));
-  const fahrzeuge = neu.vehicles ?? [neu];
-  const fahrten   = fahrzeuge.reduce((n, v) => n + v.trips.length, neu.unassigned?.trips.length ?? 0);
-  console.log(`${ziel} geschrieben: ${fahrzeuge.length} Fahrzeug(e), ${fahrten} Fahrten.`);
+  target ??= path.join(path.dirname(sourceFile), `${path.basename(sourceFile, ".json")}-v2.json`);
+  fs.writeFileSync(target, JSON.stringify(newValue, null, 2));
+  const vehicles = newValue.vehicles ?? [newValue];
+  const tripList   = vehicles.reduce((n, v) => n + v.trips.length, newValue.unassigned?.trips.length ?? 0);
+  console.log(`${target} geschrieben: ${vehicles.length} Fahrzeug(e), ${tripList} Fahrten.`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

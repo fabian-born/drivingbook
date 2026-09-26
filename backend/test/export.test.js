@@ -53,32 +53,32 @@ describe("Export", () => {
   });
 
   it("restricts exports to one vehicle", async () => {
-    const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await post({ odometer_km: 10, destination: "Zweitwagen", trip_type: "private", timestamp: "2026-01-15T08:00:00Z", vehicle_code: zweites.code });
+    const secondVehicle = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    await post({ odometer_km: 10, destination: "Zweitwagen", trip_type: "private", timestamp: "2026-01-15T08:00:00Z", vehicle_code: secondVehicle.code });
 
-    const alle  = await t.http().get("/api/export/json?month=2026-01").set(user);
-    const nur2  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${zweites.code.toLowerCase()}`).set(user);
-    const nur1  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${user.vehicle.code}`).set(user);
-    assert.equal(alle.body.length, 2);
-    assert.deepEqual(nur2.body.map(f => f.destination), ["Zweitwagen"]);
-    assert.equal(nur1.body.length, 1);
-    assert.notEqual(nur1.body[0].destination, "Zweitwagen");
+    const all  = await t.http().get("/api/export/json?month=2026-01").set(user);
+    const onlySecond  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${secondVehicle.code.toLowerCase()}`).set(user);
+    const onlyFirst  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(all.body.length, 2);
+    assert.deepEqual(onlySecond.body.map(f => f.destination), ["Zweitwagen"]);
+    assert.equal(onlyFirst.body.length, 1);
+    assert.notEqual(onlyFirst.body[0].destination, "Zweitwagen");
 
-    const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${zweites.code}`).set(user);
+    const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${secondVehicle.code}`).set(user);
     assert.equal(csv.text.replace(/^\uFEFF/, "").trim().split("\n").length, 2);  // header + 1 trip
 
-    const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${zweites.code}`).set(user).buffer(true).parse(binary);
+    const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${secondVehicle.code}`).set(user).buffer(true).parse(binary);
     assert.equal(pdf.status, 200);
 
-    const leer = await t.http().get(`/api/export/json?month=2026-02&vehicle=${zweites.code}`).set(user);
-    assert.equal(leer.status, 404);
+    const empty = await t.http().get(`/api/export/json?month=2026-02&vehicle=${secondVehicle.code}`).set(user);
+    assert.equal(empty.status, 404);
   });
 
   it("rejects foreign and invalid vehicle codes", async () => {
-    const fremd = await t.registerUser("export-fremd");
-    assert.equal((await t.http().get(`/api/export/json?month=2026-01&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
+    const foreign = await t.registerUser("export-fremd");
+    assert.equal((await t.http().get(`/api/export/json?month=2026-01&vehicle=${foreign.vehicle.code}`).set(user)).status, 404);
     assert.equal((await t.http().get("/api/export/json?month=2026-01&vehicle=xx").set(user)).status, 400);
-    assert.equal((await t.http().get(`/api/audit?year=2026&vehicle=${fremd.vehicle.code}`).set(user)).status, 404);
+    assert.equal((await t.http().get(`/api/audit?year=2026&vehicle=${foreign.vehicle.code}`).set(user)).status, 404);
   });
 
   it("requires authentication", async () => {
@@ -98,8 +98,8 @@ describe("Yearly trips", () => {
     await post({ odometer_km: 1100, timestamp: "2026-01-02T08:00:00Z", trip_type: "business" });
     await post({ odometer_km: 1150, timestamp: "2026-01-20T08:00:00Z" });
     await post({ odometer_km: 1400, timestamp: "2026-03-05T08:00:00Z", trip_type: "business" });
-    const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await post({ odometer_km: 50, timestamp: "2026-01-10T08:00:00Z", vehicle_code: zweit.code });
+    const second = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    await post({ odometer_km: 50, timestamp: "2026-01-10T08:00:00Z", vehicle_code: second.code });
   });
   after(() => t.close());
 
@@ -143,20 +143,20 @@ describe("PDF calculates like dashboard and vehicle info", () => {
   after(() => t.close());
 
   it("returns the same totals, regressions count as 0", async () => {
-    const { jahresFahrten } = await import("../src/lib/strecken.js");
-    const { fahrzeugUebersicht } = await import("../src/lib/pdf.js");
+    const { loadYearTrips } = await import("../src/lib/strecken.js");
+    const { vehicleSummary } = await import("../src/lib/pdf.js");
 
     const api = (await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user)).body;
     const userId = (await t.pool.query(`SELECT id FROM users WHERE username = 'pdf-gleich'`)).rows[0].id;
-    const fahrten = await jahresFahrten(t.pool, { userId, year: 2026, vehicleId: null, timezone: "Europe/Berlin" });
-    const [uebersicht] = fahrzeugUebersicht(fahrten);
+    const trips = await loadYearTrips(t.pool, { userId, year: 2026, vehicleId: null, timezone: "Europe/Berlin" });
+    const [summary] = vehicleSummary(trips);
 
     assert.deepEqual(api.totals, { trips: 3, total: 350, business: 100, private: 0, commute: 250 });
-    assert.equal(uebersicht.total, api.totals.total);
-    assert.equal(uebersicht.private, api.totals.private);
-    assert.equal(uebersicht.startKm, 900);   // last reading before the year
-    assert.equal(uebersicht.endKm, 1200);
-    assert.deepEqual(fahrten.map(f => f.distance), [100, -50, 250]);   // visible in the PDF
+    assert.equal(summary.total, api.totals.total);
+    assert.equal(summary.private, api.totals.private);
+    assert.equal(summary.startKm, 900);   // last reading before the year
+    assert.equal(summary.endKm, 1200);
+    assert.deepEqual(trips.map(f => f.distance), [100, -50, 250]);   // visible in the PDF
 
     const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${user.vehicle.code}`).set(user)
       .buffer(true).parse(binary);

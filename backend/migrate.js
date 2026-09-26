@@ -62,12 +62,12 @@ function parseArgs() {
   return opts;
 }
 
-function frage(rl, text) {
+function ask(rl, text) {
   return new Promise(resolve => rl.question(text, resolve));
 }
 
 // Trip type of the legacy JSON files ("privat"/"geschäftlich") → database value
-function parseFahrtart(raw) {
+function parseTripType(raw) {
   if (!raw) return "private";
   return raw.toLowerCase().trim().includes("gesch") ? "business" : "private";
 }
@@ -79,7 +79,7 @@ function parseTimestamp(raw) {
 }
 
 // ── Load JSON files ───────────────────────────────────────────
-function ladeJsonDateien(dir) {
+function loadJsonFiles(dir) {
   const absDir = path.resolve(dir);
   if (!fs.existsSync(absDir)) {
     console.error(`❌ Verzeichnis nicht gefunden: ${absDir}`);
@@ -96,17 +96,17 @@ function ladeJsonDateien(dir) {
   }
 
   console.log(`📂 ${files.length} Datei(en) gefunden in ${absDir}:`);
-  const alle = [];
+  const all = [];
   for (const file of files) {
     try {
-      const fahrten = JSON.parse(fs.readFileSync(path.join(absDir, file), "utf-8"));
-      console.log(`   ✓ ${file}  (${fahrten.length} Einträge)`);
-      alle.push(...fahrten);
+      const trips = JSON.parse(fs.readFileSync(path.join(absDir, file), "utf-8"));
+      console.log(`   ✓ ${file}  (${trips.length} Einträge)`);
+      all.push(...trips);
     } catch (err) {
       console.warn(`   ⚠️  ${file} Lesefehler: ${err.message}`);
     }
   }
-  return alle;
+  return all;
 }
 
 // ── Main ──────────────────────────────────────────────────────
@@ -124,31 +124,31 @@ async function main() {
 
   if (opts.dryRun) console.log("🔍 DRY-RUN – es wird nichts geschrieben.\n");
 
-  const fahrten = ladeJsonDateien(opts.dir);
-  console.log(`\n📊 Gesamt: ${fahrten.length} Fahrten\n`);
+  const trips = loadJsonFiles(opts.dir);
+  console.log(`\n📊 Gesamt: ${trips.length} Fahrten\n`);
 
-  if (fahrten.length === 0) { console.log("ℹ️  Keine Fahrten. Abbruch."); return; }
+  if (trips.length === 0) { console.log("ℹ️  Keine Fahrten. Abbruch."); return; }
 
   // Preview
   console.log("Vorschau (erste 3 Einträge):");
-  fahrten.slice(0, 3).forEach((f, i) =>
+  trips.slice(0, 3).forEach((f, i) =>
     console.log(`  [${i+1}] km=${f.kmstand}  ziel="${f.ziel}"  art=${f.fahrtart}  ts=${f.timestamp}`)
   );
   console.log();
 
   if (opts.dryRun) {
-    console.log(`✅ Dry-Run: ${fahrten.length} Einträge würden importiert.`);
+    console.log(`✅ Dry-Run: ${trips.length} Einträge würden importiert.`);
     return;
   }
 
   // Confirmation
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const antwort = await frage(rl,
-    `⚠️  ${fahrten.length} Fahrten → User "${opts.user}" importieren? (ja/nein): `
+  const response = await ask(rl,
+    `⚠️  ${trips.length} Fahrten → User "${opts.user}" importieren? (ja/nein): `
   );
   rl.close();
 
-  if (antwort.trim().toLowerCase() !== "ja") { console.log("❌ Abgebrochen."); return; }
+  if (response.trim().toLowerCase() !== "ja") { console.log("❌ Abgebrochen."); return; }
 
   // DB connection
   const pool = new Pool({
@@ -196,15 +196,15 @@ async function main() {
     console.log("\n⏳ Import läuft …\n");
     await client.query("BEGIN");
 
-    let erfolg = 0, fehler = 0, doppelt = 0;
+    let succeeded = 0, errors = 0, duplicate = 0;
 
-    for (const f of fahrten) {
+    for (const f of trips) {
       const ts      = parseTimestamp(f.timestamp);
       const kmstand = parseInt(f.kmstand, 10);
 
       if (!ts || isNaN(kmstand)) {
         console.warn(`  ⚠️  Übersprungen (ungültige Daten): ${JSON.stringify(f)}`);
-        fehler++;
+        errors++;
         continue;
       }
 
@@ -213,19 +213,19 @@ async function main() {
         `SELECT id FROM trips WHERE user_id=$1 AND timestamp=$2 AND odometer_km=$3`,
         [userId, ts, kmstand]
       );
-      if (dup.rows.length > 0) { doppelt++; continue; }
+      if (dup.rows.length > 0) { duplicate++; continue; }
 
       try {
         await client.query(
           `INSERT INTO trips (user_id, vehicle_id, odometer_km, destination, trip_type, timestamp)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [userId, opts.vehicleId || null, kmstand,
-           (f.ziel || "").trim() || "–", parseFahrtart(f.fahrtart), ts]
+           (f.ziel || "").trim() || "–", parseTripType(f.fahrtart), ts]
         );
-        erfolg++;
+        succeeded++;
       } catch (err) {
         console.error(`  ❌ ${err.message}`);
-        fehler++;
+        errors++;
       }
     }
 
@@ -235,9 +235,9 @@ async function main() {
     console.log("\n╔══════════════════════════════════╗");
     console.log("║     Migration abgeschlossen      ║");
     console.log("╠══════════════════════════════════╣");
-    console.log(`║  ✅ Importiert : ${String(erfolg).padStart(6)}           ║`);
-    console.log(`║  ↩️  Duplikate  : ${String(doppelt).padStart(6)}           ║`);
-    console.log(`║  ❌ Fehler     : ${String(fehler).padStart(6)}           ║`);
+    console.log(`║  ✅ Importiert : ${String(succeeded).padStart(6)}           ║`);
+    console.log(`║  ↩️  Duplikate  : ${String(duplicate).padStart(6)}           ║`);
+    console.log(`║  ❌ Fehler     : ${String(errors).padStart(6)}           ║`);
     console.log("╚══════════════════════════════════╝\n");
 
   } catch (err) {

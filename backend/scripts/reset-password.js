@@ -20,41 +20,41 @@ import crypto   from "crypto";
 import pg       from "pg";
 import readline from "readline";
 
-const MIN_LAENGE = 8;
-const MAX_LAENGE = 72;   // bcrypt processes at most 72 bytes
+const MIN_LENGTH = 8;
+const MAX_LENGTH = 72;   // bcrypt processes at most 72 bytes
 
 // Hidden input (typed characters are not echoed)
-function frageVerdeckt(text) {
+function askHidden(text) {
   return new Promise(resolve => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     rl._writeToOutput = s => { if (s.includes(text)) rl.output.write(s); };
-    rl.question(text, antwort => {
+    rl.question(text, response => {
       rl.close();
       process.stdout.write("\n");
-      resolve(antwort);
+      resolve(response);
     });
   });
 }
 
-async function neuesPasswort() {
+async function choosePassword() {
   if (process.stdin.isTTY) {
-    const eingabe = await frageVerdeckt(`Neues Passwort (leer = zufällig erzeugen): `);
-    if (eingabe) {
-      if (eingabe.length < MIN_LAENGE || eingabe.length > MAX_LAENGE) {
-        throw new Error(`Passwort muss ${MIN_LAENGE} bis ${MAX_LAENGE} Zeichen haben`);
+    const userInput = await askHidden(`Neues Passwort (leer = zufällig erzeugen): `);
+    if (userInput) {
+      if (userInput.length < MIN_LENGTH || userInput.length > MAX_LENGTH) {
+        throw new Error(`Passwort muss ${MIN_LENGTH} bis ${MAX_LENGTH} Zeichen haben`);
       }
-      if (await frageVerdeckt("Wiederholen: ") !== eingabe) {
+      if (await askHidden("Wiederholen: ") !== userInput) {
         throw new Error("Passwörter stimmen nicht überein");
       }
-      return { passwort: eingabe, erzeugt: false };
+      return { password: userInput, generated: false };
     }
   }
-  return { passwort: crypto.randomBytes(12).toString("base64url"), erzeugt: true };
+  return { password: crypto.randomBytes(12).toString("base64url"), generated: true };
 }
 
 async function main() {
   // exactly as given, otherwise lower case (usernames are lower case since migration 005)
-  const eingabe = (process.argv[2] || "admin").trim();
+  const userInput = (process.argv[2] || "admin").trim();
 
   const pool = new pg.Pool({
     host:     process.env.DB_HOST     || "db",
@@ -68,9 +68,9 @@ async function main() {
     const user = (await pool.query(
       `SELECT id, username, role FROM users WHERE username = $1 OR username = LOWER($1)
        ORDER BY (username = $1) DESC LIMIT 1`,
-      [eingabe]
+      [userInput]
     )).rows[0];
-    const username = user?.username ?? eingabe.toLowerCase();
+    const username = user?.username ?? userInput.toLowerCase();
     if (!user) {
       const admins = (await pool.query(`SELECT username FROM users WHERE role = 'admin' ORDER BY id`)).rows;
       console.error(`❌ Benutzer "${username}" nicht gefunden.`);
@@ -79,13 +79,13 @@ async function main() {
       return;
     }
 
-    const { passwort, erzeugt } = await neuesPasswort();
-    const hash = await bcrypt.hash(passwort, 12);
+    const { password: newPassword, generated } = await choosePassword();
+    const hash = await bcrypt.hash(newPassword, 12);
     await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hash, user.id]);
 
     console.log(`✅ Passwort für "${username}" (${user.role}) wurde zurückgesetzt.`);
-    if (erzeugt) {
-      console.log(`   Neues Passwort: ${passwort}`);
+    if (generated) {
+      console.log(`   Neues Passwort: ${newPassword}`);
       console.log("   Bitte nach dem Login unter Profil → Konto ändern.");
     }
   } finally {

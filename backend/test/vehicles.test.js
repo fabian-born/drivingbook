@@ -68,23 +68,23 @@ describe("Vehicle info", () => {
   });
 
   it("deletes a vehicle with trips only given a target vehicle and logs the move", async () => {
-    const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Neuwagen" })).body;
-    const ohneZiel = await t.http().delete(`/api/vehicles/${id}`).set(user);
-    assert.equal(ohneZiel.status, 409);
-    assert.equal(ohneZiel.body.code, "HAS_TRIPS");
-    assert.equal(ohneZiel.body.count, 3);
+    const second = (await t.http().post("/api/vehicles").set(user).send({ name: "Neuwagen" })).body;
+    const withoutTarget = await t.http().delete(`/api/vehicles/${id}`).set(user);
+    assert.equal(withoutTarget.status, 409);
+    assert.equal(withoutTarget.body.code, "HAS_TRIPS");
+    assert.equal(withoutTarget.body.count, 3);
     assert.equal((await t.http().delete(`/api/vehicles/${id}?target=${id}`).set(user)).status, 400);
     assert.equal((await t.http().delete(`/api/vehicles/${id}?target=${other.vehicle.id}`).set(user)).status, 400);
 
-    const res = await t.http().delete(`/api/vehicles/${id}?target=${zweit.id}`).set(user);
+    const res = await t.http().delete(`/api/vehicles/${id}?target=${second.id}`).set(user);
     assert.deepEqual(res.body, { message: "Fahrzeug gelöscht", moved: 3 });
-    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${zweit.code}`).set(user);
-    assert.equal(jahr.body.trips.length, 2);
-    const verlauf = await t.http().get(`/api/trips/${jahr.body.trips[0].id}/history`).set(user);
-    assert.equal(verlauf.body.at(-1).new_data.vehicle_id, zweit.id);
+    const yearData = await t.http().get(`/api/trips?year=2026&vehicle=${second.code}`).set(user);
+    assert.equal(yearData.body.trips.length, 2);
+    const history = await t.http().get(`/api/trips/${yearData.body.trips[0].id}/history`).set(user);
+    assert.equal(history.body.at(-1).new_data.vehicle_id, second.id);
 
     // a vehicle without trips can be deleted directly
-    const leer = (await t.http().post("/api/vehicles").set(user).send({ name: "Leer" })).body;
-    assert.equal((await t.http().delete(`/api/vehicles/${leer.id}`).set(user)).status, 200);
+    const empty = (await t.http().post("/api/vehicles").set(user).send({ name: "Leer" })).body;
+    assert.equal((await t.http().delete(`/api/vehicles/${empty.id}`).set(user)).status, 200);
   });
 });

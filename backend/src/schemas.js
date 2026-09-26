@@ -53,7 +53,7 @@ export const auditQuery = z.object({
 const KM_MSG = "km-Stand muss eine ganze Zahl ≥ 0 sein";
 const TS_MSG = "Ungültiger Zeitpunkt";
 
-const zeitpunkt = z.union([z.string(), z.number()], { error: TS_MSG }).transform((v, ctx) => {
+const timestampField = z.union([z.string(), z.number()], { error: TS_MSG }).transform((v, ctx) => {
   const d = new Date(v);
   if (isNaN(d)) {
     ctx.issues.push({ code: "custom", message: TS_MSG, input: v });
@@ -61,15 +61,15 @@ const zeitpunkt = z.union([z.string(), z.number()], { error: TS_MSG }).transform
   }
   return d.toISOString();
 });
-const kmStand = numeric(
+const odometerKm = numeric(
   z.number({ error: KM_MSG }).int({ error: KM_MSG }).min(0, { error: KM_MSG }).max(MAX_INT, { error: KM_MSG })
 );
 
 export const tripFields = {
-  odometer_km: kmStand,
+  odometer_km: odometerKm,
   destination: text("Ziel darf nicht leer sein", 500),
   trip_type:   z.enum(TRIP_TYPES, { error: `Fahrtart muss einer der Werte sein: ${TRIP_TYPES.join(", ")}` }),
-  timestamp:   zeitpunkt,
+  timestamp:   timestampField,
 };
 
 // vehicle_code is always optional; null removes the assignment,
@@ -147,10 +147,10 @@ const decimal = (msg, max) => z.preprocess(
     const s = v.trim();
     if (s === "") return null;
     // "1.234,56" / "1234,56" (German), "45.000" (thousands dot without comma), "1234.5"
-    const normalisiert = s.includes(",")
+    const normalized = s.includes(",")
       ? s.replace(/\./g, "").replace(",", ".")
       : (/^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, "") : s);
-    return /^\d+(\.\d+)?$/.test(normalisiert) ? Number(normalisiert) : v;
+    return /^\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : v;
   },
   z.number({ error: msg }).min(0, { error: msg }).max(max, { error: msg }).nullable()
 );
@@ -262,9 +262,9 @@ export const backupBody = z.object({
 });
 
 // ── Admin: database cleanup ──────────────────────────────────
-const idListe = z.array(z.number().int().positive(), { error: "ids muss eine Liste von Fahrt-IDs sein" });
+const idList = z.array(z.number().int().positive(), { error: "ids muss eine Liste von Fahrt-IDs sein" });
 
-export const duplicatesBody = z.object({ ids: idListe.optional() });
+export const duplicatesBody = z.object({ ids: idList.optional() });
 
 export const unassignedBody = z.object({
   user_id:    z.number({ error: "user_id erforderlich" }).int().positive(),

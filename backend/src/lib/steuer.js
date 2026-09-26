@@ -11,63 +11,63 @@
 // ============================================================
 
 // Monthly flat rate as a percentage of the list price
-export const PAUSCHALSATZ = {
+export const FLAT_RATE = {
   combustion:          1,
   hybrid:              0.5,
   electric:            0.25,
   electric_high_price: 0.5,
 };
 
-const runde = betrag => Math.round(betrag * 100) / 100;
+const roundTo = amount => Math.round(amount * 100) / 100;
 
 // vehicle: { list_price, drive_type }
-// kosten:  { total_costs, depreciation, commute_km, months, tax_rate } or null
-// km:      { private, commute?, total } (totals from fasseZusammen)
+// costs:   { total_costs, depreciation, commute_km, months, tax_rate } or null
+// km:      { private, commute?, total } (totals from summarize)
 // Returns null as long as list price or costs are missing.
-export function steuerVergleich(vehicle, kosten, km) {
-  if (vehicle.list_price == null || !kosten) return null;
+export function taxComparison(vehicle, costs, km) {
+  if (vehicle.list_price == null || !costs) return null;
 
-  const satz   = PAUSCHALSATZ[vehicle.drive_type] ?? 1;
-  const faktor = satz / 1;   // share relative to the full 1% rate
-  const listenpreis = Math.floor(vehicle.list_price / 100) * 100;
+  const rate   = FLAT_RATE[vehicle.drive_type] ?? 1;
+  const factor = rate / 1;   // share relative to the full 1% rate
+  const listPrice = Math.floor(vehicle.list_price / 100) * 100;
 
   // Depreciation/leasing counts only proportionally for EVs/hybrids
-  const kostenGesamt = kosten.total_costs - kosten.depreciation + kosten.depreciation * faktor;
+  const totalCosts = costs.total_costs - costs.depreciation + costs.depreciation * factor;
 
-  const privatnutzung = listenpreis * satz / 100 * kosten.months;
-  const arbeitsweg    = listenpreis * 0.03 / 100 * faktor * kosten.commute_km * kosten.months;
-  const pauschalOhneDeckel = privatnutzung + arbeitsweg;
-  const pauschal = Math.min(pauschalOhneDeckel, kostenGesamt);
+  const privateUse = listPrice * rate / 100 * costs.months;
+  const arbeitsweg    = listPrice * 0.03 / 100 * factor * costs.commute_km * costs.months;
+  const flatRateUncapped = privateUse + arbeitsweg;
+  const flatRate = Math.min(flatRateUncapped, totalCosts);
 
   // With a logbook, commute trips are part of private use
-  const privatAnteil = km.total > 0 ? (km.private + (km.commute ?? 0)) / km.total : null;
-  const fahrtenbuch  = privatAnteil == null ? null : kostenGesamt * privatAnteil;
+  const privateShare = km.total > 0 ? (km.private + (km.commute ?? 0)) / km.total : null;
+  const logbookCost  = privateShare == null ? null : totalCosts * privateShare;
 
   // Up to this private share, the logbook is cheaper
-  const breakEven = kostenGesamt > 0 ? Math.min(pauschal / kostenGesamt, 1) : null;
+  const breakEven = totalCosts > 0 ? Math.min(flatRate / totalCosts, 1) : null;
 
-  const differenz = fahrtenbuch == null ? null : pauschal - fahrtenbuch;  // > 0 → logbook cheaper
-  const ersparnis = differenz == null || kosten.tax_rate == null
+  const diff = logbookCost == null ? null : flatRate - logbookCost;  // > 0 → logbook cheaper
+  const savings = diff == null || costs.tax_rate == null
     ? null
-    : Math.abs(differenz) * kosten.tax_rate / 100;
+    : Math.abs(diff) * costs.tax_rate / 100;
 
   return {
-    rate:             satz,
-    list_price:       listenpreis,
-    total_costs:      runde(kostenGesamt),
+    rate:             rate,
+    list_price:       listPrice,
+    total_costs:      roundTo(totalCosts),
     flat_rate: {
-      private_use:    runde(privatnutzung),
-      commute:        runde(arbeitsweg),
-      capped:         pauschalOhneDeckel > kostenGesamt,
-      total:          runde(pauschal),
+      private_use:    roundTo(privateUse),
+      commute:        roundTo(arbeitsweg),
+      capped:         flatRateUncapped > totalCosts,
+      total:          roundTo(flatRate),
     },
-    logbook: fahrtenbuch == null ? null : {
-      private_share:  privatAnteil,
-      total:          runde(fahrtenbuch),
+    logbook: logbookCost == null ? null : {
+      private_share:  privateShare,
+      total:          roundTo(logbookCost),
     },
     break_even_share: breakEven,
-    difference:       differenz == null ? null : runde(differenz),
-    recommendation:   differenz == null ? null : (differenz > 0 ? "logbook" : "flat_rate"),
-    tax_savings:      ersparnis == null ? null : runde(ersparnis),
+    difference:       diff == null ? null : roundTo(diff),
+    recommendation:   diff == null ? null : (diff > 0 ? "logbook" : "flat_rate"),
+    tax_savings:      savings == null ? null : roundTo(savings),
   };
 }

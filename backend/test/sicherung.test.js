@@ -1,10 +1,10 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
-import { ausAltformat } from "../scripts/convert-backup.js";
+import { fromLegacyFormat } from "../scripts/convert-backup.js";
 
 // Creates vehicle data, costs and trips incl. an edit and a deletion
-async function testdaten(t, user) {
+async function testData(t, user) {
   const post = body => t.http().post("/api/trips").set(user).send({ trip_type: "private", destination: "Kunde", ...body });
   await t.http().patch(`/api/vehicles/${user.vehicle.id}`).set(user).send({ license_plate: "B-EX 1", list_price: 40000, drive_type: "hybrid" });
   await t.http().put(`/api/vehicles/${user.vehicle.id}/years/2026`).set(user).send({ total_costs: 7000, depreciation: 3000 });
@@ -16,15 +16,15 @@ async function testdaten(t, user) {
 }
 
 describe("Vehicle backup", () => {
-  let t, user, datei;
+  let t, user, backupFile;
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("sicherung");
-    await testdaten(t, user);
+    await testData(t, user);
     // a trip of another vehicle must not end up in the backup
-    const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "x", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
+    const second = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "x", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: second.code });
   });
   after(() => t.close());
 
@@ -32,60 +32,60 @@ describe("Vehicle backup", () => {
     const res = await t.http().get(`/api/vehicles/${user.vehicle.id}/export`).set(user);
     assert.equal(res.status, 200);
     assert.match(res.headers["content-disposition"], /attachment; filename="fahrzeug_[A-Z0-9]{6}_\d{4}-\d{2}-\d{2}\.json"/);
-    datei = res.body;
-    assert.equal(datei.format, "drivingbook-vehicle");
-    assert.equal(datei.version, 2);
-    assert.equal(datei.vehicle.license_plate, "B-EX 1");
-    assert.equal(datei.years[0].total_costs, 7000);
-    assert.deepEqual(datei.trips.map(f => f.odometer_km), [100, 200]);
-    assert.deepEqual(datei.audit.map(e => e.action), ["create", "create", "create", "update", "delete"]);
+    backupFile = res.body;
+    assert.equal(backupFile.format, "drivingbook-vehicle");
+    assert.equal(backupFile.version, 2);
+    assert.equal(backupFile.vehicle.license_plate, "B-EX 1");
+    assert.equal(backupFile.years[0].total_costs, 7000);
+    assert.deepEqual(backupFile.trips.map(f => f.odometer_km), [100, 200]);
+    assert.deepEqual(backupFile.audit.map(e => e.action), ["create", "create", "create", "update", "delete"]);
   });
 
   it("restores only what is missing", async () => {
     // one trip "lost", audit log remains
-    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
-    await t.pool.query(`DELETE FROM trips WHERE id = $1`, [jahr.body.trips[1].id]);
+    const yearData = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    await t.pool.query(`DELETE FROM trips WHERE id = $1`, [yearData.body.trips[1].id]);
 
-    const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
+    const res = await t.http().post("/api/vehicles/import").set(user).send(backupFile);
     assert.equal(res.status, 200);
     assert.equal(res.body.created, false);
     assert.equal(res.body.vehicle.code, user.vehicle.code);
     assert.deepEqual(res.body.imported, { trips: 1, reassigned: 0, skipped: 1, years: 0, audit: 0 });
 
-    const nachher = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
-    assert.deepEqual(nachher.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
+    const afterState = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    assert.deepEqual(afterState.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
 
     // second time: nothing left to do
-    const nochmal = await t.http().post("/api/vehicles/import").set(user).send(datei);
-    assert.deepEqual(nochmal.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 0, audit: 0 });
+    const again = await t.http().post("/api/vehicles/import").set(user).send(backupFile);
+    assert.deepEqual(again.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 0, audit: 0 });
   });
 
   it("recreates a deleted vehicle with the same code and reassigns its trips", async () => {
     // legacy data: vehicle deleted directly, trips were left without a vehicle (ON DELETE SET NULL)
     await t.pool.query(`DELETE FROM vehicles WHERE id = $1`, [user.vehicle.id]);
 
-    const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
+    const res = await t.http().post("/api/vehicles/import").set(user).send(backupFile);
     assert.equal(res.status, 201);
     assert.equal(res.body.created, true);
-    assert.equal(res.body.vehicle.code, datei.vehicle.code);
+    assert.equal(res.body.vehicle.code, backupFile.vehicle.code);
     assert.equal(res.body.vehicle.drive_type, "hybrid");
     assert.deepEqual(res.body.imported, { trips: 0, reassigned: 2, skipped: 0, years: 1, audit: 0 });
 
-    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(user);
-    assert.deepEqual(jahr.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
-    const buero = jahr.body.trips.find(f => f.destination === "Büro");
-    const verlauf = await t.http().get(`/api/trips/${buero.id}/history`).set(user);
-    assert.deepEqual(verlauf.body.map(e => [e.action, e.source]), [["create", "web"], ["update", "web"]]);
-    assert.equal(verlauf.body[1].new_data.vehicle_id, res.body.vehicle.id);
+    const yearData = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(user);
+    assert.deepEqual(yearData.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
+    const office = yearData.body.trips.find(f => f.destination === "Büro");
+    const history = await t.http().get(`/api/trips/${office.id}/history`).set(user);
+    assert.deepEqual(history.body.map(e => [e.action, e.source]), [["create", "web"], ["update", "web"]]);
+    assert.equal(history.body[1].new_data.vehicle_id, res.body.vehicle.id);
   });
 
   it("restores everything after total loss with an unchanged audit log", async () => {
-    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.vehicle.code);
+    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === backupFile.vehicle.code);
     await t.pool.query(`DELETE FROM trips WHERE vehicle_id = $1`, [vehicle.id]);
     await t.pool.query(`DELETE FROM vehicles WHERE id = $1`, [vehicle.id]);
     await t.pool.query(`DELETE FROM trip_audit`);
 
-    const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
+    const res = await t.http().post("/api/vehicles/import").set(user).send(backupFile);
     assert.deepEqual(res.body.imported, { trips: 2, reassigned: 0, skipped: 0, years: 1, audit: 5 });
 
     // deleted trip stays visible in the yearly log, sources unchanged
@@ -94,26 +94,26 @@ describe("Vehicle backup", () => {
   });
 
   it("does not duplicate trips that now belong to another vehicle", async () => {
-    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.vehicle.code);
-    const zweit   = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.name === "Zweitwagen");
-    const res = await t.http().delete(`/api/vehicles/${vehicle.id}?target=${zweit.id}`).set(user);
+    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === backupFile.vehicle.code);
+    const second   = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.name === "Zweitwagen");
+    const res = await t.http().delete(`/api/vehicles/${vehicle.id}?target=${second.id}`).set(user);
     assert.equal(res.body.moved, 2);
 
-    const wieder = await t.http().post("/api/vehicles/import").set(user).send(datei);
-    assert.equal(wieder.body.created, true);
-    assert.deepEqual(wieder.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 1, audit: 0 });
+    const restored = await t.http().post("/api/vehicles/import").set(user).send(backupFile);
+    assert.equal(restored.body.created, true);
+    assert.deepEqual(restored.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 1, audit: 0 });
   });
 
   it("does not use foreign or oversized trip IDs and does not break the ID sequence", async () => {
-    const vorher = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
-    const fremd = { ...datei, vehicle: { ...datei.vehicle, code: null, name: "Präpariert" }, audit: [],
+    const beforeState = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
+    const foreign = { ...backupFile, vehicle: { ...backupFile.vehicle, code: null, name: "Präpariert" }, audit: [],
       trips: [{ id: 2147483000, odometer_km: 99999, destination: "x", trip_type: "private", timestamp: "2030-01-01T00:00:00Z" }] };
-    const res = await t.http().post("/api/vehicles/import").set(user).send(fremd);
+    const res = await t.http().post("/api/vehicles/import").set(user).send(foreign);
     assert.equal(res.status, 201);
-    const neu = (await t.pool.query(`SELECT id FROM trips WHERE odometer_km = 99999`)).rows[0].id;
-    assert.ok(neu < 2147483000);
-    const nachher = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
-    assert.ok(Number(nachher) - Number(vorher) <= 1);
+    const newValue = (await t.pool.query(`SELECT id FROM trips WHERE odometer_km = 99999`)).rows[0].id;
+    assert.ok(newValue < 2147483000);
+    const afterState = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
+    assert.ok(Number(afterState) - Number(beforeState) <= 1);
 
     // new trips still work
     const ok = await t.http().post("/api/trips").set(user)
@@ -122,12 +122,12 @@ describe("Vehicle backup", () => {
   });
 
   it("rejects invalid audit log data", async () => {
-    const kaputt = { ...datei, audit: [{ trip_id: 1, action: "update", old_data: { timestamp: "kaputt" }, changed_at: "2026-01-01T00:00:00Z" }] };
-    assert.equal((await t.http().post("/api/vehicles/import").set(user).send(kaputt)).status, 400);
+    const broken = { ...backupFile, audit: [{ trip_id: 1, action: "update", old_data: { timestamp: "kaputt" }, changed_at: "2026-01-01T00:00:00Z" }] };
+    assert.equal((await t.http().post("/api/vehicles/import").set(user).send(broken)).status, 400);
   });
 
   it("rejects the old v1 format and restores it after convert-backup.js", async () => {
-    const ziel = await t.registerUser("sicherung-v1");
+    const target = await t.registerUser("sicherung-v1");
     const v1 = {
       format: "drivingbook-fahrzeug", version: 1, exportiert_am: "2026-09-25T10:00:00Z",
       fahrzeug: { id: 77, name: "Altwagen", code: null, license_plate: "B-AL 1", list_price: 30000, drive_type: "elektro" },
@@ -146,63 +146,63 @@ describe("Vehicle backup", () => {
           source: "web", changed_at: "2026-04-01T09:00:00Z" },
       ],
     };
-    const alt = await t.http().post("/api/vehicles/import").set(ziel).send(v1);
-    assert.equal(alt.status, 400);
-    assert.match(alt.body.error, /convert-backup\.js/);
+    const old = await t.http().post("/api/vehicles/import").set(target).send(v1);
+    assert.equal(old.status, 400);
+    assert.match(old.body.error, /convert-backup\.js/);
 
-    const res = await t.http().post("/api/vehicles/import").set(ziel).send(ausAltformat(v1));
+    const res = await t.http().post("/api/vehicles/import").set(target).send(fromLegacyFormat(v1));
     assert.equal(res.status, 201);
     assert.equal(res.body.vehicle.drive_type, "electric");
     assert.deepEqual(res.body.imported, { trips: 2, reassigned: 0, skipped: 0, years: 1, audit: 2 });
 
-    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(ziel);
-    assert.deepEqual(jahr.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[100, "Kunde", "business"], [160, "Büro", "commute"]]);
-    const verlauf = await t.http().get(`/api/trips/${jahr.body.trips[0].id}/history`).set(ziel);
-    assert.deepEqual(verlauf.body[1].old_data, {
+    const yearData = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(target);
+    assert.deepEqual(yearData.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[100, "Kunde", "business"], [160, "Büro", "commute"]]);
+    const history = await t.http().get(`/api/trips/${yearData.body.trips[0].id}/history`).set(target);
+    assert.deepEqual(history.body[1].old_data, {
       odometer_km: 100, destination: "Kunde", trip_type: "private", timestamp: "2026-04-01T08:00:00.000Z", vehicle_id: res.body.vehicle.id,
     });
   });
 
   it("rejects invalid files", async () => {
     assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ foo: 1 })).status, 400);
-    assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ ...datei, version: 3 })).status, 400);
+    assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ ...backupFile, version: 3 })).status, 400);
     assert.equal((await t.http().post("/api/vehicles/import").set(user)
-      .send({ ...datei, trips: [{ id: 1, odometer_km: -1, destination: "x", trip_type: "private", timestamp: "2026-01-01" }] })).status, 400);
-    const fremd = await t.registerUser("sicherung-fremd");
-    assert.equal((await t.http().get(`/api/vehicles/${fremd.vehicle.id}/export`).set(user)).status, 404);
+      .send({ ...backupFile, trips: [{ id: 1, odometer_km: -1, destination: "x", trip_type: "private", timestamp: "2026-01-01" }] })).status, 400);
+    const foreign = await t.registerUser("sicherung-fremd");
+    assert.equal((await t.http().get(`/api/vehicles/${foreign.vehicle.id}/export`).set(user)).status, 404);
   });
 });
 
 describe("Full backup", () => {
-  let t, user, sicherung, zweitCode;
+  let t, user, backup, secondCode;
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("gesamt");
-    await testdaten(t, user);
-    const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    zweitCode = zweit.code;
-    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "Zweit", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
+    await testData(t, user);
+    const second = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
+    secondCode = second.code;
+    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "Zweit", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: second.code });
     await t.http().post("/api/trips").set(user).send({ odometer_km: 7, destination: "Ohne", trip_type: "private", timestamp: "2026-01-05T08:00:00Z", vehicle_code: null });
   });
   after(() => t.close());
 
   it("reminds about a backup when it is older than 30 days and there are changes", async () => {
     await t.pool.query(`UPDATE vehicles SET created_at = NOW() - INTERVAL '40 days'`);
-    const vorher = await t.http().get("/api/backup/status").set(user);
-    assert.equal(vorher.body.remind, true);
-    assert.equal(vorher.body.vehicles[0].last_backup_at, null);
-    assert.ok(vorher.body.vehicles[0].changes > 0);
+    const beforeState = await t.http().get("/api/backup/status").set(user);
+    assert.equal(beforeState.body.remind, true);
+    assert.equal(beforeState.body.vehicles[0].last_backup_at, null);
+    assert.ok(beforeState.body.vehicles[0].changes > 0);
   });
 
   it("backs up all vehicles and trips without a vehicle", async () => {
     const res = await t.http().get("/api/backup").set(user);
     assert.equal(res.status, 200);
     assert.match(res.headers["content-disposition"], /fahrtenbuch_sicherung_\d{4}-\d{2}-\d{2}\.json/);
-    sicherung = res.body;
-    assert.equal(sicherung.format, "drivingbook-backup");
-    assert.deepEqual(sicherung.vehicles.map(f => f.trips.length), [2, 1]);
-    assert.deepEqual(sicherung.unassigned.trips.map(f => f.destination), ["Ohne"]);
+    backup = res.body;
+    assert.equal(backup.format, "drivingbook-backup");
+    assert.deepEqual(backup.vehicles.map(f => f.trips.length), [2, 1]);
+    assert.deepEqual(backup.unassigned.trips.map(f => f.destination), ["Ohne"]);
 
     const status = await t.http().get("/api/backup/status").set(user);
     assert.equal(status.body.remind, false);
@@ -210,21 +210,21 @@ describe("Full backup", () => {
   });
 
   it("restores everything after data loss without duplicates", async () => {
-    await t.pool.query(`DELETE FROM vehicles WHERE code = $1`, [zweitCode]);
+    await t.pool.query(`DELETE FROM vehicles WHERE code = $1`, [secondCode]);
     await t.pool.query(`DELETE FROM trips WHERE user_id = (SELECT id FROM users WHERE username = 'gesamt') AND destination IN ('Zweit', 'Ohne')`);
 
-    const res = await t.http().post("/api/backup/restore").set(user).send(sicherung);
+    const res = await t.http().post("/api/backup/restore").set(user).send(backup);
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.vehicles.map(f => [f.name, f.created, f.trips, f.skipped]),
       [["Fahrzeug 1", false, 0, 2], ["Zweitwagen", true, 1, 0]]);
     assert.equal(res.body.unassigned.trips, 1);
 
     const vehicles = (await t.http().get("/api/vehicles").set(user)).body;
-    assert.ok(vehicles.some(v => v.code === zweitCode));
+    assert.ok(vehicles.some(v => v.code === secondCode));
 
-    const nochmal = await t.http().post("/api/backup/restore").set(user).send(sicherung);
-    assert.ok(nochmal.body.vehicles.every(f => f.trips === 0 && f.audit === 0));
-    assert.equal(nochmal.body.unassigned.trips, 0);
+    const again = await t.http().post("/api/backup/restore").set(user).send(backup);
+    assert.ok(again.body.vehicles.every(f => f.trips === 0 && f.audit === 0));
+    assert.equal(again.body.unassigned.trips, 0);
   });
 
   it("rejects a vehicle backup at the full backup endpoint", async () => {
@@ -233,21 +233,21 @@ describe("Full backup", () => {
   });
 
   it("accepts large backups, other endpoints stay limited", async () => {
-    const viele = Array.from({ length: 3000 }, (_, i) => ({
+    const many = Array.from({ length: 3000 }, (_, i) => ({
       id: i + 1, odometer_km: 10000 + i, destination: "Langer Zielname ".repeat(5), trip_type: "private",
       timestamp: new Date(Date.UTC(2020, 0, 1) + i * 3600e3).toISOString(),
     }));
-    const gross = { ...sicherung, vehicles: [{ ...sicherung.vehicles[0], trips: viele, audit: [] }] };
-    const res = await t.http().post("/api/backup/restore").set(user).send(gross);
+    const big = { ...backup, vehicles: [{ ...backup.vehicles[0], trips: many, audit: [] }] };
+    const res = await t.http().post("/api/backup/restore").set(user).send(big);
     assert.equal(res.status, 200);
     assert.equal(res.body.vehicles[0].trips, 3000);
 
     // sequence is past the reused IDs → new trips work
-    const neu = await t.http().post("/api/trips").set(user)
+    const newValue = await t.http().post("/api/trips").set(user)
       .send({ odometer_km: 99999, destination: "Danach", trip_type: "private", timestamp: "2030-01-01T08:00:00Z", force: true });
-    assert.equal(neu.status, 200);
+    assert.equal(newValue.status, 200);
 
-    const zuGross = await t.http().post("/api/trips").set(user).send({ destination: "x".repeat(200_000) });
-    assert.equal(zuGross.status, 413);
+    const tooLarge = await t.http().post("/api/trips").set(user).send({ destination: "x".repeat(200_000) });
+    assert.equal(tooLarge.status, 413);
   });
 });

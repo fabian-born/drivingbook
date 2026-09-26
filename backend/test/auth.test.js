@@ -147,12 +147,12 @@ describe("Legacy accounts with mixed case", () => {
   after(() => t.close());
 
   it("logs in each account with its own password", async () => {
-    const gross = await t.http().post("/api/login").send({ username: "Max", password: "passwort-gross" });
-    const klein = await t.http().post("/api/login").send({ username: "MAX", password: "passwort-klein" });
-    assert.equal(gross.status, 200);
-    assert.equal(gross.body.user.username, "Max");
-    assert.equal(klein.status, 200);
-    assert.equal(klein.body.user.username, "max");
+    const big = await t.http().post("/api/login").send({ username: "Max", password: "passwort-gross" });
+    const small = await t.http().post("/api/login").send({ username: "MAX", password: "passwort-klein" });
+    assert.equal(big.status, 200);
+    assert.equal(big.body.user.username, "Max");
+    assert.equal(small.status, 200);
+    assert.equal(small.body.user.username, "max");
     assert.equal((await t.http().post("/api/login").send({ username: "max", password: "falsch" })).status, 401);
   });
 });

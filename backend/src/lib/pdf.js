@@ -4,7 +4,7 @@
 // ============================================================
 
 import PDFDocument from "pdfkit";
-import { fasseZusammen } from "./strecken.js";
+import { summarize } from "./strecken.js";
 
 const FONT      = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
@@ -13,24 +13,24 @@ const ROW_FILL  = "#f2f2f2";
 
 const km = n => (n == null ? "–" : n.toLocaleString("de-DE"));
 
-const FAHRTART_LABEL = { private: "Privat", business: "Geschäftlich", commute: "Arbeitsweg" };
+const TRIP_TYPE_LABEL = { private: "Privat", business: "Geschäftlich", commute: "Arbeitsweg" };
 
-// Summary per vehicle from jahresFahrten() – same calculation as dashboard and
+// Summary per vehicle from loadYearTrips() – same calculation as dashboard and
 // vehicle info (distance from the last odometer reading before the year, decreases count as 0)
-export function fahrzeugUebersicht(trips) {
-  const gruppen = new Map();
+export function vehicleSummary(trips) {
+  const groups = new Map();
   for (const t of trips) {
     const key = t.vehicle_id ?? null;
-    if (!gruppen.has(key)) gruppen.set(key, []);
-    gruppen.get(key).push(t);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
   }
-  return [...gruppen.values()].map(fahrten => {
-    const erste = fahrten[0], letzte = fahrten.at(-1);
+  return [...groups.values()].map(groupTrips => {
+    const first = groupTrips[0], last = groupTrips.at(-1);
     return {
-      name:    erste.vehicle_name || "Ohne Fahrzeug",
-      startKm: erste.odometer_km - (erste.distance ?? 0),
-      endKm:   letzte.odometer_km,
-      ...fasseZusammen(fahrten).totals,
+      name:    first.vehicle_name || "Ohne Fahrzeug",
+      startKm: first.odometer_km - (first.distance ?? 0),
+      endKm:   last.odometer_km,
+      ...summarize(groupTrips).totals,
     };
   });
 }
@@ -41,7 +41,7 @@ function describeAudit(entry, formatTs) {
     if (value == null) return "–";
     if (field === "timestamp") return formatTs(value);
     if (field === "odometer_km") return `${km(value)} km`;
-    if (field === "trip_type")   return FAHRTART_LABEL[value] ?? String(value);
+    if (field === "trip_type")   return TRIP_TYPE_LABEL[value] ?? String(value);
     return String(value);
   };
   const labels = { odometer_km: "km-Stand", destination: "Ziel", trip_type: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug-ID" };
@@ -57,7 +57,7 @@ function describeAudit(entry, formatTs) {
   return changes.length ? changes.join("; ") : "Gespeichert ohne inhaltliche Änderung";
 }
 
-// trips: from jahresFahrten() (with distance per trip)
+// trips: from loadYearTrips() (with distance per trip)
 export function renderYearPdf(stream, { year, username, trips, audit, timezone }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -115,7 +115,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
     y = doc.y + 10;
 
     const rows     = trips;
-    const vehicles = fahrzeugUebersicht(trips);
+    const vehicles = vehicleSummary(trips);
 
     if (rows.length === 0) {
       doc.font(FONT).fontSize(11).text(`Keine Fahrten im Jahr ${year} vorhanden.`, left, y);
@@ -156,7 +156,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
         drawRow(tripCols, [
           // Odometer decreases remain visible here as negative distance
           i + 1, formatTs(t.timestamp).replace(", ", " "), km(t.odometer_km), km(t.distance),
-          FAHRTART_LABEL[t.trip_type] ?? t.trip_type,
+          TRIP_TYPE_LABEL[t.trip_type] ?? t.trip_type,
           ...(multiVehicle ? [t.vehicle_name || "–"] : []),
           t.edited ? `${t.destination} *` : t.destination,
         ], { fill: i % 2 ? ROW_FILL : null, onNewPage: drawHeader });

@@ -8,7 +8,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { bearbeiteOhneFahrzeug, bericht, entferneDuplikate } from "../lib/aufraeumen.js";
+import { handleUnassigned, report, removeDuplicates } from "../lib/aufraeumen.js";
 import { createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
@@ -70,31 +70,31 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
 
   // GET /api/admin/cleanup  →  report: duplicate trips, trips without vehicle
   router.get("/admin/cleanup", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-    return res.json(await bericht(pool));
+    return res.json(await report(pool));
   }));
 
   // POST /api/admin/cleanup/duplicates  →  delete surplus duplicates
   // Body: { ids? }  without ids: all currently detected
   router.post("/admin/cleanup/duplicates", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     const { ids } = parse(duplicatesBody, req.body);
-    const ergebnis = await withTransaction(pool, client => entferneDuplikate(client, ids ?? null));
-    console.log(`🧹 Admin ${req.userId}: ${ergebnis.removed} doppelte Fahrten gelöscht`);
-    return res.json(ergebnis);
+    const outcome = await withTransaction(pool, client => removeDuplicates(client, ids ?? null));
+    console.log(`🧹 Admin ${req.userId}: ${outcome.removed} doppelte Fahrten gelöscht`);
+    return res.json(outcome);
   }));
 
   // POST /api/admin/cleanup/unassigned  →  assign or delete trips without vehicle
   // Body: { user_id, action: "assign" | "delete", vehicle_id? }
   router.post("/admin/cleanup/unassigned", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-    const daten = parse(unassignedBody, req.body);
-    if (daten.action === "assign") {
-      const vehicle = await pool.query(`SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [daten.vehicle_id, daten.user_id]);
+    const backupData = parse(unassignedBody, req.body);
+    if (backupData.action === "assign") {
+      const vehicle = await pool.query(`SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [backupData.vehicle_id, backupData.user_id]);
       if (vehicle.rows.length === 0) {
         throw new HttpError(400, "Fahrzeug gehört nicht zu diesem Benutzer");
       }
     }
-    const ergebnis = await withTransaction(pool, client => bearbeiteOhneFahrzeug(client, daten));
-    console.log(`🧹 Admin ${req.userId}: ${ergebnis.count} Fahrten ohne Fahrzeug von User ${daten.user_id} → ${daten.action}`);
-    return res.json(ergebnis);
+    const outcome = await withTransaction(pool, client => handleUnassigned(client, backupData));
+    console.log(`🧹 Admin ${req.userId}: ${outcome.count} Fahrten ohne Fahrzeug von User ${backupData.user_id} → ${backupData.action}`);
+    return res.json(outcome);
   }));
 
   return router;

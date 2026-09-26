@@ -20,21 +20,21 @@ function snapshot(row) {
 }
 
 // Writes an entry to the audit log (db: client within a transaction)
-export async function writeAudit(db, { fahrtId, userId, action, oldRow, newRow, source }) {
+export async function writeAudit(db, { tripId, userId, action, oldRow, newRow, source }) {
   await db.query(
     `INSERT INTO trip_audit (trip_id, user_id, action, old_data, new_data, source)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [fahrtId, userId, action, snapshot(oldRow), snapshot(newRow), source]
+    [tripId, userId, action, snapshot(oldRow), snapshot(newRow), source]
   );
 }
 
 // Checks whether the odometer reading fits the chronologically adjacent trips
 // of the same vehicle. Throws 409 unless `force` is set.
-// fahrt: { id?, odometer_km, timestamp, vehicle_id }
-export async function checkKmPlausibility(db, userId, fahrt, force) {
+// trip: { id?, odometer_km, timestamp, vehicle_id }
+export async function checkKmPlausibility(db, userId, trip, force) {
   if (force) return;
 
-  const params = [userId, fahrt.vehicle_id ?? null, fahrt.timestamp, fahrt.id ?? 0];
+  const params = [userId, trip.vehicle_id ?? null, trip.timestamp, trip.id ?? 0];
   const [prev, next] = await Promise.all([
     db.query(
       `SELECT odometer_km, timestamp FROM trips
@@ -52,20 +52,20 @@ export async function checkKmPlausibility(db, userId, fahrt, force) {
     ),
   ]);
 
-  const vorher  = prev.rows[0];
-  const nachher = next.rows[0];
-  const datum   = d => new Date(d).toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
+  const beforeState  = prev.rows[0];
+  const afterState = next.rows[0];
+  const date   = d => new Date(d).toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
 
-  if (vorher && fahrt.odometer_km < vorher.odometer_km) {
+  if (beforeState && trip.odometer_km < beforeState.odometer_km) {
     throw new HttpError(409,
-      `km-Stand ${fahrt.odometer_km} ist kleiner als bei der vorherigen Fahrt ` +
-      `(${vorher.odometer_km} km am ${datum(vorher.timestamp)})`,
+      `km-Stand ${trip.odometer_km} ist kleiner als bei der vorherigen Fahrt ` +
+      `(${beforeState.odometer_km} km am ${date(beforeState.timestamp)})`,
       { code: "KM_PLAUSIBILITY" });
   }
-  if (nachher && fahrt.odometer_km > nachher.odometer_km) {
+  if (afterState && trip.odometer_km > afterState.odometer_km) {
     throw new HttpError(409,
-      `km-Stand ${fahrt.odometer_km} ist größer als bei der folgenden Fahrt ` +
-      `(${nachher.odometer_km} km am ${datum(nachher.timestamp)})`,
+      `km-Stand ${trip.odometer_km} ist größer als bei der folgenden Fahrt ` +
+      `(${afterState.odometer_km} km am ${date(afterState.timestamp)})`,
       { code: "KM_PLAUSIBILITY" });
   }
 }

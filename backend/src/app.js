@@ -11,7 +11,7 @@ import { createGeocoder } from "./lib/geocode.js";
 import { authRoutes } from "./routes/auth.js";
 import { accountRoutes } from "./routes/account.js";
 import { adminRoutes } from "./routes/admin.js";
-import { fahrtenRoutes } from "./routes/fahrten.js";
+import { tripRoutes } from "./routes/fahrten.js";
 import { exportRoutes } from "./routes/export.js";
 import { vehicleRoutes } from "./routes/vehicles.js";
 import { backupRoutes } from "./routes/backup.js";
@@ -33,9 +33,9 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   }
   app.disable("x-powered-by");
   // Backups can be large (own limits in the routes); all other requests stay small
-  const GROSSE_UPLOADS = new Set(["/api/vehicles/import", "/api/backup/restore"]);
-  const jsonKlein = express.json({ limit: "100kb" });
-  app.use((req, res, next) => (GROSSE_UPLOADS.has(req.path) ? next() : jsonKlein(req, res, next)));
+  const LARGE_UPLOADS = new Set(["/api/vehicles/import", "/api/backup/restore"]);
+  const smallJson = express.json({ limit: "100kb" });
+  app.use((req, res, next) => (LARGE_UPLOADS.has(req.path) ? next() : smallJson(req, res, next)));
 
   // Without CORS_ORIGIN no CORS headers → browsers only allow same-origin calls
   if (config.corsOrigins.length > 0) {
@@ -54,7 +54,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   app.use("/api", authRoutes(deps));
   app.use("/api", accountRoutes(deps));
   app.use("/api", adminRoutes(deps));
-  app.use("/api", fahrtenRoutes(deps));
+  app.use("/api", tripRoutes(deps));
   app.use("/api", exportRoutes(deps));
   app.use("/api", vehicleRoutes(deps));
   app.use("/api", backupRoutes(deps));

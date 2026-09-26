@@ -46,7 +46,7 @@ export async function setup({ config: configOverrides, beforeMigrations } = {}) 
   await resetDatabase(pool, { beforeMigrations });
   await ensureAdmin(pool, config.admin);
 
-  const app  = createApp({ pool, config, geocode: async ziel => ziel });
+  const app  = createApp({ pool, config, geocode: async target => target });
   const http = () => request(app);
 
   // Logs in and returns the Authorization header

@@ -114,9 +114,9 @@ export function accountRoutes({ pool, requireAuth }) {
   // Without target the endpoint then responds with 409 (code HAS_TRIPS, count).
   router.delete("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
-    const { target: ziel } = parse(vehicleDeleteQuery, req.query);
+    const { target } = parse(vehicleDeleteQuery, req.query);
 
-    const verschoben = await withTransaction(pool, async client => {
+    const shifted = await withTransaction(pool, async client => {
       const vehicle = (await client.query(
         `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 FOR UPDATE`, [id, req.userId]
       )).rows[0];
@@ -124,41 +124,41 @@ export function accountRoutes({ pool, requireAuth }) {
         throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
       }
 
-      const fahrten = (await client.query(
+      const trips = (await client.query(
         `SELECT ${TRIP_COLUMNS} FROM trips
          WHERE user_id = $1 AND vehicle_id = $2 FOR UPDATE`,
         [req.userId, id]
       )).rows;
 
-      if (fahrten.length > 0) {
-        if (ziel === undefined) {
-          throw new HttpError(409, `Das Fahrzeug hat ${fahrten.length} Fahrt(en) – bitte angeben, zu welchem Fahrzeug sie umziehen`,
-            { code: "HAS_TRIPS", count: fahrten.length });
+      if (trips.length > 0) {
+        if (target === undefined) {
+          throw new HttpError(409, `Das Fahrzeug hat ${trips.length} Fahrt(en) – bitte angeben, zu welchem Fahrzeug sie umziehen`,
+            { code: "HAS_TRIPS", count: trips.length });
         }
-        const zielOk = ziel !== id && (await client.query(
-          `SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [ziel, req.userId]
+        const targetOk = target !== id && (await client.query(
+          `SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [target, req.userId]
         )).rows.length > 0;
-        if (!zielOk) {
+        if (!targetOk) {
           throw new HttpError(400, "Zielfahrzeug ungültig");
         }
-        for (const alt of fahrten) {
-          const neu = (await client.query(
+        for (const old of trips) {
+          const newValue = (await client.query(
             `UPDATE trips SET vehicle_id = $1 WHERE id = $2
              RETURNING ${TRIP_COLUMNS}`,
-            [ziel, alt.id]
+            [target, old.id]
           )).rows[0];
           await writeAudit(client, {
-            fahrtId: alt.id, userId: req.userId, action: "update",
-            oldRow: alt, newRow: neu, source: req.authSource,
+            tripId: old.id, userId: req.userId, action: "update",
+            oldRow: old, newRow: newValue, source: req.authSource,
           });
         }
       }
 
       await client.query(`DELETE FROM vehicles WHERE id = $1`, [id]);
-      return fahrten.length;
+      return trips.length;
     });
 
-    return res.json({ message: "Fahrzeug gelöscht", moved: verschoben });
+    return res.json({ message: "Fahrzeug gelöscht", moved: shifted });
   }));
 
   // ── API-Tokens ─────────────────────────────────────────────

@@ -12,16 +12,16 @@ import { resetDatabase, testConfig } from "./helpers.js";
 const MIGRATIONS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
 // State before 011: apply migrations 001–010 and mark them as applied
-async function schemaVor011(pool) {
+async function schemaBefore011(pool) {
   await pool.query(`CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
-  for (const datei of fs.readdirSync(MIGRATIONS).filter(f => f.endsWith(".sql") && f < "011").sort()) {
-    await pool.query(fs.readFileSync(path.join(MIGRATIONS, datei), "utf8"));
-    await pool.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [datei]);
+  for (const backupFile of fs.readdirSync(MIGRATIONS).filter(f => f.endsWith(".sql") && f < "011").sort()) {
+    await pool.query(fs.readFileSync(path.join(MIGRATIONS, backupFile), "utf8"));
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ($1)`, [backupFile]);
   }
 }
 
 describe("Migration 011: convert existing German data to English", () => {
-  let pool, http, token, vehicleId, fahrtId;
+  let pool, http, token, vehicleId, tripId;
 
   before(async () => {
     const config = testConfig();
@@ -30,23 +30,23 @@ describe("Migration 011: convert existing German data to English", () => {
     // create legacy data with German names, values and audit log
     await resetDatabase(pool, {
       beforeMigrations: async p => {
-        await schemaVor011(p);
+        await schemaBefore011(p);
         const userId = (await p.query(`INSERT INTO users (username, password) VALUES ('alt', $1) RETURNING id`,
           [await bcrypt.hash("passwort123", 4)])).rows[0].id;
         vehicleId = (await p.query(
           `INSERT INTO vehicles (user_id, name, code, is_default, drive_type) VALUES ($1, 'Golf', 'ALT123', TRUE, 'elektro_teuer') RETURNING id`,
           [userId])).rows[0].id;
-        fahrtId = (await p.query(
+        tripId = (await p.query(
           `INSERT INTO fahrten (user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
            VALUES ($1, $2, 1000, 'Kunde', 'geschäftlich', '2026-03-01T08:00:00Z') RETURNING id`,
           [userId, vehicleId])).rows[0].id;
         await p.query(`INSERT INTO fahrten (user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
                        VALUES ($1, $2, 1050, 'Büro', 'arbeitsweg', '2026-03-02T08:00:00Z')`, [userId, vehicleId]);
-        const alt = { kmstand: 1000, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId };
-        const neu = { ...alt, fahrtart: "geschäftlich" };
+        const old = { kmstand: 1000, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId };
+        const newValue = { ...old, fahrtart: "geschäftlich" };
         await p.query(`INSERT INTO fahrten_audit (fahrt_id, user_id, action, old_data, new_data, source)
                        VALUES ($1, $2, 'create', NULL, $3, 'web'), ($1, $2, 'update', $3, $4, 'web')`,
-          [fahrtId, userId, alt, neu]);
+          [tripId, userId, old, newValue]);
       },
     });
 
@@ -57,13 +57,13 @@ describe("Migration 011: convert existing German data to English", () => {
   after(() => pool.end());
 
   it("renames tables, columns and values", async () => {
-    const tabellen = (await pool.query(
+    const tables = (await pool.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY 1`)).rows.map(r => r.table_name);
-    assert.ok(tabellen.includes("trips") && tabellen.includes("trip_audit"));
-    assert.ok(!tabellen.includes("fahrten") && !tabellen.includes("fahrten_audit"));
+    assert.ok(tables.includes("trips") && tables.includes("trip_audit"));
+    assert.ok(!tables.includes("fahrten") && !tables.includes("fahrten_audit"));
 
-    const fahrten = (await pool.query(`SELECT odometer_km, destination, trip_type FROM trips ORDER BY id`)).rows;
-    assert.deepEqual(fahrten, [
+    const trips = (await pool.query(`SELECT odometer_km, destination, trip_type FROM trips ORDER BY id`)).rows;
+    assert.deepEqual(trips, [
       { odometer_km: 1000, destination: "Kunde", trip_type: "business" },
       { odometer_km: 1050, destination: "Büro", trip_type: "commute" },
     ]);
@@ -75,32 +75,32 @@ describe("Migration 011: convert existing German data to English", () => {
   });
 
   it("rewrites the audit log", async () => {
-    const eintraege = (await pool.query(`SELECT trip_id, old_data, new_data FROM trip_audit ORDER BY id`)).rows;
-    assert.equal(eintraege[0].trip_id, fahrtId);
-    assert.equal(eintraege[0].old_data, null);
-    assert.deepEqual(eintraege[1].old_data, {
+    const entryList = (await pool.query(`SELECT trip_id, old_data, new_data FROM trip_audit ORDER BY id`)).rows;
+    assert.equal(entryList[0].trip_id, tripId);
+    assert.equal(entryList[0].old_data, null);
+    assert.deepEqual(entryList[1].old_data, {
       odometer_km: 1000, destination: "Kunde", trip_type: "private", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId,
     });
-    assert.equal(eintraege[1].new_data.trip_type, "business");
+    assert.equal(entryList[1].new_data.trip_type, "business");
   });
 
   it("returns the converted data via the (English) API", async () => {
     const auth = { Authorization: `Bearer ${token}` };
-    const jahr = await http().get("/api/trips?year=2026&vehicle=ALT123").set(auth);
-    assert.deepEqual(jahr.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[1000, "Kunde", "business"], [1050, "Büro", "commute"]]);
-    assert.deepEqual(jahr.body.totals, { trips: 2, total: 50, business: 0, private: 0, commute: 50 });
+    const yearData = await http().get("/api/trips?year=2026&vehicle=ALT123").set(auth);
+    assert.deepEqual(yearData.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[1000, "Kunde", "business"], [1050, "Büro", "commute"]]);
+    assert.deepEqual(yearData.body.totals, { trips: 2, total: 50, business: 0, private: 0, commute: 50 });
 
-    const verlauf = await http().get(`/api/trips/${fahrtId}/history`).set(auth);
-    assert.deepEqual(verlauf.body[1].old_data, {
+    const history = await http().get(`/api/trips/${tripId}/history`).set(auth);
+    assert.deepEqual(history.body[1].old_data, {
       odometer_km: 1000, destination: "Kunde", trip_type: "private", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId,
     });
 
-    const fahrzeuge = await http().get("/api/vehicles").set(auth);
-    assert.equal(fahrzeuge.body[0].drive_type, "electric_high_price");
+    const vehicles = await http().get("/api/vehicles").set(auth);
+    assert.equal(vehicles.body[0].drive_type, "electric_high_price");
 
-    const neu = await http().post("/api/trips").set(auth)
+    const newValue = await http().post("/api/trips").set(auth)
       .send({ odometer_km: 1100, destination: "Heim", trip_type: "private", timestamp: "2026-03-03T08:00:00Z" });
-    assert.equal(neu.status, 200);
+    assert.equal(newValue.status, 200);
   });
 
   it("runs only once", async () => {

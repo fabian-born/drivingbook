@@ -7,11 +7,11 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { csvField } from "../lib/csv.js";
 import { renderYearPdf } from "../lib/pdf.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
-import { jahresFahrten } from "../lib/strecken.js";
+import { loadYearTrips } from "../lib/strecken.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
 // CSV is for humans (Excel) – trip type stays German as before
-const FAHRTART_CSV = { private: "privat", business: "geschäftlich", commute: "arbeitsweg" };
+const TRIP_TYPE_CSV = { private: "privat", business: "geschäftlich", commute: "arbeitsweg" };
 
 export function exportRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
@@ -21,7 +21,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
   const yearTrips = (userId, year, vehicleId) => pool.query(
     `SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
             v.name AS vehicle_name,
-            TO_CHAR(f.timestamp AT TIME ZONE $3, 'DD.MM.YYYY HH24:MI') AS zeitpunkt,
+            TO_CHAR(f.timestamp AT TIME ZONE $3, 'DD.MM.YYYY HH24:MI') AS local_time,
             EXISTS (SELECT 1 FROM trip_audit a
                     WHERE a.trip_id = f.id AND a.action = 'update') AS edited
      FROM   trips f
@@ -79,7 +79,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
     let csv = "KM Stand;Ziel;Fahrtart;Zeitpunkt;Fahrzeug;Nachträglich geändert\n";
     for (const f of result.rows) {
       csv += [
-        f.odometer_km, csvField(f.destination), FAHRTART_CSV[f.trip_type] ?? f.trip_type, f.zeitpunkt,
+        f.odometer_km, csvField(f.destination), TRIP_TYPE_CSV[f.trip_type] ?? f.trip_type, f.local_time,
         csvField(f.vehicle_name), f.edited ? "ja" : "nein",
       ].join(";") + "\n";
     }
@@ -97,7 +97,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
 
     const [trips, audit, user] = await Promise.all([
       // Trips with distance – same calculation as dashboard and car info
-      jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
+      loadYearTrips(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
       pool.query(
         `SELECT trip_id, action, old_data, new_data, changed_at
          FROM   trip_audit

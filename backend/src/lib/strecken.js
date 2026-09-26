@@ -9,23 +9,23 @@
 import { TRIP_TYPES } from "../schemas.js";
 
 // Totals: number of trips, total km and km per trip type (business/private/commute)
-function leereSumme() {
-  const summe = { trips: 0, total: 0 };
-  for (const art of TRIP_TYPES) summe[art] = 0;
-  return summe;
+function emptyTotals() {
+  const sum = { trips: 0, total: 0 };
+  for (const kind of TRIP_TYPES) sum[kind] = 0;
+  return sum;
 }
 
-function addiere(summe, fahrt) {
-  const km = Math.max(fahrt.distance ?? 0, 0);
-  summe.trips++;
-  summe.total += km;
-  summe[fahrt.trip_type] += km;
+function addUp(sum, trip) {
+  const km = Math.max(trip.distance ?? 0, 0);
+  sum.trips++;
+  sum.total += km;
+  sum[trip.trip_type] += km;
 }
 
 // vehicleId === null → all vehicles (distances still per vehicle)
 // Rows:   id, odometer_km, destination, trip_type, timestamp, vehicle_id,
 //         distance, previous_timestamp, vehicle_name, month (YYYY-MM), edited
-export async function jahresFahrten(db, { userId, year, vehicleId = null, timezone }) {
+export async function loadYearTrips(db, { userId, year, vehicleId = null, timezone }) {
   const result = await db.query(
     `WITH strecken AS (
        SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
@@ -49,20 +49,20 @@ export async function jahresFahrten(db, { userId, year, vehicleId = null, timezo
   return result.rows;
 }
 
-// Monthly summary + annual total from jahresFahrten(): { months, totals }
+// Monthly summary + annual total from loadYearTrips(): { months, totals }
 // start_km/end_km are only meaningful for a single vehicle
-export function fasseZusammen(fahrten) {
-  const monate = new Map();
-  const totals = leereSumme();
+export function summarize(trips) {
+  const months = new Map();
+  const totals = emptyTotals();
 
-  for (const f of fahrten) {
-    if (!monate.has(f.month)) {
-      monate.set(f.month, { month: f.month, start_km: f.odometer_km - (f.distance ?? 0), end_km: f.odometer_km, ...leereSumme() });
+  for (const f of trips) {
+    if (!months.has(f.month)) {
+      months.set(f.month, { month: f.month, start_km: f.odometer_km - (f.distance ?? 0), end_km: f.odometer_km, ...emptyTotals() });
     }
-    const monat = monate.get(f.month);
-    monat.end_km = f.odometer_km;
-    addiere(monat, f);
-    addiere(totals, f);
+    const monthKey = months.get(f.month);
+    monthKey.end_km = f.odometer_km;
+    addUp(monthKey, f);
+    addUp(totals, f);
   }
-  return { months: [...monate.values()], totals };
+  return { months: [...months.values()], totals };
 }

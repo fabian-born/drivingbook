@@ -6,11 +6,11 @@ import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { TRIP_COLUMNS, checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
-import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
+import { summarize, loadYearTrips } from "../lib/strecken.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
 import { auditQuery, idParam, tripCreate, tripUpdate, yearQuery } from "../schemas.js";
 
-export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
+export function tripRoutes({ pool, config, requireAuth, geocode }) {
   const router = express.Router();
 
   // Resolves a vehicle_code to the internal vehicle_id.
@@ -30,22 +30,22 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   }
 
   // Create a trip (validated input in the new format)
-  async function legeFahrtAn(req, { force, vehicle_code, ...fahrt }) {
-    fahrt.vehicle_id  = await resolveVehicleId(vehicle_code, req.userId);
-    fahrt.destination = await geocode(fahrt.destination);
+  async function createTrip(req, { force, vehicle_code, ...trip }) {
+    trip.vehicle_id  = await resolveVehicleId(vehicle_code, req.userId);
+    trip.destination = await geocode(trip.destination);
 
     const row = await withTransaction(pool, async client => {
-      await checkKmPlausibility(client, req.userId, fahrt, force);
+      await checkKmPlausibility(client, req.userId, trip, force);
 
       const inserted = (await client.query(
         `INSERT INTO trips (user_id, vehicle_id, odometer_km, destination, trip_type, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING ${TRIP_COLUMNS}`,
-        [req.userId, fahrt.vehicle_id ?? null, fahrt.odometer_km, fahrt.destination, fahrt.trip_type, fahrt.timestamp]
+        [req.userId, trip.vehicle_id ?? null, trip.odometer_km, trip.destination, trip.trip_type, trip.timestamp]
       )).rows[0];
 
       await writeAudit(client, {
-        fahrtId: inserted.id, userId: req.userId, action: "create",
+        tripId: inserted.id, userId: req.userId, action: "create",
         newRow: inserted, source: req.authSource,
       });
       return inserted;
@@ -59,7 +59,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   // Body: { odometer_km, destination, trip_type, timestamp, vehicle_code?, force? }
   // Without vehicle_code the user's default vehicle is used (if any).
   router.post("/trips", requireAuth, asyncHandler(async (req, res) => {
-    const row = await legeFahrtAn(req, parse(tripCreate, req.body));
+    const row = await createTrip(req, parse(tripCreate, req.body));
     return res.json({ message: "Fahrt gespeichert", id: row.id });
   }));
 
@@ -108,7 +108,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       )).rows[0];
 
       await writeAudit(client, {
-        fahrtId: id, userId: req.userId, action: "update",
+        tripId: id, userId: req.userId, action: "update",
         oldRow: old, newRow: row, source: req.authSource,
       });
       return row;
@@ -131,7 +131,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       }
 
       await writeAudit(client, {
-        fahrtId: id, userId: req.userId, action: "delete",
+        tripId: id, userId: req.userId, action: "delete",
         oldRow: old, source: req.authSource,
       });
     });
@@ -160,12 +160,12 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   router.get("/trips", requireAuth, asyncHandler(async (req, res) => {
     const { year, vehicle } = parse(yearQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
-    const fahrten = await jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: config.timezone });
+    const trips = await loadYearTrips(pool, { userId: req.userId, year, vehicleId, timezone: config.timezone });
 
     return res.json({
       year,
-      ...fasseZusammen(fahrten),
-      trips: fahrten.map(f => ({
+      ...summarize(trips),
+      trips: trips.map(f => ({
         id:           f.id,
         odometer_km:  f.odometer_km,
         distance:     f.distance,
