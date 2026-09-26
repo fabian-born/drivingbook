@@ -22,11 +22,11 @@ test("Fahrtenliste, Dashboard und neue Fahrten folgen dem aktiven Fahrzeug", asy
   await expect(page.locator("#fahrtenTabelle [data-field=ziel]")).toHaveText(["Tesla 1"]);
 
   await page.goto("/driving.html");
-  await expect(page.locator("#vehicleName")).toHaveValue("Tesla");
+  await expect(page.locator("#fahrzeugName")).toHaveText("Tesla");
   await page.fill("#kmstand", "80");
   await page.fill("#ziel", "Neu im Tesla");
-  await page.check("#arbeitsweg");
-  await page.getByRole("button", { name: "Absenden" }).click();
+  await page.click("label[for=arbeitsweg]");
+  await page.getByRole("button", { name: "Fahrt speichern" }).click();
   await expect(page.locator("#statusMeldung")).toHaveClass(/alert-success/);
 
   await page.goto("/view.html");

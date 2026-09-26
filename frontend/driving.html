@@ -7,75 +7,134 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-<title>Fahrtenbuch</title>
+<title>Neue Fahrt – Fahrtenbuch</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#212529">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+<link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
+<style>
+  .erfassung { max-width: 560px; }
+
+  /* Fahrzeug-Kopf */
+  .fahrzeug-kopf { background: var(--bs-dark); color: #fff; border-radius: .75rem .75rem 0 0; }
+  .fahrzeug-kopf .mdi-car { font-size: 1.9rem; line-height: 1; }
+  .fahrzeug-kopf .kennzeichen { background: #fff; color: #212529; border-radius: .3rem; padding: 0 .4rem;
+                                font-weight: 600; font-size: .8rem; letter-spacing: .03em; }
+
+  /* km-Stand: große Ziffern */
+  #kmstand { font-size: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #kmstand::placeholder { font-weight: 400; color: var(--bs-secondary-color); opacity: .45; }
+  #kmstand { -moz-appearance: textfield; appearance: textfield; }
+  #kmstand::-webkit-outer-spin-button, #kmstand::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .km-einheit { font-size: 1.1rem; }
+
+  /* Fahrtart als große Kacheln */
+  .fahrtart-kachel { display: flex; flex-direction: column; align-items: center; justify-content: center;
+                     gap: .15rem; min-height: 4.5rem; padding: .5rem .25rem; line-height: 1.1;
+                     font-size: clamp(.7rem, 3.3vw, .9rem); white-space: nowrap; }
+  .fahrtart-kachel .mdi { font-size: 1.5rem; line-height: 1; }
+
+  /* Standort-Button quadratisch und gut antippbar */
+  .btn-standort { min-width: 3.5rem; font-size: 1.35rem; }
+
+  /* Ausreichend große Touch-Ziele (≥ 44 px) */
+  .erfassung .form-control-lg, .erfassung .btn-lg { min-height: 3.25rem; }
+</style>
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
-  <!-- Navbar -->
+
 <nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
-  
-<div class="container py-5 flex-fill">
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <h3 class="card-title mb-4">Fahrtenbuch</h3>
+<main class="container erfassung py-3 py-md-5 flex-fill">
 
-      <div id="statusMeldung" class="d-none" role="status" aria-live="polite"></div>
-
-      <div id="offlineHinweis" class="d-none">
-        <div class="alert alert-info d-flex justify-content-between align-items-center">
-          <span>📴 <span id="offlineAnzahl"></span> auf die Übertragung.</span>
-          <button class="btn btn-sm btn-outline-primary" type="button" id="syncJetzt">Jetzt senden</button>
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label for="kmstand" class="form-label">KM Stand</label>
-        <input type="number" inputmode="numeric" min="0" class="form-control" id="kmstand" placeholder="Kilometerstand eingeben...">
-      </div>
-
-      <div class="mb-3">
-        <label for="ziel" class="form-label">Ziel / Kundenname</label>
-        <div class="input-group">
-          <input type="text" class="form-control" id="ziel" placeholder="Ziel oder Kundenname eingeben...">
-          <button class="btn btn-outline-secondary" type="button" onclick="getLocation()">📍 Standort</button>
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label d-block">Fahrtart</label>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="fahrtart" id="geschaeftlich" value="geschäftlich" checked>
-          <label class="form-check-label" for="geschaeftlich">Geschäftlich</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="fahrtart" id="privat" value="privat">
-          <label class="form-check-label" for="privat">Privat</label>
-        </div>
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="fahrtart" id="arbeitsweg" value="arbeitsweg">
-          <label class="form-check-label" for="arbeitsweg">Arbeitsweg <span class="text-muted small">(Wohnung – Arbeitsstätte)</span></label>
-        </div>
-      </div>
-
-      <div class="mb-3 d-none" id="vehicleGroup">
-        <label for="vehicleName" class="form-label">Fahrzeug</label>
-        <input type="text" class="form-control" id="vehicleName" readonly>
-        <div class="form-text">Das Fahrzeug wechselst du oben in der Navigation.</div>
-      </div>
-
-      <button class="btn btn-success me-2" onclick="addFahrt()">Absenden</button>
-      <button class="btn btn-primary me-2" onclick="downloadCSV()">CSV Export (Jahr)</button>
-      <button class="btn btn-secondary me-2" onclick="downloadJSON()">JSON Export</button>
-      <a href="index.html" class="btn btn-info">Dashboard</a>
+  <div id="offlineHinweis" class="d-none">
+    <div class="alert alert-info d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <span><span class="mdi mdi-cloud-off-outline me-1"></span><span id="offlineAnzahl"></span> auf die Übertragung.</span>
+      <button class="btn btn-sm btn-primary" type="button" id="syncJetzt">Jetzt senden</button>
     </div>
   </div>
-</div>
+
+  <form id="fahrtFormular" class="card shadow-sm border-0" novalidate>
+
+    <!-- Aktives Fahrzeug + letzter Stand -->
+    <div class="fahrzeug-kopf d-flex align-items-center gap-3 px-3 py-3">
+      <span class="mdi mdi-car" aria-hidden="true"></span>
+      <div class="flex-grow-1 min-w-0">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <strong class="text-truncate" id="fahrzeugName">Fahrzeug</strong>
+          <span class="kennzeichen d-none" id="fahrzeugKennzeichen"></span>
+        </div>
+        <div class="small text-white-50" id="letzterStand">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="card-body p-3 p-sm-4">
+      <div id="statusMeldung" class="d-none" role="status" aria-live="polite"></div>
+
+      <!-- km-Stand -->
+      <div class="mb-3">
+        <label for="kmstand" class="form-label fw-semibold">Kilometerstand</label>
+        <div class="input-group input-group-lg">
+          <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" class="form-control" id="kmstand"
+            placeholder="0" autocomplete="off" aria-describedby="kmHinweis" required>
+          <span class="input-group-text km-einheit">km</span>
+        </div>
+        <div class="form-text" id="kmHinweis">&nbsp;</div>
+      </div>
+
+      <!-- Ziel -->
+      <div class="mb-4">
+        <label for="ziel" class="form-label fw-semibold">Ziel / Kunde</label>
+        <div class="input-group input-group-lg">
+          <input type="text" class="form-control" id="ziel" placeholder="Adresse oder Kunde"
+            autocomplete="off" enterkeyhint="done" maxlength="500" required>
+          <button class="btn btn-outline-secondary btn-standort" type="button" id="standortBtn"
+            title="Aktuellen Standort übernehmen" aria-label="Aktuellen Standort übernehmen">
+            <span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fahrtart -->
+      <fieldset class="mb-4">
+        <legend class="form-label fw-semibold fs-6">Fahrtart</legend>
+        <div class="row g-2">
+          <div class="col-4">
+            <input type="radio" class="btn-check" name="fahrtart" id="geschaeftlich" value="geschäftlich" checked>
+            <label class="btn btn-outline-primary w-100 fahrtart-kachel" for="geschaeftlich">
+              <span class="mdi mdi-briefcase-outline" aria-hidden="true"></span>Geschäftlich
+            </label>
+          </div>
+          <div class="col-4">
+            <input type="radio" class="btn-check" name="fahrtart" id="privat" value="privat">
+            <label class="btn btn-outline-success w-100 fahrtart-kachel" for="privat">
+              <span class="mdi mdi-home-outline" aria-hidden="true"></span>Privat
+            </label>
+          </div>
+          <div class="col-4">
+            <input type="radio" class="btn-check" name="fahrtart" id="arbeitsweg" value="arbeitsweg">
+            <label class="btn btn-outline-warning w-100 fahrtart-kachel text-body" for="arbeitsweg"
+              title="Fahrt zwischen Wohnung und Arbeitsstätte">
+              <span class="mdi mdi-office-building-outline" aria-hidden="true"></span>Arbeitsweg
+            </label>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn btn-success btn-lg w-100" id="speichernBtn">
+        <span class="spinner-border spinner-border-sm me-2 d-none" id="speichernSpinner" aria-hidden="true"></span>
+        <span class="mdi mdi-check me-1" aria-hidden="true"></span>Fahrt speichern
+      </button>
+      <p class="small text-muted text-center mt-3 mb-0">
+        Zeitpunkt wird beim Speichern erfasst · Fahrzeug wechselst du oben im Menü
+      </p>
+    </div>
+  </form>
+</main>
+
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
 <script src="js/fahrzeug.js"></script>
@@ -83,8 +142,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="js/driving-new.js"></script>
 
-
-<footer class="bg-dark text-light mt-5">
+<footer class="bg-dark text-light mt-4">
   <div class="container py-3 text-center small">
     © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
   </div>

@@ -4,7 +4,7 @@
 // aktive Seite und Admin-Einträge markiert config.js.
 document.getElementById("hauptnavigation").innerHTML = `
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="index.html"><img src="drivingbooklogo.png" height="50" alt="Fahrtenbuch"></a>
+    <a class="navbar-brand fw-bold" href="index.html"><img src="drivingbooklogo.png" alt="Fahrtenbuch" style="height: clamp(34px, 11vw, 50px); width: auto;"></a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
       aria-controls="navbarNav" aria-expanded="false" aria-label="Menü öffnen">
       <span class="navbar-toggler-icon"></span>
@@ -25,6 +25,6 @@ document.getElementById("hauptnavigation").innerHTML = `
           </ul>
         </li>
       </ul>
-      <button id="logoutBtn" class="btn btn-outline-light btn-sm ms-2">Logout</button>
+      <button id="logoutBtn" class="btn btn-outline-light btn-sm ms-lg-2 mb-2 mb-lg-0">Logout</button>
     </div>
   </div>`;
