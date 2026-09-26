@@ -22,6 +22,12 @@ const db = {
   password: process.env.DB_PASSWORD || "test",
 };
 
+// Schutz: das Schema wird komplett gelöscht – nur gegen eine Testdatenbank laufen
+if (!/test/i.test(db.database)) {
+  console.error(`❌ DB_NAME "${db.database}" sieht nicht nach einer Testdatenbank aus (muss "test" enthalten) – Abbruch.`);
+  process.exit(1);
+}
+
 const client = new pg.Client(db);
 await client.connect();
 await client.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");

@@ -26,6 +26,25 @@ function eigeneWartende() {
   return ladeWarteschlange().filter(f => f.userId == null || f.userId === user);
 }
 
+// Fahrten mit dauerhaftem Fehler (z. B. Fahrzeug inzwischen gelöscht) tragen
+// `fehler` und werden übersprungen, bis der Nutzer sie erneut sendet oder verwirft –
+// so blockiert eine fehlerhafte Fahrt nicht alle später erfassten.
+const sendbar = f => !f.fehler;
+const gleicheFahrt = (a, b) => a.timestamp === b.timestamp && a.userId === b.userId;
+
+function aendereWartende(fahrt, aenderung) {
+  speichereWarteschlange(ladeWarteschlange().flatMap(f => (gleicheFahrt(f, fahrt) ? aenderung(f) : [f])));
+}
+
+function verwerfeWartende(fahrt) {
+  aendereWartende(fahrt, () => []);
+}
+
+function sendeWartendeErneut(fahrt) {
+  aendereWartende(fahrt, ({ fehler, ...f }) => [f]);
+  return synchronisiere();
+}
+
 function speichereWarteschlange(liste) {
   localStorage.setItem(WARTESCHLANGE_KEY, JSON.stringify(liste));
   aktualisiereWarteschlangeAnzeige();
@@ -59,7 +78,9 @@ function meldeWarteschlange(text, typ = "success") {
 
 // Hinweis in der Navigation; Klick sendet sofort
 function aktualisiereWarteschlangeAnzeige() {
-  const anzahl = eigeneWartende().length;
+  const alle       = eigeneWartende();
+  const fehlerhaft = alle.filter(f => !sendbar(f));
+  const anzahl     = alle.length - fehlerhaft.length;
   const logoutBtn = document.getElementById("logoutBtn");
 
   let btn = document.getElementById("warteschlangeNav");
@@ -68,16 +89,24 @@ function aktualisiereWarteschlangeAnzeige() {
     btn.id        = "warteschlangeNav";
     btn.type      = "button";
     btn.className = "btn btn-warning btn-sm ms-lg-2 my-2 my-lg-0";
-    btn.title     = "Offline erfasste Fahrten jetzt senden";
-    btn.addEventListener("click", synchronisiere);
+    btn.title     = "Offline erfasste Fahrten";
+    // Fehlerhafte Fahrten lassen sich auf "Neue Fahrt" prüfen, sonst sofort senden
+    btn.addEventListener("click", () => {
+      if (eigeneWartende().some(f => !sendbar(f)) && !location.pathname.endsWith("driving.html")) {
+        location.href = "driving.html";
+      } else {
+        synchronisiere();
+      }
+    });
     logoutBtn.parentElement.insertBefore(btn, document.getElementById("fahrzeugKontext") ?? logoutBtn);
   }
   if (btn) {
-    btn.textContent = `📴 ${anzahl} wartend`;
-    btn.classList.toggle("d-none", anzahl === 0);
+    btn.textContent = [anzahl ? `📴 ${anzahl} wartend` : "", fehlerhaft.length ? `⚠️ ${fehlerhaft.length} fehlerhaft` : ""]
+      .filter(Boolean).join(" · ");
+    btn.classList.toggle("d-none", alle.length === 0);
   }
 
-  document.dispatchEvent(new CustomEvent("warteschlangeGeaendert", { detail: { anzahl } }));
+  document.dispatchEvent(new CustomEvent("warteschlangeGeaendert", { detail: { anzahl, fehlerhaft } }));
 }
 
 // ── Senden ───────────────────────────────────────────────────
@@ -109,9 +138,9 @@ async function synchronisiere() {
   try {
     let gesendet = 0;
 
-    for (const fahrt of eigeneWartende()) {
+    for (const fahrt of eigeneWartende().filter(sendbar)) {
       const datum = new Date(fahrt.timestamp).toLocaleString("de-DE");
-      const { userId, ...body } = fahrt;
+      const { userId, fehler, ...body } = fahrt;
       let ergebnis;
       try {
         ergebnis = await sendeFahrt(body, `Offline erfasste Fahrt vom ${datum}:\n`);
@@ -120,10 +149,14 @@ async function synchronisiere() {
       }
 
       if (ergebnis.status !== "ok") {
-        if (ergebnis.status === "fehler") {
-          meldeWarteschlange(`Offline erfasste Fahrt vom ${datum} konnte nicht gespeichert werden: ${ergebnis.meldung}`, "danger");
-        }
-        break;  // bleibt in der Warteschlange
+        // Dauerhaft nicht speicherbar oder km-Stand nicht bestätigt → markieren und
+        // mit den übrigen Fahrten weitermachen (bleibt zum Prüfen in der Warteschlange)
+        const meldung = ergebnis.status === "fehler"
+          ? ergebnis.meldung || "Unbekannter Fehler"
+          : "km-Stand unplausibel – Speichern nicht bestätigt";
+        aendereWartende(fahrt, f => [{ ...f, fehler: meldung }]);
+        meldeWarteschlange(`Offline erfasste Fahrt vom ${datum} konnte nicht gespeichert werden: ${meldung}`, "danger");
+        continue;
       }
 
       // Neu laden statt Index merken – die Liste kann sich in einem anderen Tab geändert haben

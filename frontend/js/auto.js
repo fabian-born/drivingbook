@@ -315,13 +315,37 @@ function initFahrzeugverwaltung() {
     }
 
     const loeschen = e.target.closest(".delete-vehicle-btn");
-    if (loeschen) {
-      if (!confirm("Fahrzeug wirklich löschen? Die Fahrten bleiben erhalten, sind danach aber keinem Fahrzeug mehr zugeordnet.")) return;
-      const res = await apiFetch(`/api/vehicles/${loeschen.dataset.id}`, { method: "DELETE" });
-      if (!res.ok) return alert(await apiError(res, "Fehler beim Löschen"));
-      location.reload();  // Navigation und aktives Fahrzeug neu bestimmen
-    }
+    if (loeschen) await loescheFahrzeug(Number(loeschen.dataset.id));
   });
+}
+
+// Fahrzeug löschen. Hat es Fahrten, ziehen sie in ein anderes Fahrzeug um
+// (sonst verschwänden sie aus allen Ansichten und dem Fahrtenbuch-PDF).
+async function loescheFahrzeug(id) {
+  const name = alleFahrzeuge.find(v => v.id === id)?.name ?? "Fahrzeug";
+  if (!confirm(`„${name}“ wirklich löschen?`)) return;
+
+  const res = await apiFetch(`/api/vehicles/${id}`, { method: "DELETE" });
+  if (res.ok) return location.reload();   // Navigation und aktives Fahrzeug neu bestimmen
+
+  const fehler = await res.json().catch(() => ({}));
+  if (fehler.code !== "HAT_FAHRTEN") return alert(fehler.error || "Fehler beim Löschen");
+
+  const andere = alleFahrzeuge.filter(v => v.id !== id);
+  if (andere.length === 0) {
+    return alert(`„${name}“ hat ${fehler.anzahl} Fahrt(en). Lege zuerst ein weiteres Fahrzeug an, das sie übernimmt.`);
+  }
+
+  $("loeschenText").textContent = `„${name}“ hat ${fehler.anzahl} Fahrt(en). Damit sie im Fahrtenbuch bleiben, ziehen sie in ein anderes Fahrzeug um.`;
+  $("loeschenZiel").innerHTML = andere.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
+  const modal = bootstrap.Modal.getOrCreateInstance($("loeschenModal"));
+  $("loeschenBestaetigen").onclick = async () => {
+    const r = await apiFetch(`/api/vehicles/${id}?ziel=${$("loeschenZiel").value}`, { method: "DELETE" });
+    if (!r.ok) return alert(await apiError(r, "Fehler beim Löschen"));
+    modal.hide();
+    location.reload();
+  };
+  modal.show();
 }
 
 // ── Start ────────────────────────────────────────────────────

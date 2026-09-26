@@ -2,7 +2,8 @@
 // Test-Helfer: frische Datenbank + App pro Testdatei
 // Benötigt eine erreichbare PostgreSQL-Instanz (DB_HOST, DB_PORT,
 // DB_NAME, DB_USER, DB_PASSWORD). ACHTUNG: Das Schema "public" der
-// Test-Datenbank wird bei jedem Lauf komplett geleert.
+// Test-Datenbank wird bei jedem Lauf komplett geleert – der Datenbankname
+// muss deshalb "test" enthalten, sonst bricht der Lauf ab.
 // ============================================================
 
 import request from "supertest";
@@ -28,6 +29,11 @@ export function testConfig(overrides = {}) {
 
 // Leert die Datenbank. `beforeMigrations(pool)` kann z. B. ein altes Schema anlegen.
 export async function resetDatabase(pool, { beforeMigrations } = {}) {
+  // Schutz: nie eine echte Datenbank leeren
+  const { current_database: name } = (await pool.query("SELECT current_database()")).rows[0];
+  if (!/test/i.test(name)) {
+    throw new Error(`Datenbank "${name}" sieht nicht nach einer Testdatenbank aus (Name muss "test" enthalten) – Abbruch`);
+  }
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   if (beforeMigrations) await beforeMigrations(pool);
   await runMigrations(pool);

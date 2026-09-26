@@ -53,7 +53,8 @@ async function neuesPasswort() {
 }
 
 async function main() {
-  const username = (process.argv[2] || "admin").trim().toLowerCase();
+  // exakt wie angegeben, sonst klein geschrieben (Benutzernamen sind seit Migration 005 klein)
+  const eingabe = (process.argv[2] || "admin").trim();
 
   const pool = new pg.Pool({
     host:     process.env.DB_HOST     || "db",
@@ -64,7 +65,12 @@ async function main() {
   });
 
   try {
-    const user = (await pool.query(`SELECT id, role FROM users WHERE username = $1`, [username])).rows[0];
+    const user = (await pool.query(
+      `SELECT id, username, role FROM users WHERE username = $1 OR username = LOWER($1)
+       ORDER BY (username = $1) DESC LIMIT 1`,
+      [eingabe]
+    )).rows[0];
+    const username = user?.username ?? eingabe.toLowerCase();
     if (!user) {
       const admins = (await pool.query(`SELECT username FROM users WHERE role = 'admin' ORDER BY id`)).rows;
       console.error(`❌ Benutzer "${username}" nicht gefunden.`);

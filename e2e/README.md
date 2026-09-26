@@ -3,7 +3,8 @@
 Testen Frontend und Backend zusammen im echten Browser: Login, Fahrzeug-Kontext,
 Offline-Warteschlange, Auto-Info/Steuervergleich, Prüfung, Export/Import und PWA-Dateien.
 
-`start.mjs` leert die Test-Datenbank (**Schema `public` wird gelöscht!**), startet das
+`start.mjs` leert die Test-Datenbank (**Schema `public` wird gelöscht!** – der Name muss
+deshalb „test“ enthalten, sonst bricht der Start ab), startet das
 Backend auf Port 3999 und das Frontend inkl. `/api`-Proxy auf Port 8099.
 
 ```bash

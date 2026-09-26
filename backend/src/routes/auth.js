@@ -35,20 +35,24 @@ export function authRoutes({ pool, config }) {
       throw new HttpError(429, "Zu viele fehlgeschlagene Anmeldeversuche – bitte später erneut versuchen");
     }
 
-    const result = await pool.query(
-      `SELECT id, password, role FROM users WHERE username = $1`,
+    // Alte Konten, die sich nur in Groß-/Kleinschreibung unterscheiden ("Max"/"max",
+    // siehe Migration 005), bleiben erreichbar: es gilt das Konto mit passendem Passwort
+    const kandidaten = (await pool.query(
+      `SELECT id, username, password, role FROM users WHERE LOWER(username) = $1 ORDER BY (username = $1) DESC, id`,
       [username]
-    );
-    const user  = result.rows[0];
-    const valid = user && await bcrypt.compare(password, user.password);
+    )).rows;
+    let user = null;
+    for (const k of kandidaten) {
+      if (await bcrypt.compare(password, k.password)) { user = k; break; }
+    }
 
-    if (!valid) {
+    if (!user) {
       loginLimiter.hit(limitKey);
       throw new HttpError(401, "Ungültige Zugangsdaten");
     }
 
     loginLimiter.reset(limitKey);
-    return res.json({ token: signJwt(user), user: { username, role: user.role } });
+    return res.json({ token: signJwt(user), user: { username: user.username, role: user.role } });
   }));
 
   // POST /api/register  →  Neuen User registrieren

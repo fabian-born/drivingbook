@@ -235,6 +235,28 @@
 
 </div>
 
+<!-- Fahrzeug mit Fahrten löschen: Zielfahrzeug wählen -->
+<div class="modal fade" id="loeschenModal" tabindex="-1" aria-labelledby="loeschenModalTitel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="loeschenModalTitel">Fahrzeug löschen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body">
+        <p id="loeschenText"></p>
+        <label for="loeschenZiel" class="form-label">Fahrten übernehmen in</label>
+        <select id="loeschenZiel" class="form-select"></select>
+        <p class="form-text mb-0">Der Umzug wird im Änderungsprotokoll jeder Fahrt festgehalten.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-danger" id="loeschenBestaetigen">Fahrten umziehen &amp; löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="js/auth-check.js"></script>
 <script src="js/config.js"></script>
 <script src="js/fahrzeug.js"></script>

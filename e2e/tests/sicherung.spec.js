@@ -21,29 +21,39 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
   const datei = await lade(page, testInfo, () => page.click("#exportBtn"));
   expect(JSON.parse(fs.readFileSync(datei, "utf8")).fahrten).toHaveLength(2);
 
-  // Fahrzeug löschen → Polo wird aktiv
+  // Fahrzeug löschen: die Fahrten ziehen in den Polo um (Dialog), Polo wird aktiv
   page.on("dialog", d => d.accept());
-  await Promise.all([page.waitForEvent("load"), page.locator("#vehicleTabelle tr", { hasText: "Passat" }).locator(".delete-vehicle-btn").click()]);
+  await page.locator("#vehicleTabelle tr", { hasText: "Passat" }).locator(".delete-vehicle-btn").click();
+  await expect(page.locator("#loeschenModal")).toBeVisible();
+  await expect(page.locator("#loeschenText")).toContainText("2 Fahrt(en)");
+  await Promise.all([page.waitForEvent("load"), page.click("#loeschenBestaetigen")]);
   await expect(page.locator("#autoName")).toHaveText("Polo");
+  await expect(page.locator("#kzFahrten")).toHaveText("2");
 
+  // Sicherung einspielen: Passat kommt mit gleichem Code zurück, die Fahrten
+  // sind schon im Polo vorhanden und werden nicht doppelt angelegt
   await page.setInputFiles("#importDatei", datei);
   await Promise.all([page.waitForEvent("load"), page.click("#importBtn")]);
   await expect(page.locator("#autoName")).toHaveText("Passat");
   await expect(page.locator("#autoCode")).toHaveText(passat.code);
+  await expect(page.locator("#kzFahrten")).toHaveText("0");
 
+  // Verlauf der umgezogenen Fahrt ist vollständig
+  await Promise.all([page.waitForEvent("load"), page.selectOption("#fahrzeugKontext", { label: "🚗 Polo" })]);
   await page.goto("/view.html");
   await page.selectOption("#jahrSelect", String(jahr));
   await page.selectOption("#monatSelect", "02");
   await expect(page.locator("#fahrtenTabelle [data-field=ziel]")).toHaveText(["Kunde X GmbH", "Heim"]);
-  await page.locator("#fahrtenTabelle .history-btn").click();
-  await expect(page.locator("#auditModalBody li")).toHaveCount(2);
-  await expect(page.locator("#auditModalBody")).not.toContainText("importiert");
+  await page.locator("#fahrtenTabelle .history-btn").first().click();
+  await expect(page.locator("#auditModalBody li")).toHaveCount(3);   // angelegt, geändert, umgezogen
 
-  // Nochmal einspielen: nichts Doppeltes
+  // Nochmal einspielen (Polo aktiv → App wechselt zum Passat): nichts Doppeltes
+  let meldungen = "";
+  page.on("dialog", d => { meldungen += d.message(); });
   await page.goto("/auto.html");
   await page.setInputFiles("#importDatei", datei);
-  await page.click("#importBtn");
-  await expect(page.locator("#importAlert")).toContainText("0 Fahrt(en) ergänzt, 2 bereits vorhanden");
+  await Promise.all([page.waitForEvent("load"), page.click("#importBtn")]);
+  expect(meldungen).toContain("0 Fahrt(en) ergänzt, 2 bereits vorhanden");
 });
 
 test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, testInfo) => {

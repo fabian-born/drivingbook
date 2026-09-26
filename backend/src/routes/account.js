@@ -8,7 +8,8 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { changePasswordBody, idParam, tokenBody, vehicleBody } from "../schemas.js";
+import { writeAudit } from "../lib/fahrten.js";
+import { changePasswordBody, idParam, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {
   const router = express.Router();
@@ -107,16 +108,57 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json(updated);
   }));
 
+  // DELETE /api/vehicles/:id[?ziel=ID]  →  Fahrzeug löschen
+  // Hat es Fahrten, müssen sie vorher zu einem anderen Fahrzeug des Users (ziel)
+  // umziehen – sonst verschwänden sie aus allen Ansichten und dem Fahrtenbuch-PDF.
+  // Ohne ziel antwortet der Endpunkt dann mit 409 (code HAT_FAHRTEN, anzahl).
   router.delete("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
-    const result = await pool.query(
-      `DELETE FROM vehicles WHERE id = $1 AND user_id = $2 RETURNING id`,
-      [id, req.userId]
-    );
-    if (result.rows.length === 0) {
-      throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
-    }
-    return res.json({ message: "Fahrzeug gelöscht" });
+    const { ziel } = parse(vehicleDeleteQuery, req.query);
+
+    const verschoben = await withTransaction(pool, async client => {
+      const vehicle = (await client.query(
+        `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 FOR UPDATE`, [id, req.userId]
+      )).rows[0];
+      if (!vehicle) {
+        throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      }
+
+      const fahrten = (await client.query(
+        `SELECT id, kmstand, ziel, fahrtart, timestamp, vehicle_id FROM fahrten
+         WHERE user_id = $1 AND vehicle_id = $2 FOR UPDATE`,
+        [req.userId, id]
+      )).rows;
+
+      if (fahrten.length > 0) {
+        if (ziel === undefined) {
+          throw new HttpError(409, `Das Fahrzeug hat ${fahrten.length} Fahrt(en) – bitte angeben, zu welchem Fahrzeug sie umziehen`,
+            { code: "HAT_FAHRTEN", anzahl: fahrten.length });
+        }
+        const zielOk = ziel !== id && (await client.query(
+          `SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [ziel, req.userId]
+        )).rows.length > 0;
+        if (!zielOk) {
+          throw new HttpError(400, "Zielfahrzeug ungültig");
+        }
+        for (const alt of fahrten) {
+          const neu = (await client.query(
+            `UPDATE fahrten SET vehicle_id = $1 WHERE id = $2
+             RETURNING id, kmstand, ziel, fahrtart, timestamp, vehicle_id`,
+            [ziel, alt.id]
+          )).rows[0];
+          await writeAudit(client, {
+            fahrtId: alt.id, userId: req.userId, action: "update",
+            oldRow: alt, newRow: neu, source: req.authSource,
+          });
+        }
+      }
+
+      await client.query(`DELETE FROM vehicles WHERE id = $1`, [id]);
+      return fahrten.length;
+    });
+
+    return res.json({ message: "Fahrzeug gelöscht", verschoben });
   }));
 
   // ── API-Tokens ─────────────────────────────────────────────

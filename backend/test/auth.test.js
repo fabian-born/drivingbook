@@ -129,3 +129,30 @@ describe("Eindeutige Benutzernamen in der Datenbank", () => {
     );
   });
 });
+
+describe("Altkonten mit Groß-/Kleinschreibung", () => {
+  let t;
+  before(async () => {
+    // "Max" und "max" existieren schon vor Migration 005 → "Max" bleibt, kein Unique-Index
+    t = await setup({
+      beforeMigrations: async pool => {
+        await pool.query(`CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'user', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+        const bcrypt = (await import("bcrypt")).default;
+        await pool.query(`INSERT INTO users (username, password) VALUES ('Max', $1), ('max', $2)`,
+          [await bcrypt.hash("passwort-gross", 4), await bcrypt.hash("passwort-klein", 4)]);
+      },
+    });
+  });
+  after(() => t.close());
+
+  it("meldet jedes Konto mit seinem eigenen Passwort an", async () => {
+    const gross = await t.http().post("/api/login").send({ username: "Max", password: "passwort-gross" });
+    const klein = await t.http().post("/api/login").send({ username: "MAX", password: "passwort-klein" });
+    assert.equal(gross.status, 200);
+    assert.equal(gross.body.user.username, "Max");
+    assert.equal(klein.status, 200);
+    assert.equal(klein.body.user.username, "max");
+    assert.equal((await t.http().post("/api/login").send({ username: "max", password: "falsch" })).status, 401);
+  });
+});

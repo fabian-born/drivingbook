@@ -153,7 +153,7 @@ Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE
 nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
 | GET  | `/api/vehicles` | Fahrzeuge des Users |
 | POST | `/api/vehicles` | Fahrzeug anlegen |
-| DELETE | `/api/vehicles/:id` | Fahrzeug löschen |
+| DELETE | `/api/vehicles/:id[?ziel=ID]` | Fahrzeug löschen; hat es Fahrten, ziehen sie in Fahrzeug `ziel` um (protokolliert), ohne `ziel` → 409 `HAT_FAHRTEN` |
 | GET  | `/api/tokens` | API-Tokens anzeigen |
 | POST | `/api/tokens` | API-Token generieren |
 | DELETE | `/api/tokens/:id` | API-Token löschen |

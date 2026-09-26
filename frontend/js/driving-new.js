@@ -136,10 +136,25 @@ function zeigeStatus(text, typ = "success") {
 
 // ── Offline-Warteschlange ────────────────────────────────────
 
-function aktualisiereOfflineHinweis(anzahl) {
+function aktualisiereOfflineHinweis(anzahl, fehlerhaft = []) {
   $("offlineHinweis").classList.toggle("d-none", anzahl === 0);
   $("offlineAnzahl").textContent = anzahl === 1 ? "1 Fahrt wartet" : `${anzahl} Fahrten warten`;
+
+  $("offlineFehler").classList.toggle("d-none", fehlerhaft.length === 0);
+  $("offlineFehlerListe").innerHTML = fehlerhaft.map((f, i) => `
+    <li class="border-top border-danger-subtle pt-2">
+      <div class="small"><strong>${escapeHtml(new Date(f.timestamp).toLocaleString("de-DE"))}</strong> ·
+        ${escapeHtml(Number(f.kmstand).toLocaleString("de-DE"))} km · ${escapeHtml(f.ziel)}</div>
+      <div class="small text-danger-emphasis mb-1">${escapeHtml(f.fehler)}</div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-danger" data-erneut="${i}">Erneut senden</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-verwerfen="${i}">Verwerfen</button>
+      </div>
+    </li>`).join("");
+  offlineFehlerAktuell = fehlerhaft;
 }
+
+let offlineFehlerAktuell = [];
 
 // ── Erfassen ─────────────────────────────────────────────────
 
@@ -209,10 +224,18 @@ document.addEventListener("warteschlange", e => {
   e.preventDefault();
   zeigeStatus(e.detail.text, e.detail.typ);
 });
-document.addEventListener("warteschlangeGeaendert", e => aktualisiereOfflineHinweis(e.detail.anzahl));
+document.addEventListener("warteschlangeGeaendert", e => aktualisiereOfflineHinweis(e.detail.anzahl, e.detail.fehlerhaft));
 
 document.addEventListener("DOMContentLoaded", () => {
-  aktualisiereOfflineHinweis(eigeneWartende().length);
+  aktualisiereWarteschlangeAnzeige();
+  $("offlineFehlerListe").addEventListener("click", e => {
+    const erneut    = e.target.closest("[data-erneut]");
+    const verwerfen = e.target.closest("[data-verwerfen]");
+    if (erneut) sendeWartendeErneut(offlineFehlerAktuell[erneut.dataset.erneut]);
+    if (verwerfen && confirm("Diese Fahrt endgültig verwerfen? Sie wird nicht gespeichert.")) {
+      verwerfeWartende(offlineFehlerAktuell[verwerfen.dataset.verwerfen]);
+    }
+  });
   $("syncJetzt").addEventListener("click", synchronisiere);
   $("standortBtn").addEventListener("click", holeStandort);
   $("kmstand").addEventListener("input", aktualisiereKmHinweis);

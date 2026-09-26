@@ -142,7 +142,10 @@ const decimal = (msg, max) => z.preprocess(
     if (typeof v !== "string") return v;
     const s = v.trim();
     if (s === "") return null;
-    const normalisiert = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
+    // "1.234,56" / "1234,56" (deutsch), "45.000" (Tausenderpunkt ohne Komma), "1234.5"
+    const normalisiert = s.includes(",")
+      ? s.replace(/\./g, "").replace(",", ".")
+      : (/^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, "") : s);
     return /^\d+(\.\d+)?$/.test(normalisiert) ? Number(normalisiert) : v;
   },
   z.number({ error: msg }).min(0, { error: msg }).max(max, { error: msg }).nullable()
@@ -186,10 +189,21 @@ export const BACKUP_FORMAT  = "drivingbook-sicherung";    // Gesamtsicherung (Ko
 export const EXPORT_VERSION = 1;
 const MAX_IMPORT_FAHRTEN    = 100_000;
 
-const auditDaten = z.record(z.string(), z.unknown()).nullable().optional().transform(v => v ?? null);
+const MAX_IMPORT_PROTOKOLL = 500_000;
+const fahrtId = z.number().int().min(1).max(MAX_INT);
+
+// Protokolldaten feldweise prüfen – ungültige Werte würden später Auswertungen
+// (Casts auf timestamptz/int in SQL) scheitern lassen; unbekannte Felder entfallen
+const auditDaten = z.object({
+  kmstand:    fahrtFields.kmstand.optional(),
+  ziel:       z.string().max(500).optional(),
+  fahrtart:   fahrtFields.fahrtart.optional(),
+  timestamp:  fahrtFields.timestamp.optional(),
+  vehicle_id: z.number().int().min(1).max(MAX_INT).nullable().optional(),
+}, { error: "Ungültige Protokolldaten" }).nullable().optional().transform(v => v ?? null);
 
 const importFahrten = z.array(z.object({
-  id:        z.number().int(),
+  id:        fahrtId,
   kmstand:   fahrtFields.kmstand,
   ziel:      fahrtFields.ziel,
   fahrtart:  fahrtFields.fahrtart,
@@ -197,18 +211,20 @@ const importFahrten = z.array(z.object({
 }), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_FAHRTEN, { error: `Höchstens ${MAX_IMPORT_FAHRTEN} Fahrten pro Fahrzeug` });
 
 const importProtokoll = z.array(z.object({
-  fahrt_id:   z.number().int(),
+  fahrt_id:   fahrtId,
   action:     z.enum(["create", "update", "delete"]),
   old_data:   auditDaten,
   new_data:   auditDaten,
   source:     z.string().max(20).optional().default("web"),
   changed_at: fahrtFields.timestamp,
-}), { error: "Ungültiges Änderungsprotokoll" }).optional().default([]);
+}), { error: "Ungültiges Änderungsprotokoll" })
+  .max(MAX_IMPORT_PROTOKOLL, { error: `Höchstens ${MAX_IMPORT_PROTOKOLL} Protokolleinträge pro Fahrzeug` })
+  .optional().default([]);
 
 // Alle Daten eines Fahrzeugs (Teil beider Formate)
 const fahrzeugDaten = z.object({
   fahrzeug: z.object({
-    id:            z.number().int().nullable().optional(),
+    id:            z.number().int().min(1).max(MAX_INT).nullable().optional().catch(null),
     name:          text("Fahrzeugname fehlt", 100),
     code:          z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6}$/).nullable().optional().catch(null),
     license_plate: z.string().trim().max(20).nullable().optional().catch(null),
@@ -250,3 +266,8 @@ export const ohneFahrzeugBody = z.object({
   aktion:     z.enum(["zuordnen", "loeschen"], { error: "aktion muss 'zuordnen' oder 'loeschen' sein" }),
   vehicle_id: z.number().int().positive().optional(),
 }).refine(d => d.aktion !== "zuordnen" || d.vehicle_id, { error: "vehicle_id erforderlich zum Zuordnen" });
+
+// DELETE /api/vehicles/:id?ziel=ID – Zielfahrzeug für vorhandene Fahrten
+export const vehicleDeleteQuery = z.object({
+  ziel: z.string().regex(/^\d{1,9}$/, { error: "Ungültiges Zielfahrzeug" }).transform(Number).optional(),
+});

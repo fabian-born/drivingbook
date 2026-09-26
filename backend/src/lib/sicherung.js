@@ -113,19 +113,26 @@ async function neueFahrtIds(db, n) {
 }
 
 // Vergibt Fahrt-IDs für einzuspielende Fahrten bzw. Protokolleinträge. Die
-// ursprüngliche ID wird wiederverwendet, wenn keine Fahrt sie belegt und ein
-// dort vorhandenes Protokoll nachweislich zu genau dieser Fahrt gehört – so
-// hängt eine wiederhergestellte Fahrt wieder an ihrem Verlauf. Sonst neue ID.
+// ursprüngliche ID wird wiederverwendet, wenn diese Datenbank sie selbst schon
+// vergeben hat (≤ Stand der Sequenz), keine Fahrt sie belegt und ein dort
+// vorhandenes Protokoll nachweislich zu genau dieser Fahrt gehört – so hängt
+// eine wiederhergestellte Fahrt wieder an ihrem Verlauf. Sonst neue ID.
+// Die Sequenz wird nie verstellt (eine präparierte Datei mit riesigen IDs
+// könnte sie sonst für alle Benutzer erschöpfen).
 async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
   const idMap = new Map();
   if (alteIds.length === 0) return idMap;
 
+  const stand = Number((await db.query(`SELECT last_value, is_called FROM fahrten_id_seq`)).rows
+    .map(r => (r.is_called ? r.last_value : Number(r.last_value) - 1))[0]);
+  const kandidaten = alteIds.filter(id => id > 0 && id <= stand);
+
   const [belegt, audits] = await Promise.all([
-    db.query(`SELECT id FROM fahrten WHERE id = ANY($1::int[])`, [alteIds]),
+    db.query(`SELECT id FROM fahrten WHERE id = ANY($1::int[])`, [kandidaten]),
     db.query(
       `SELECT fahrt_id, user_id, action, changed_at, old_data, new_data
        FROM fahrten_audit WHERE fahrt_id = ANY($1::int[])`,
-      [alteIds]
+      [kandidaten]
     ),
   ]);
   const belegteIds = new Set(belegt.rows.map(r => r.id));
@@ -142,18 +149,9 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
     if (!passt) fremd.add(a.fahrt_id);
   }
 
-  const wiederverwendet = alteIds.filter(id => !belegteIds.has(id) && !fremd.has(id));
-  const rest = alteIds.filter(id => !wiederverwendet.includes(id));
+  const wiederverwendet = new Set(kandidaten.filter(id => !belegteIds.has(id) && !fremd.has(id)));
+  const rest = alteIds.filter(id => !wiederverwendet.has(id));
   for (const id of wiederverwendet) idMap.set(id, id);
-
-  // Sequenz erst hinter die wiederverwendeten IDs setzen (z. B. auf einem frischen
-  // Server), dann neue IDs ziehen – sonst könnten sie kollidieren
-  if (wiederverwendet.length > 0) {
-    await db.query(
-      `SELECT setval('fahrten_id_seq', GREATEST($1::int, (SELECT last_value FROM fahrten_id_seq)))`,
-      [Math.max(...wiederverwendet)]
-    );
-  }
   (await neueFahrtIds(db, rest.length)).forEach((id, i) => idMap.set(rest[i], id));
   return idMap;
 }
@@ -225,31 +223,30 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
     }
   }
 
-  // Fahrten: vorhandene (Zeitpunkt + km-Stand) überspringen
+  // Fahrten (Zeitpunkt + km-Stand) über alle Fahrzeuge des Users wiedererkennen:
+  // vorhanden → überspringen (auch wenn sie inzwischen zu einem anderen Fahrzeug
+  // gehört); ohne Fahrzeug (Fahrzeug wurde gelöscht) → wieder zuordnen
   const vorhanden = await db.query(
-    `SELECT timestamp, kmstand FROM fahrten WHERE user_id = $1 AND vehicle_id IS NOT DISTINCT FROM $2`,
-    [userId, vehicleId]
+    `SELECT id, timestamp, kmstand, vehicle_id FROM fahrten WHERE user_id = $1`,
+    [userId]
   );
-  const bekannt = new Set(vorhanden.rows.map(f => `${f.timestamp.toISOString()}|${f.kmstand}`));
-
-  // Verwaiste Fahrten (Fahrzeug wurde gelöscht) wiedererkennen
-  const verwaist = new Map();
-  if (vehicleId != null) {
-    const ohne = await db.query(
-      `SELECT id, timestamp, kmstand FROM fahrten WHERE user_id = $1 AND vehicle_id IS NULL`,
-      [userId]
-    );
-    for (const f of ohne.rows) verwaist.set(`${f.timestamp.toISOString()}|${f.kmstand}`, f.id);
-  }
+  const bekannt = new Map(vorhanden.rows.map(f => [`${f.timestamp.toISOString()}|${f.kmstand}`, f]));
 
   const neu = [];
   const uebersprungen = new Set();
   const zuordnen = [];
   for (const f of fahrten) {
     const key = `${f.timestamp}|${f.kmstand}`;
-    if (bekannt.has(key)) { uebersprungen.add(f.id); continue; }
-    bekannt.add(key);
-    if (verwaist.has(key)) { zuordnen.push(verwaist.get(key)); uebersprungen.add(f.id); continue; }
+    const treffer = bekannt.get(key);
+    if (treffer) {
+      uebersprungen.add(f.id);
+      if (vehicleId != null && treffer.vehicle_id == null) {
+        zuordnen.push(treffer.id);
+        treffer.vehicle_id = vehicleId;
+      }
+      continue;
+    }
+    bekannt.set(key, { vehicle_id: vehicleId });
     neu.push(f);
   }
 
