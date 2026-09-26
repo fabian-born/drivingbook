@@ -272,3 +272,15 @@ git config core.hooksPath .githooks
 ```
 
 Die Backend-Version liefert `GET /api/health`; der Footer zeigt beide Versionen.
+
+## Passwort vergessen
+
+Setzt das Passwort eines Benutzers direkt in der Datenbank zurück (Standard: `admin`).
+Im Terminal wird das neue Passwort verdeckt abgefragt; leer lassen erzeugt ein zufälliges.
+
+```bash
+docker exec -it fahrtenbuch-backend node scripts/reset-password.js admin
+```
+
+Nach zu vielen Fehlversuchen ist der Login für diese IP + Benutzername 15 Minuten gesperrt
+(oder bis das Backend neu gestartet wird).
