@@ -5,13 +5,14 @@ import path from "path";
 const frontend = path.resolve(import.meta.dirname, "../../frontend");
 const lies = datei => fs.readFileSync(path.join(frontend, datei), "utf8");
 
-test("alle eigenen Seiten und Skripte sind offline verfügbar (APP_SHELL)", () => {
+test("alle eigenen Seiten, Skripte und Stylesheets sind offline verfügbar (APP_SHELL)", () => {
   const sw = lies("sw.js");
   const appShell = JSON.parse(sw.match(/const APP_SHELL = (\[[\s\S]*?\]);/)[1].replace(/,\s*\]/, "]"));
 
   const seiten   = fs.readdirSync(frontend).filter(d => d.endsWith(".html"));
   const skripte  = seiten.flatMap(s => [...lies(s).matchAll(/<script src="(js\/[^"]+)"/g)].map(m => m[1]));
-  const fehlend  = [...new Set([...seiten, ...skripte])].filter(d => !appShell.includes(d));
+  const styles   = seiten.flatMap(s => [...lies(s).matchAll(/<link href="(css\/[^"]+)"/g)].map(m => m[1]));
+  const fehlend  = [...new Set([...seiten, ...skripte, ...styles])].filter(d => !appShell.includes(d));
   expect(fehlend).toEqual([]);
 
   for (const datei of appShell.filter(d => d !== "./")) {

@@ -24,11 +24,11 @@ test("Admin räumt doppelte Fahrten und Fahrten ohne Fahrzeug auf", async ({ pag
   await expect(page.locator("#aufraeumenAlert")).toContainText("1 doppelte Fahrt(en) gelöscht");
   await expect(page.locator("#duplikatListe .border", { hasText: user.username })).toHaveCount(0);
 
-  const zeile = page.locator("#ohneListe tr", { hasText: user.username });
+  const zeile = page.locator("#ohneListe .ohne-eintrag", { hasText: user.username });
   await expect(zeile).toContainText("1");
   await zeile.locator(".ohne-zuordnen").click();
   await expect(page.locator("#aufraeumenAlert")).toContainText("1 Fahrt(en) zugeordnet");
-  await expect(page.locator("#ohneListe tr", { hasText: user.username })).toHaveCount(0);
+  await expect(page.locator("#ohneListe .ohne-eintrag", { hasText: user.username })).toHaveCount(0);
 });
 
 test("Aufräumen ist für normale Benutzer nicht sichtbar", async ({ page }) => {

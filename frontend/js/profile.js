@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <td>${t.is_default
           ? '<span class="badge bg-success">Standard</span>'
           : '<span class="badge bg-secondary">Nein</span>'}</td>
-        <td class="text-muted small">${new Date(t.created_at).toLocaleString("de-DE")}</td>
+        <td class="text-muted small d-none d-sm-table-cell">${new Date(t.created_at).toLocaleString("de-DE")}</td>
         <td class="text-end">
           <button class="btn btn-sm btn-outline-danger delete-token-btn" data-id="${t.id}"
             title="Token löschen">
@@ -182,7 +182,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <tr class="${v.erinnern ? "table-warning" : ""}">
           <td>${escapeHtml(v.name)}</td>
           <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.erinnern ? ' <span class="badge text-bg-warning">fällig</span>' : ""}</td>
-          <td>${v.aenderungen}</td>
+          <td class="text-end">${v.aenderungen}</td>
         </tr>`).join("");
   }
 

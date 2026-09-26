@@ -11,9 +11,10 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+<link href="css/app.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
   <style>
-    .kennzahl       { font-size: 1.35rem; font-weight: 600; }
+    .kennzahl       { font-size: clamp(1.05rem, 5vw, 1.35rem); font-weight: 600; white-space: nowrap; }
     .kennzahl-label { font-size: .8rem; color: var(--bs-secondary-color); }
     .methode.gewinner { border-color: var(--bs-success) !important; box-shadow: 0 0 0 .15rem rgba(25,135,84,.25); }
     .break-even { position: relative; height: 1.25rem; }
@@ -38,7 +39,8 @@
       <span id="autoKennzeichen" class="badge text-bg-light border fs-6 d-none"></span>
       <span class="ms-auto small text-muted">
         Code für API/Home Assistant: <code id="autoCode">–</code>
-        <button class="btn btn-sm btn-link p-0 ms-1" id="copyCodeBtn" title="Code kopieren">📋</button>
+        <button class="btn btn-sm btn-outline-secondary btn-icon ms-1" id="copyCodeBtn" title="Code kopieren"
+          aria-label="Code kopieren"><span class="mdi mdi-content-copy"></span></button>
       </span>
     </div>
     <p class="small text-muted">Das Fahrzeug wechselst du oben in der Navigation.</p>
@@ -210,7 +212,7 @@
       <div class="table-responsive">
         <table class="table table-sm table-striped mb-0 align-middle">
           <thead class="table-dark">
-            <tr><th>Name</th><th>Kennzeichen</th><th>Code</th><th>Standard</th><th></th></tr>
+            <tr><th>Name</th><th class="d-none d-sm-table-cell">Kennzeichen</th><th>Code</th><th>Standard</th><th></th></tr>
           </thead>
           <tbody id="vehicleTabelle">
             <tr><td colspan="5" class="text-muted p-3">Lade …</td></tr>

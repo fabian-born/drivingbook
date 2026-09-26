@@ -11,6 +11,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+<link href="css/app.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
@@ -50,14 +51,17 @@
       <p class="small text-muted">Sichert alle Fahrzeuge mit Fahrten, Jahreskosten und Änderungsprotokoll in eine
         JSON-Datei. Beim Wiederherstellen wird nur Fehlendes ergänzt; gelöschte Fahrzeuge werden mit ihrem Code neu
         angelegt. Auch einzelne Fahrzeug-Sicherungen aus der Auto-Info können hier eingespielt werden.</p>
-      <table class="table table-sm mb-3">
-        <thead><tr><th>Fahrzeug</th><th>Letzte Sicherung</th><th>Änderungen seitdem</th></tr></thead>
-        <tbody id="sicherungTabelle"><tr><td colspan="3" class="text-muted">Lade …</td></tr></tbody>
-      </table>
-      <div class="d-flex flex-wrap gap-2 align-items-center">
-        <button class="btn btn-sm btn-primary" id="sichernBtn"><span class="mdi mdi-download me-1"></span>Alles sichern</button>
-        <input type="file" id="wiederherstellenDatei" class="form-control form-control-sm w-auto" accept=".json,application/json">
-        <button class="btn btn-sm btn-outline-primary" id="wiederherstellenBtn"><span class="mdi mdi-upload me-1"></span>Wiederherstellen</button>
+      <div class="table-responsive mb-3">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Fahrzeug</th><th>Gesichert</th><th class="text-end"><span class="d-sm-none" title="Änderungen seitdem">Änd.</span><span class="d-none d-sm-inline">Änderungen</span></th></tr></thead>
+          <tbody id="sicherungTabelle"><tr><td colspan="3" class="text-muted">Lade …</td></tr></tbody>
+        </table>
+      </div>
+      <button class="btn btn-sm btn-primary mb-3" id="sichernBtn"><span class="mdi mdi-download me-1"></span>Alles sichern</button>
+      <div class="d-flex flex-column flex-sm-row gap-2">
+        <input type="file" id="wiederherstellenDatei" class="form-control form-control-sm" accept=".json,application/json"
+          aria-label="Sicherungsdatei">
+        <button class="btn btn-sm btn-outline-primary text-nowrap" id="wiederherstellenBtn"><span class="mdi mdi-upload me-1"></span>Wiederherstellen</button>
       </div>
     </div>
   </div>
@@ -75,7 +79,7 @@
       </div>
       <div class="mb-2">
         <input type="password" id="pwNew" class="form-control form-control-sm"
-          placeholder="Neues Passwort (min. 8 Zeichen)">
+          placeholder="Neues Passwort (mind. 8)">
       </div>
       <div class="mb-3">
         <input type="password" id="pwNewConfirm" class="form-control form-control-sm"
@@ -93,13 +97,13 @@
         <span class="mdi mdi-plus me-1"></span>Neuer Token
       </button>
     </div>
-    <div class="card-body p-0">
-      <table class="table table-sm table-striped mb-0">
+    <div class="card-body p-0 table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0">
         <thead class="table-dark">
           <tr>
             <th>Bezeichnung</th>
             <th>Standard</th>
-            <th>Erstellt</th>
+            <th class="d-none d-sm-table-cell">Erstellt</th>
             <th></th>
           </tr>
         </thead>

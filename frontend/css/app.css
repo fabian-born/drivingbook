@@ -1,0 +1,22 @@
+/* ============================================================
+   Gemeinsame Stile aller Seiten
+   ============================================================ */
+
+/* ── Smartphone: gut antippbare Bedienelemente ────────────────
+   ≥ 44 px Höhe; Schrift ≥ 16 px in Eingabefeldern, sonst zoomt
+   iOS Safari beim Antippen in die Seite. */
+@media (max-width: 767.98px) {
+  .form-control, .form-select,
+  .btn:not(.btn-close):not(.navbar-toggler) {
+    min-height: 44px;
+  }
+  .form-control, .form-select,
+  .form-control-sm, .form-select-sm {
+    font-size: 1rem;
+  }
+  .btn-sm { padding-top: .45rem; padding-bottom: .45rem; }
+  .btn-icon, .table .btn { min-width: 44px; }
+
+  /* Datei-Auswahl nicht breiter als der Container */
+  input[type="file"].form-control { min-width: 0; max-width: 100%; }
+}

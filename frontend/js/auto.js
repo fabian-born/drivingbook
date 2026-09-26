@@ -258,7 +258,7 @@ async function ladeFahrzeugliste() {
         <td>${aktiv
           ? `<strong>${escapeHtml(v.name)}</strong> <span class="badge bg-primary">aktiv</span>`
           : `<a href="#" class="waehle-vehicle" data-code="${escapeHtml(v.code)}" title="Als aktives Fahrzeug wählen">${escapeHtml(v.name)}</a>`}</td>
-        <td>${escapeHtml(v.license_plate ?? "–")}</td>
+        <td class="d-none d-sm-table-cell">${escapeHtml(v.license_plate ?? "–")}</td>
         <td><code>${escapeHtml(v.code)}</code></td>
         <td>${v.is_default
           ? '<span class="badge bg-success">Standard</span>'

@@ -88,3 +88,35 @@ test("Fahrten anzeigen auf dem Smartphone", async ({ page }) => {
   await expect(page.locator("#auswahlTitel")).toHaveText(`Jahr ${jahr}`);
   await passtInDieBreite(page);
 });
+
+// Alle Bedienelemente ≥ 44 px (Checkboxen/Radios ausgenommen)
+async function gutAntippbar(page) {
+  const zuKlein = await page.$$eval(
+    "main button, main input:not([type=checkbox]):not([type=radio]), main select, .container button, .container input:not([type=checkbox]):not([type=radio]), .container select",
+    els => els.filter(e => e.offsetParent && e.getBoundingClientRect().height < 44).map(e => e.id || e.className));
+  expect(zuKlein).toEqual([]);
+}
+
+test("Konto, Auto-Info und Admin auf dem Smartphone", async ({ page }) => {
+  const user = await neuerUser(["VW Golf Variant", "Tesla Model 3 Long Range"]);
+  await fahrt(user, { kmstand: 100, timestamp: `${jahr}-01-05T08:00:00Z`, vehicle_code: null });
+  await loginImBrowser(page, user);
+
+  for (const seite of ["/profile.html", "/auto.html"]) {
+    await page.goto(seite);
+    await expect(page.locator("main, .container").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await passtInDieBreite(page);
+    await gutAntippbar(page);
+  }
+
+  await page.click(".navbar-toggler");   // Logout steckt im eingeklappten Menü
+  await page.click("#logoutBtn");
+  const { ADMIN_PASSWORD } = await import("../konstanten.js");
+  await loginImBrowser(page, { username: "admin", password: ADMIN_PASSWORD, vehicles: [{}] });
+  await page.goto("/admin.html");
+  await page.click("#btnPruefen");
+  await expect(page.locator("#ohneListe .ohne-eintrag", { hasText: user.username })).toBeVisible();
+  await passtInDieBreite(page);
+  await gutAntippbar(page);
+});

@@ -31,7 +31,7 @@ async function ladeUsers() {
 
   tbody.innerHTML = data.map(u => `
     <tr>
-      <td>${escapeHtml(u.id)}</td>
+      <td class="d-none d-sm-table-cell">${escapeHtml(u.id)}</td>
       <td><span class="mdi mdi-account me-1"></span>${escapeHtml(u.username)}</td>
       <td>
         <span class="badge ${u.role === 'admin' ? 'bg-danger' : 'bg-secondary'}">
@@ -158,27 +158,27 @@ function zeigeOhneFahrzeug(liste) {
   document.getElementById("ohneAnzahl").textContent = liste.reduce((n, o) => n + o.anzahl, 0);
   document.getElementById("ohneListe").innerHTML = liste.length === 0
     ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>Alle Fahrten sind einem Fahrzeug zugeordnet.</p>`
-    : `<div class="table-responsive"><table class="table table-sm align-middle mb-0">
-        <thead><tr><th>Benutzer</th><th>Fahrten</th><th>Zeitraum</th><th>Aktion</th></tr></thead>
-        <tbody>${liste.map(o => `
-          <tr>
-            <td>${escapeHtml(o.username)}</td>
-            <td>${escapeHtml(o.anzahl)}</td>
-            <td class="small">${escapeHtml(formatDatum(o.erste))} – ${escapeHtml(formatDatum(o.letzte))}</td>
-            <td>
-              <div class="input-group input-group-sm flex-nowrap">
-                <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" ${o.fahrzeuge.length ? "" : "disabled"}>
-                  ${o.fahrzeuge.length
-                    ? o.fahrzeuge.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
-                    : "<option>kein Fahrzeug vorhanden</option>"}
-                </select>
-                <button class="btn btn-outline-primary ohne-zuordnen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                  data-anzahl="${o.anzahl}" ${o.fahrzeuge.length ? "" : "disabled"}>Zuordnen</button>
-                <button class="btn btn-outline-danger ohne-loeschen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                  data-anzahl="${o.anzahl}" title="Fahrten löschen"><span class="mdi mdi-delete"></span></button>
-              </div>
-            </td>
-          </tr>`).join("")}</tbody></table></div>`;
+    : `<div class="list-group">${liste.map(o => `
+        <div class="list-group-item ohne-eintrag" data-user="${o.user_id}">
+          <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <strong>${escapeHtml(o.username)}</strong>
+            <span class="small text-muted">${escapeHtml(o.anzahl)} Fahrt(en) · ${escapeHtml(formatDatum(o.erste))} – ${escapeHtml(formatDatum(o.letzte))}</span>
+          </div>
+          <div class="d-flex flex-column flex-sm-row gap-2">
+            <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" aria-label="Fahrzeug von ${escapeHtml(o.username)}"
+              ${o.fahrzeuge.length ? "" : "disabled"}>
+              ${o.fahrzeuge.length
+                ? o.fahrzeuge.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
+                : "<option>kein Fahrzeug vorhanden</option>"}
+            </select>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary flex-grow-1 text-nowrap ohne-zuordnen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
+                data-anzahl="${o.anzahl}" ${o.fahrzeuge.length ? "" : "disabled"}>Zuordnen</button>
+              <button class="btn btn-sm btn-outline-danger ohne-loeschen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
+                data-anzahl="${o.anzahl}" title="Fahrten löschen" aria-label="Fahrten löschen"><span class="mdi mdi-delete"></span></button>
+            </div>
+          </div>
+        </div>`).join("")}</div>`;
 }
 
 async function pruefeDatenbank() {
