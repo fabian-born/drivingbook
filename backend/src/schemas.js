@@ -136,6 +136,10 @@ export const tokenBody = z.object({
   is_default: z.unknown().optional().transform(v => v === true),
 });
 
+// ── Country ──────────────────────────────────────────────
+// Countries whose tax rules the tax comparison implements (ISO 3166-1 alpha-2)
+export const TAX_COUNTRIES = ["DE"];
+
 // ── Auto-Info ────────────────────────────────────────────────
 export const DRIVE_TYPES = ["combustion", "hybrid", "electric", "electric_high_price"];
 

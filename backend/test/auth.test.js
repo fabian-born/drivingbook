@@ -49,6 +49,7 @@ describe("Login & registration", () => {
     const profile = await t.http().get("/api/profile").set("Authorization", `Bearer ${res.body.token}`);
     assert.equal(profile.status, 200);
     assert.equal(profile.body.user.username, "fabian");
+    assert.equal(profile.body.user.country, "DE");   // default until a country can be chosen
   });
 
   it("accepts vehicle_name from older API clients", async () => {

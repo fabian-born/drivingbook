@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         data.user.role === "admin" ? "👑 Administrator" : "👤 Benutzer";
       document.getElementById("profileCreated").textContent =
         new Date(data.user.created_at).toLocaleString("de-DE");
+      document.getElementById("profileCountry").textContent =
+        LAENDER[data.user.country] ?? data.user.country;
 
       renderTokenTabelle(data.tokens);
 

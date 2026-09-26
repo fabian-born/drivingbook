@@ -63,6 +63,9 @@ const FAHRTARTEN = [
   { wert: "commute",  key: "commute",  label: "Arbeitsweg",   farbe: "warning", chart: "var(--fa-commute)" },
 ];
 
+// Anzeigenamen der Länder (ISO-Code aus dem Profil)
+const LAENDER = { DE: "Deutschland" };
+
 // Aufgelöste Farbe (für Canvas-Diagramme, die keine CSS-Variablen kennen)
 const cssFarbe = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const fahrtartFarbe = art => cssFarbe(`--fa-${art.key}`);

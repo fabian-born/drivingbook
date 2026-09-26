@@ -54,6 +54,19 @@ describe("Vehicle info", () => {
     assert.equal(res.body.comparison.recommendation, "flat_rate");
   });
 
+  it("calculates the comparison only for supported countries", async () => {
+    assert.equal((await t.http().get(`/api/vehicles/${id}/info?year=2026`).set(user)).body.country, "DE");
+    const userId = (await t.pool.query(`SELECT user_id FROM vehicles WHERE id = $1`, [id])).rows[0].user_id;
+    await t.pool.query(`UPDATE users SET country = 'AT' WHERE id = $1`, [userId]);
+    try {
+      const res = await t.http().get(`/api/vehicles/${id}/info?year=2026`).set(user);
+      assert.equal(res.body.country, "AT");
+      assert.equal(res.body.comparison, null);
+    } finally {
+      await t.pool.query(`UPDATE users SET country = 'DE' WHERE id = $1`, [userId]);
+    }
+  });
+
   it("validates and protects foreign vehicles", async () => {
     assert.equal((await t.http().put(`/api/vehicles/${id}/years/2026`).set(user).send({ total_costs: "" })).status, 400);
     assert.equal((await t.http().put(`/api/vehicles/${id}/years/2026`).set(user).send({ total_costs: 1, months: 13 })).status, 400);

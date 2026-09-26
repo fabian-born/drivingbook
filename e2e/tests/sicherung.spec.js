@@ -79,6 +79,7 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
 
   await page.goto("/profile.html");
   await expect(page.locator("#sicherungTabelle tr")).toHaveText([/Golf\s+noch nie/, /Tesla\s+noch nie/]);
+  await expect(page.locator("#profileCountry")).toHaveText("Deutschland");
   const datei = await lade(page, testInfo, () => page.click("#sichernBtn"));
   const sicherung = JSON.parse(fs.readFileSync(datei, "utf8"));
   expect(sicherung.format).toBe("drivingbook-backup");

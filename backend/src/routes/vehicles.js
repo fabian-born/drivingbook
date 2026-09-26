@@ -10,7 +10,7 @@ import { summarize, loadYearTrips } from "../lib/distances.js";
 import { checkYear } from "../lib/check.js";
 import { rejectLegacyFormat, backupVehicle, restoreVehicle } from "../lib/backup.js";
 import { withTransaction } from "../db.js";
-import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
+import { TAX_COUNTRIES, idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
                         list_price::float8 AS list_price, drive_type`;
@@ -59,7 +59,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       ?? Number(new Date().toLocaleString("en-CA", { timeZone: tz, year: "numeric" }));
     const vehicle = await ownVehicle(id, req.userId);
 
-    const [full, yearData, costs] = await Promise.all([
+    const [full, yearData, costs, user] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS trips,
                 MIN(timestamp) AS first_trip,
@@ -78,16 +78,20 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
          FROM   vehicle_years WHERE vehicle_id = $1 AND year = $2`,
         [id, year]
       ),
+      pool.query(`SELECT country FROM users WHERE id = $1`, [req.userId]),
     ]);
 
     const km = summarize(yearData).totals;
+    const country = user.rows[0].country;
     return res.json({
       vehicle,
       year,
       overall:     full.rows[0],
       year_totals: km,
       costs:       costs.rows[0] ?? null,
-      comparison:  taxComparison(vehicle, costs.rows[0] ?? null, km),
+      country,
+      // Only calculated for countries whose tax rules are implemented
+      comparison:  TAX_COUNTRIES.includes(country) ? taxComparison(vehicle, costs.rows[0] ?? null, km) : null,
     });
   }));
 

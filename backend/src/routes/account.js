@@ -32,7 +32,7 @@ export function accountRoutes({ pool, requireAuth }) {
   // GET /api/profile  →  user info + own tokens + own vehicles
   router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
     const [userRes, tokenRes, vehicleRes] = await Promise.all([
-      pool.query(`SELECT id, username, role, created_at FROM users WHERE id = $1`, [req.userId]),
+      pool.query(`SELECT id, username, role, country, created_at FROM users WHERE id = $1`, [req.userId]),
       listTokens(req.userId),
       listVehicles(req.userId),
     ]);
