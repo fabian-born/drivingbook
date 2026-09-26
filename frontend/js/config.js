@@ -58,13 +58,13 @@ function tokenPayload() {
 // Palette-Validator geprüfte Stufen); im Hellmodus hat Arbeitsweg < 3:1 Kontrast
 // → immer mit Legende/Beschriftung und Tabelle.
 const FAHRTARTEN = [
-  { wert: "business", key: "business", label: "Geschäftlich", farbe: "primary", chart: "var(--fa-business)" },
-  { wert: "private",  key: "private",  label: "Privat",       farbe: "success", chart: "var(--fa-private)" },
-  { wert: "commute",  key: "commute",  label: "Arbeitsweg",   farbe: "warning", chart: "var(--fa-commute)" },
+  { wert: "business", key: "business", label: t("tripType.business"), farbe: "primary", chart: "var(--fa-business)" },
+  { wert: "private",  key: "private",  label: t("tripType.private"),  farbe: "success", chart: "var(--fa-private)" },
+  { wert: "commute",  key: "commute",  label: t("tripType.commute"),  farbe: "warning", chart: "var(--fa-commute)" },
 ];
 
-// Anzeigenamen der Länder (ISO-Code aus dem Profil)
-const LAENDER = { DE: "Deutschland" };
+// Anzeigename eines Landes (ISO-Code aus dem Profil)
+const landName = code => (code ? t(`country.${code}`) : "–");
 
 // Aufgelöste Farbe (für Canvas-Diagramme, die keine CSS-Variablen kennen)
 const cssFarbe = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -81,6 +81,16 @@ function fahrtartBadge(wert) {
   return `<span class="badge text-bg-${a.farbe} card-badge">${escapeHtml(a.label)}</span>`;
 }
 
+// Füllt ein <select> mit "Automatisch" + allen Sprachen (in ihrer eigenen Schreibweise);
+// `beiAenderung` bekommt den Code oder null (= automatisch)
+function sprachAuswahl(select, beiAenderung, gewaehlt = i18n.gewaehlt()) {
+  if (!select) return;
+  select.innerHTML = [`<option value="">${escapeHtml(t("language.auto"))}</option>`,
+    ...Object.entries(i18n.sprachen).map(([code, name]) => `<option value="${code}">${escapeHtml(name)}</option>`)].join("");
+  select.value = gewaehlt ?? "";
+  select.addEventListener("change", () => beiAenderung(select.value || null));
+}
+
 // Maskiert HTML-Sonderzeichen, bevor Daten per innerHTML eingefügt werden
 function escapeHtml(value) {
   return String(value ?? "")
@@ -95,7 +105,8 @@ function escapeHtml(value) {
 // leitet bei abgelaufener Anmeldung (401) zum Login weiter.
 async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
   const authToken = localStorage.getItem("authToken");
-  const options   = { method, headers: { ...headers } };
+  // Sprache für Fehlermeldungen, PDF und CSV des Backends
+  const options   = { method, headers: { "Accept-Language": i18n.sprache, ...headers } };
 
   if (authToken) options.headers["Authorization"] = `Bearer ${authToken}`;
   if (body !== undefined) {
@@ -114,7 +125,7 @@ async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
 }
 
 // Liest die Fehlermeldung aus einer API-Antwort
-async function apiError(res, fallback = "Unbekannter Fehler") {
+async function apiError(res, fallback = t("common.unknownError")) {
   const data = await res.json().catch(() => ({}));
   return data.error || `${fallback} (${res.status})`;
 }
@@ -124,7 +135,7 @@ async function apiError(res, fallback = "Unbekannter Fehler") {
 async function downloadDatei(path, dateiname) {
   try {
     const res = await apiFetch(path);
-    if (!res.ok) return alert(await apiError(res, "Export fehlgeschlagen"));
+    if (!res.ok) return alert(await apiError(res, t("common.exportFailed")));
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(await res.blob());
@@ -133,7 +144,7 @@ async function downloadDatei(path, dateiname) {
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   } catch (err) {
     console.error("Export-Fehler:", err);
-    alert("Export fehlgeschlagen.");
+    alert(t("common.exportFailedDot"));
   }
 }
 

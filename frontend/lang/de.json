@@ -1,0 +1,127 @@
+{
+  "common": {
+    "unknownError": "Unbekannter Fehler",
+    "saveError": "Fehler beim Speichern",
+    "exportFailed": "Export fehlgeschlagen",
+    "exportFailedDot": "Export fehlgeschlagen.",
+    "never": "noch nie"
+  },
+  "offline": {
+    "queueTitle": "Offline erfasste Fahrten",
+    "waiting": "📴 {{count}} wartend",
+    "faulty": "⚠️ {{count}} fehlerhaft",
+    "saveAnyway": "Trotzdem speichern?",
+    "tripFrom": "Offline erfasste Fahrt vom {{date}}:",
+    "notConfirmed": "km-Stand unplausibel – Speichern nicht bestätigt",
+    "couldNotSave": "Offline erfasste Fahrt vom {{date}} konnte nicht gespeichert werden: {{message}}",
+    "sent_one": "✅ {{count}} offline erfasste Fahrt nachträglich gespeichert.",
+    "sent_other": "✅ {{count}} offline erfasste Fahrten nachträglich gespeichert."
+  },
+  "tripType": {
+    "business": "Geschäftlich",
+    "private": "Privat",
+    "commute": "Arbeitsweg"
+  },
+  "country": {
+    "DE": "Deutschland"
+  },
+  "nav": {
+    "logoAlt": "Fahrtenbuch",
+    "openMenu": "Menü öffnen",
+    "dashboard": "Dashboard",
+    "newTrip": "Neue Fahrt",
+    "trips": "Fahrten anzeigen",
+    "history": "Jahreshistorie",
+    "profile": "Profil",
+    "account": "Konto",
+    "vehicleInfo": "Auto-Info",
+    "appearance": "Darstellung",
+    "themeAuto": "Automatisch",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "admin": "Admin",
+    "logout": "Logout"
+  },
+  "footer": {
+    "appName": "Fahrtenbuch",
+    "version": "Version",
+    "backend": "Backend"
+  },
+  "vehicle": {
+    "active": "Aktives Fahrzeug"
+  },
+  "backup": {
+    "fileAll": "fahrtenbuch_sicherung",
+    "fileVehicle": "fahrzeug",
+    "added_one": "{{count}} Fahrt ergänzt",
+    "added_other": "{{count}} Fahrten ergänzt",
+    "reassigned": "{{count}} wieder zugeordnet",
+    "skipped": "{{count}} bereits vorhanden",
+    "years_one": "{{count}} Jahr Kosten",
+    "years_other": "{{count}} Jahre Kosten",
+    "audit_one": "{{count}} Protokolleintrag",
+    "audit_other": "{{count}} Protokolleinträge",
+    "created": " (neu angelegt)",
+    "invalidJson": "Die Datei ist kein gültiges JSON.",
+    "oldFormat": "Die Sicherung hat noch das alte Format (v1). Bitte zuerst umwandeln: node scripts/convert-backup.js <datei> (im Backend-Verzeichnis bzw. -Container).",
+    "notABackup": "Die Datei ist keine Fahrtenbuch-Sicherung.",
+    "contentAll_one": "{{count}} Fahrzeug",
+    "contentAll_other": "{{count}} Fahrzeugen",
+    "contentVehicle": "dem Fahrzeug „{{name}}“",
+    "confirmRestore": "Sicherung vom {{date}} mit {{content}} wiederherstellen?",
+    "confirmHint": "Vorhandene Daten bleiben unverändert – nur Fehlendes wird ergänzt.",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen",
+    "unassigned": "Ohne Fahrzeug"
+  },
+  "login": {
+    "pageTitle": "Login – Fahrtenbuch",
+    "title": "🔐 Fahrtenbuch Login",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "chooseVehicle": "Mit welchem Fahrzeug möchtest du arbeiten?",
+    "chooseVehicleHint": "Du kannst das Fahrzeug jederzeit oben in der Navigation wechseln.",
+    "noAccount": "Noch kein Konto?",
+    "register": "Jetzt registrieren",
+    "expired": "Deine Sitzung ist abgelaufen – bitte erneut anmelden.",
+    "tooMany": "Zu viele Anmeldeversuche – bitte später erneut versuchen",
+    "failed": "Benutzername oder Passwort falsch",
+    "default": " (Standard)"
+  },
+  "language": {
+    "label": "Sprache",
+    "auto": "Automatisch (Browser)"
+  },
+  "register": {
+    "pageTitle": "Registrierung – Fahrtenbuch",
+    "title": "📋 Konto erstellen",
+    "usernamePlaceholder": "z. B. max.mustermann",
+    "minLength": "(min. 8 Zeichen)",
+    "passwordRepeat": "Passwort wiederholen",
+    "firstVehicle": "Erstes Fahrzeug",
+    "optional": "(optional)",
+    "vehiclePlaceholder": "z. B. VW Golf, Firmenwagen …",
+    "submit": "Registrieren",
+    "creating": "Wird erstellt …",
+    "haveAccount": "Bereits ein Konto?",
+    "created": "Konto erstellt!",
+    "saveToken": "Bitte speichere deinen API-Token – er wird nur einmal angezeigt.",
+    "defaultToken": "Dein Standard API-Token",
+    "copy": "Kopieren",
+    "tokenWarning": "⚠️ Dieser Token wird nur einmal angezeigt. Jetzt kopieren und sicher speichern!",
+    "createdVehicle": "Angelegtes Fahrzeug",
+    "toDashboard": "Zum Dashboard →",
+    "required": "Benutzername und Passwort sind Pflichtfelder.",
+    "tooShort": "Passwort muss mindestens 8 Zeichen haben.",
+    "mismatch": "Passwörter stimmen nicht überein.",
+    "failed": "Registrierung fehlgeschlagen.",
+    "vehicleDefault": "Fahrzeug 1",
+    "networkError": "Netzwerkfehler – bitte erneut versuchen."
+  },
+  "profile": {
+    "country": "Land",
+    "countryHint": "Grundlage für den Steuervergleich in der Auto-Info. Derzeit wird nur Deutschland unterstützt.",
+    "languageHint": "Gilt für alle Geräte, auf denen du dich anmeldest.",
+    "languageSaveFailed": "Sprache konnte nicht gespeichert werden"
+  }
+}

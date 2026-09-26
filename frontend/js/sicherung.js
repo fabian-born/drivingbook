@@ -3,14 +3,14 @@
 // Auto-Info (ein Fahrzeug) und für die Erinnerung auf dem Dashboard.
 
 const heute       = () => new Date().toISOString().slice(0, 10);
-const datumKurz   = d => (d ? new Date(d).toLocaleDateString("de-DE") : "noch nie");
+const datumKurz   = d => (d ? new Date(d).toLocaleDateString(i18n.locale) : t("common.never"));
 
 function sichereAlles() {
-  return downloadDatei("/api/backup", `fahrtenbuch_sicherung_${heute()}.json`);
+  return downloadDatei("/api/backup", `${t("backup.fileAll")}_${heute()}.json`);
 }
 
 function sichereFahrzeugDatei(vehicle) {
-  return downloadDatei(`/api/vehicles/${vehicle.id}/export`, `fahrzeug_${vehicle.code}_${heute()}.json`);
+  return downloadDatei(`/api/vehicles/${vehicle.id}/export`, `${t("backup.fileVehicle")}_${vehicle.code}_${heute()}.json`);
 }
 
 async function ladeSicherungsStatus() {
@@ -19,12 +19,12 @@ async function ladeSicherungsStatus() {
 }
 
 function zeileErgebnis(name, e) {
-  const teile = [`${e.trips} Fahrt(en) ergänzt`];
-  if (e.reassigned) teile.push(`${e.reassigned} wieder zugeordnet`);
-  if (e.skipped)    teile.push(`${e.skipped} bereits vorhanden`);
-  if (e.years)      teile.push(`${e.years} Jahr(e) Kosten`);
-  if (e.audit)      teile.push(`${e.audit} Protokolleinträge`);
-  return `${name}${e.created ? " (neu angelegt)" : ""}: ${teile.join(", ")}`;
+  const teile = [t("backup.added", { count: e.trips })];
+  if (e.reassigned) teile.push(t("backup.reassigned", { count: e.reassigned }));
+  if (e.skipped)    teile.push(t("backup.skipped", { count: e.skipped }));
+  if (e.years)      teile.push(t("backup.years", { count: e.years }));
+  if (e.audit)      teile.push(t("backup.audit", { count: e.audit }));
+  return `${name}${e.created ? t("backup.created") : ""}: ${teile.join(", ")}`;
 }
 
 // Liest eine Sicherungsdatei (Gesamt- oder Fahrzeug-Sicherung), fragt nach und
@@ -34,35 +34,34 @@ async function stelleSicherungWiederHer(datei) {
   try {
     daten = JSON.parse(await datei.text());
   } catch {
-    throw new Error("Die Datei ist kein gültiges JSON.");
+    throw new Error(t("backup.invalidJson"));
   }
 
   if (["drivingbook-sicherung", "drivingbook-fahrzeug"].includes(daten.format)) {
-    throw new Error("Die Sicherung hat noch das alte Format (v1). Bitte zuerst umwandeln: " +
-                    "node scripts/convert-backup.js <datei> (im Backend-Verzeichnis bzw. -Container).");
+    throw new Error(t("backup.oldFormat"));
   }
   const gesamt = daten.format === "drivingbook-backup";
   if (!gesamt && daten.format !== "drivingbook-vehicle") {
-    throw new Error("Die Datei ist keine Fahrtenbuch-Sicherung.");
+    throw new Error(t("backup.notABackup"));
   }
 
   const inhalt = gesamt
-    ? `${daten.vehicles?.length ?? 0} Fahrzeug(en)`
-    : `dem Fahrzeug „${daten.vehicle?.name}“`;
+    ? t("backup.contentAll", { count: daten.vehicles?.length ?? 0 })
+    : t("backup.contentVehicle", { name: daten.vehicle?.name });
   const erstellt = daten.created_at;
-  if (!confirm(`Sicherung vom ${datumKurz(erstellt)} mit ${inhalt} wiederherstellen?\n\n` +
-               "Vorhandene Daten bleiben unverändert – nur Fehlendes wird ergänzt.")) {
+  if (!confirm(`${t("backup.confirmRestore", { date: datumKurz(erstellt), content: inhalt })}\n\n` +
+               t("backup.confirmHint"))) {
     return null;
   }
 
   const res = await apiFetch(gesamt ? "/api/backup/restore" : "/api/vehicles/import", { method: "POST", body: daten });
-  if (!res.ok) throw new Error(await apiError(res, "Wiederherstellung fehlgeschlagen"));
+  if (!res.ok) throw new Error(await apiError(res, t("backup.restoreFailed")));
   const e = await res.json();
 
   if (!gesamt) {
     return { text: zeileErgebnis(e.vehicle.name, { ...e.imported, created: e.created }), vehicle: e.vehicle };
   }
   const zeilen = e.vehicles.map(f => zeileErgebnis(f.name, f));
-  if (e.unassigned.trips || e.unassigned.audit) zeilen.push(zeileErgebnis("Ohne Fahrzeug", e.unassigned));
+  if (e.unassigned.trips || e.unassigned.audit) zeilen.push(zeileErgebnis(t("backup.unassigned"), e.unassigned));
   return { text: zeilen.join("\n"), vehicle: null };
 }

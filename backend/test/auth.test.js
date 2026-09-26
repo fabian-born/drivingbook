@@ -50,6 +50,15 @@ describe("Login & registration", () => {
     assert.equal(profile.status, 200);
     assert.equal(profile.body.user.username, "fabian");
     assert.equal(profile.body.user.country, "DE");   // default until a country can be chosen
+    assert.equal(profile.body.user.language, null);  // automatic
+
+    const auth = { Authorization: `Bearer ${res.body.token}` };
+    assert.equal((await t.http().patch("/api/profile").set(auth).send({ language: "en" })).status, 200);
+    assert.equal((await t.http().get("/api/profile").set(auth)).body.user.language, "en");
+    const again = await t.http().post("/api/login").send({ username: "fabian", password: "password123" });
+    assert.equal(again.body.user.language, "en");
+    assert.equal((await t.http().patch("/api/profile").set(auth).send({ language: "xx" })).status, 400);
+    assert.equal((await t.http().patch("/api/profile").set(auth).send({ language: null })).status, 200);
   });
 
   it("accepts vehicle_name from older API clients", async () => {

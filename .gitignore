@@ -15,3 +15,4 @@ npm-debug.log*
 # Browser-Tests (Playwright)
 e2e/test-results/
 e2e/playwright-report/
+e2e/_tmp/

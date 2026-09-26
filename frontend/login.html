@@ -2,10 +2,11 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Login – Fahrtenbuch</title>
+  <title data-i18n="login.pageTitle">Login – Fahrtenbuch</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#212529">
   <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,40 +18,44 @@
 
 <div class="card shadow-sm" style="width: 100%; max-width: 400px;">
   <div class="card-body p-4">
-    <h3 class="text-center mb-4">🔐 Fahrtenbuch Login</h3>
+    <h3 class="text-center mb-4" data-i18n="login.title">🔐 Fahrtenbuch Login</h3>
 
     <div id="loginError" class="alert alert-danger d-none"></div>
 
     <form id="loginForm">
       <div class="mb-3">
-        <label class="form-label">Benutzername</label>
+        <label class="form-label" for="username" data-i18n="login.username">Benutzername</label>
         <input type="text" id="username" class="form-control" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="text-transform: lowercase" required>
       </div>
 
       <div class="mb-3">
-        <label class="form-label">Passwort</label>
+        <label class="form-label" for="password" data-i18n="login.password">Passwort</label>
         <input type="password" id="password" class="form-control" required>
       </div>
 
-      <button class="btn btn-primary w-100" type="submit">Anmelden</button>
+      <button class="btn btn-primary w-100" type="submit" data-i18n="login.submit">Anmelden</button>
     </form>
 
     <!-- Nach dem Login: Fahrzeug wählen (nur bei mehreren Fahrzeugen) -->
     <div id="fahrzeugWahl" class="d-none">
-      <p class="mb-2">Mit welchem Fahrzeug möchtest du arbeiten?</p>
+      <p class="mb-2" data-i18n="login.chooseVehicle">Mit welchem Fahrzeug möchtest du arbeiten?</p>
       <div id="fahrzeugListe" class="d-grid gap-2"></div>
-      <p class="form-text mb-0 mt-2">Du kannst das Fahrzeug jederzeit oben in der Navigation wechseln.</p>
+      <p class="form-text mb-0 mt-2" data-i18n="login.chooseVehicleHint">Du kannst das Fahrzeug jederzeit oben in der Navigation wechseln.</p>
     </div>
 
     <hr class="my-3">
 
     <p class="text-center text-muted small mb-0">
-      Noch kein Konto? <a href="register.html">Jetzt registrieren</a>
+      <span data-i18n="login.noAccount">Noch kein Konto?</span> <a href="register.html" data-i18n="login.register">Jetzt registrieren</a>
     </p>
 
     <p class="text-muted text-center mt-3 mb-0" style="font-size: 0.85rem;">
-      © <span id="year"></span> Fahrtenbuch
+      © <span id="year"></span> <span data-i18n="footer.appName">Fahrtenbuch</span>
     </p>
+
+    <div class="d-flex justify-content-center mt-2">
+      <select id="spracheWahl" class="form-select form-select-sm w-auto" data-i18n-attr="aria-label:language.label"></select>
+    </div>
   </div>
 </div>
 

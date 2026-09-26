@@ -49,7 +49,7 @@ backend.on("exit", code => process.exit(code ?? 1));
 
 // Statisches Frontend wie im nginx-Container: /api → Backend
 const TYPES = {
-  ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
+  ".html": "text/html", ".json": "application/json", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".ver": "text/plain", ".webmanifest": "application/manifest+json",
 };
 const frontend = path.join(root, "frontend");

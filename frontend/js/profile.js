@@ -16,13 +16,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("profileCreated").textContent =
         new Date(data.user.created_at).toLocaleString("de-DE");
       document.getElementById("profileCountry").textContent =
-        LAENDER[data.user.country] ?? data.user.country;
+        landName(data.user.country);
+      sprachAuswahl(document.getElementById("profileLanguage"), speichereSprache, data.user.language);
 
       renderTokenTabelle(data.tokens);
 
     } catch (err) {
       console.error("Profil-Ladefehler:", err);
     }
+  }
+
+  // Sprache im Profil speichern (gilt auf allen Geräten) und sofort anwenden
+  async function speichereSprache(language) {
+    const res = await apiFetch("/api/profile", { method: "PATCH", body: { language } });
+    if (!res.ok) return alert(await apiError(res, t("profile.languageSaveFailed")));
+    i18n.setze(language);
+    location.reload();
   }
 
   // ──────────────────────────────────────────────────────────

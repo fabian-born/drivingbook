@@ -1,0 +1,127 @@
+{
+  "common": {
+    "unknownError": "Unknown error",
+    "saveError": "Error while saving",
+    "exportFailed": "Export failed",
+    "exportFailedDot": "Export failed.",
+    "never": "never"
+  },
+  "offline": {
+    "queueTitle": "Trips recorded offline",
+    "waiting": "📴 {{count}} waiting",
+    "faulty": "⚠️ {{count}} failed",
+    "saveAnyway": "Save anyway?",
+    "tripFrom": "Trip recorded offline on {{date}}:",
+    "notConfirmed": "Implausible odometer reading – saving not confirmed",
+    "couldNotSave": "Trip recorded offline on {{date}} could not be saved: {{message}}",
+    "sent_one": "✅ {{count}} trip recorded offline has been saved.",
+    "sent_other": "✅ {{count}} trips recorded offline have been saved."
+  },
+  "tripType": {
+    "business": "Business",
+    "private": "Private",
+    "commute": "Commute"
+  },
+  "country": {
+    "DE": "Germany"
+  },
+  "nav": {
+    "logoAlt": "Logbook",
+    "openMenu": "Open menu",
+    "dashboard": "Dashboard",
+    "newTrip": "New trip",
+    "trips": "Trips",
+    "history": "Yearly history",
+    "profile": "Profile",
+    "account": "Account",
+    "vehicleInfo": "Vehicle info",
+    "appearance": "Appearance",
+    "themeAuto": "Automatic",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "admin": "Admin",
+    "logout": "Log out"
+  },
+  "footer": {
+    "appName": "Logbook",
+    "version": "Version",
+    "backend": "Backend"
+  },
+  "vehicle": {
+    "active": "Active vehicle"
+  },
+  "backup": {
+    "fileAll": "logbook_backup",
+    "fileVehicle": "vehicle",
+    "added_one": "{{count}} trip added",
+    "added_other": "{{count}} trips added",
+    "reassigned": "{{count}} reassigned",
+    "skipped": "{{count}} already present",
+    "years_one": "{{count}} year of costs",
+    "years_other": "{{count}} years of costs",
+    "audit_one": "{{count}} audit log entry",
+    "audit_other": "{{count}} audit log entries",
+    "created": " (newly created)",
+    "invalidJson": "The file is not valid JSON.",
+    "oldFormat": "The backup still uses the old format (v1). Please convert it first: node scripts/convert-backup.js <file> (in the backend directory or container).",
+    "notABackup": "The file is not a logbook backup.",
+    "contentAll_one": "{{count}} vehicle",
+    "contentAll_other": "{{count}} vehicles",
+    "contentVehicle": "the vehicle “{{name}}”",
+    "confirmRestore": "Restore the backup from {{date}} with {{content}}?",
+    "confirmHint": "Existing data stays unchanged – only missing data is added.",
+    "restoreFailed": "Restore failed",
+    "unassigned": "Without vehicle"
+  },
+  "login": {
+    "pageTitle": "Log in – Logbook",
+    "title": "🔐 Logbook login",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Log in",
+    "chooseVehicle": "Which vehicle do you want to work with?",
+    "chooseVehicleHint": "You can switch the vehicle at any time in the navigation.",
+    "noAccount": "No account yet?",
+    "register": "Sign up now",
+    "expired": "Your session has expired – please log in again.",
+    "tooMany": "Too many login attempts – please try again later",
+    "failed": "Wrong username or password",
+    "default": " (default)"
+  },
+  "language": {
+    "label": "Language",
+    "auto": "Automatic (browser)"
+  },
+  "register": {
+    "pageTitle": "Sign up – Logbook",
+    "title": "📋 Create account",
+    "usernamePlaceholder": "e.g. jane.doe",
+    "minLength": "(min. 8 characters)",
+    "passwordRepeat": "Repeat password",
+    "firstVehicle": "First vehicle",
+    "optional": "(optional)",
+    "vehiclePlaceholder": "e.g. VW Golf, company car …",
+    "submit": "Sign up",
+    "creating": "Creating …",
+    "haveAccount": "Already have an account?",
+    "created": "Account created!",
+    "saveToken": "Please save your API token – it is shown only once.",
+    "defaultToken": "Your default API token",
+    "copy": "Copy",
+    "tokenWarning": "⚠️ This token is shown only once. Copy it now and store it safely!",
+    "createdVehicle": "Created vehicle",
+    "toDashboard": "Go to dashboard →",
+    "required": "Username and password are required.",
+    "tooShort": "Password must be at least 8 characters.",
+    "mismatch": "Passwords do not match.",
+    "failed": "Sign-up failed.",
+    "vehicleDefault": "Vehicle 1",
+    "networkError": "Network error – please try again."
+  },
+  "profile": {
+    "country": "Country",
+    "countryHint": "Basis for the tax comparison on the vehicle info page. Currently only Germany is supported.",
+    "languageHint": "Applies to all devices you log in on.",
+    "languageSaveFailed": "Language could not be saved"
+  }
+}

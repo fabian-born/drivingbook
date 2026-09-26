@@ -9,7 +9,7 @@ import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
 import { TRIP_COLUMNS, writeAudit } from "../lib/trips.js";
-import { changePasswordBody, idParam, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
+import { changePasswordBody, idParam, profileUpdateBody, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {
   const router = express.Router();
@@ -32,7 +32,7 @@ export function accountRoutes({ pool, requireAuth }) {
   // GET /api/profile  →  user info + own tokens + own vehicles
   router.get("/profile", requireAuth, asyncHandler(async (req, res) => {
     const [userRes, tokenRes, vehicleRes] = await Promise.all([
-      pool.query(`SELECT id, username, role, country, created_at FROM users WHERE id = $1`, [req.userId]),
+      pool.query(`SELECT id, username, role, country, language, created_at FROM users WHERE id = $1`, [req.userId]),
       listTokens(req.userId),
       listVehicles(req.userId),
     ]);
@@ -42,6 +42,14 @@ export function accountRoutes({ pool, requireAuth }) {
     }
 
     return res.json({ user: userRes.rows[0], tokens: tokenRes.rows, vehicles: vehicleRes.rows });
+  }));
+
+  // PATCH /api/profile  →  change own settings
+  // Body: { language: "de" | "en" | null }  (null = automatic)
+  router.patch("/profile", requireAuth, asyncHandler(async (req, res) => {
+    const { language } = parse(profileUpdateBody, req.body);
+    await pool.query(`UPDATE users SET language = $1 WHERE id = $2`, [language, req.userId]);
+    return res.json({ message: "Profil gespeichert", language });
   }));
 
   // POST /api/users/change-password  →  change own password

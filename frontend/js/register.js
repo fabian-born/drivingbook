@@ -10,24 +10,24 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
 
   // Client-seitige Validierung
   if (!username || !password) {
-    errorBox.innerText = "Benutzername und Passwort sind Pflichtfelder.";
+    errorBox.innerText = t("register.required");
     errorBox.classList.remove("d-none");
     return;
   }
   if (password.length < 8) {
-    errorBox.innerText = "Passwort muss mindestens 8 Zeichen haben.";
+    errorBox.innerText = t("register.tooShort");
     errorBox.classList.remove("d-none");
     return;
   }
   if (password !== passwordConfirm) {
-    errorBox.innerText = "Passwörter stimmen nicht überein.";
+    errorBox.innerText = t("register.mismatch");
     errorBox.classList.remove("d-none");
     return;
   }
 
   const btn = document.getElementById("registerBtn");
   btn.disabled    = true;
-  btn.textContent = "Wird erstellt …";
+  btn.textContent = t("register.creating");
 
   try {
     const res = await apiFetch("/api/register", {
@@ -38,7 +38,7 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
     const data = await res.json();
 
     if (!res.ok) {
-      errorBox.innerText = data.error || "Registrierung fehlgeschlagen.";
+      errorBox.innerText = data.error || t("register.failed");
       errorBox.classList.remove("d-none");
       return;
     }
@@ -52,14 +52,14 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
     document.getElementById("viewForm").classList.add("d-none");
     document.getElementById("viewSuccess").classList.remove("d-none");
     document.getElementById("tokenDisplay").value   = data.default_token;
-    document.getElementById("vehicleDisplay").value = data.vehicle?.name || "Fahrzeug 1";
+    document.getElementById("vehicleDisplay").value = data.vehicle?.name || t("register.vehicleDefault");
 
   } catch (err) {
-    errorBox.innerText = "Netzwerkfehler – bitte erneut versuchen.";
+    errorBox.innerText = t("register.networkError");
     errorBox.classList.remove("d-none");
   } finally {
     btn.disabled    = false;
-    btn.textContent = "Registrieren";
+    btn.textContent = t("register.submit");
   }
 });
 

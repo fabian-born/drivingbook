@@ -53,7 +53,7 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
   await page.goto("/auto.html");
   await page.setInputFiles("#importDatei", datei);
   await Promise.all([page.waitForEvent("load"), page.click("#importBtn")]);
-  expect(meldungen).toContain("0 Fahrt(en) ergänzt, 2 bereits vorhanden");
+  expect(meldungen).toContain("0 Fahrten ergänzt, 2 bereits vorhanden");
 });
 
 test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, testInfo) => {
@@ -94,6 +94,6 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
   await page.goto("/profile.html");
   await page.setInputFiles("#wiederherstellenDatei", datei);
   await page.click("#wiederherstellenBtn");
-  await expect(page.locator("#sicherungAlert")).toContainText("Golf: 0 Fahrt(en) ergänzt, 1 bereits vorhanden");
-  await expect(page.locator("#sicherungAlert")).toContainText("Tesla: 0 Fahrt(en) ergänzt, 1 bereits vorhanden");
+  await expect(page.locator("#sicherungAlert")).toContainText("Golf: 0 Fahrten ergänzt, 1 bereits vorhanden");
+  await expect(page.locator("#sicherungAlert")).toContainText("Tesla: 0 Fahrten ergänzt, 1 bereits vorhanden");
 });

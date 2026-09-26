@@ -9,7 +9,7 @@ async function ladeVersion() {
   ]);
 
   document.getElementById("appVersion").innerText =
-    backend ? `${frontend} · Backend ${backend}` : frontend;
+    backend ? `${frontend} · ${t("footer.backend")} ${backend}` : frontend;
 }
 
 document.addEventListener("DOMContentLoaded", ladeVersion);

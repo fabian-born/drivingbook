@@ -140,6 +140,14 @@ export const tokenBody = z.object({
 // Countries whose tax rules the tax comparison implements (ISO 3166-1 alpha-2)
 export const TAX_COUNTRIES = ["DE"];
 
+// ── Language ─────────────────────────────────────────────────
+// UI languages (ISO 639-1); null = automatic (browser language)
+export const LANGUAGES = ["de", "en"];
+
+export const profileUpdateBody = z.object({
+  language: z.enum(LANGUAGES, { error: `Sprache muss einer der Werte sein: ${LANGUAGES.join(", ")}` }).nullable(),
+});
+
 // ── Auto-Info ────────────────────────────────────────────────
 export const DRIVE_TYPES = ["combustion", "hybrid", "electric", "electric_high_price"];
 

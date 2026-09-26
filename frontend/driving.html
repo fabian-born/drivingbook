@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#212529">
 <script src="js/theme.js"></script>
+<script src="js/i18n.js"></script>
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
@@ -155,7 +156,7 @@
 
 <footer class="bg-dark text-light mt-4">
   <div class="container py-3 text-center small">
-    © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
+    © <span id="year"></span> <span data-i18n="footer.appName">Fahrtenbuch</span> · <span data-i18n="footer.version">Version</span> <span id="appVersion">-</span>
   </div>
 </footer>
 

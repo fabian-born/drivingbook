@@ -26,8 +26,8 @@ function zeigeFahrzeugAuswahl() {
   const select = document.createElement("select");
   select.id        = "fahrzeugKontext";
   select.className = "form-select form-select-sm w-auto ms-lg-2 my-2 my-lg-0";
-  select.title     = "Aktives Fahrzeug";
-  select.setAttribute("aria-label", "Aktives Fahrzeug");
+  select.title     = t("vehicle.active");
+  select.setAttribute("aria-label", t("vehicle.active"));
   select.innerHTML = alleFahrzeuge.map(v =>
     `<option value="${escapeHtml(v.code)}" ${v.code === aktivesFahrzeug?.code ? "selected" : ""}>🚗 ${escapeHtml(v.name)}</option>`
   ).join("");

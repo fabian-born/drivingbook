@@ -38,7 +38,7 @@ export function authRoutes({ pool, config }) {
     // Old accounts that differ only in letter case ("Max"/"max",
     // see migration 005) stay reachable: the account with the matching password wins
     const candidates = (await pool.query(
-      `SELECT id, username, password, role FROM users WHERE LOWER(username) = $1 ORDER BY (username = $1) DESC, id`,
+      `SELECT id, username, password, role, language FROM users WHERE LOWER(username) = $1 ORDER BY (username = $1) DESC, id`,
       [username]
     )).rows;
     let user = null;
@@ -52,7 +52,7 @@ export function authRoutes({ pool, config }) {
     }
 
     loginLimiter.reset(limitKey);
-    return res.json({ token: signJwt(user), user: { username: user.username, role: user.role } });
+    return res.json({ token: signJwt(user), user: { username: user.username, role: user.role, language: user.language } });
   }));
 
   // POST /api/register  →  register a new user

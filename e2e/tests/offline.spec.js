@@ -44,9 +44,10 @@ test("wartende Fahrten gehen nach Benutzerwechsel nicht an das falsche Konto", a
 
   await page.click("#logoutBtn");
   await loginImBrowser(page, erster);
+  // Nachreichen läuft im Hintergrund – im vollen Testlauf kann das dauern
   await expect.poll(async () =>
-    (await api(`/api/trips?year=${jahr}`, { token: erster.token })).trips.map(f => f.destination)
-  ).toEqual(["Gehört dem Ersten"]);
+    (await api(`/api/trips?year=${jahr}`, { token: erster.token })).trips.map(f => f.destination),
+  { timeout: 15_000 }).toEqual(["Gehört dem Ersten"]);
 });
 
 test("eine fehlerhafte Offline-Fahrt blockiert die übrigen nicht und lässt sich verwerfen", async ({ page, context }) => {

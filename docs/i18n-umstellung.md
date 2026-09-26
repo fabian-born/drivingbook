@@ -41,7 +41,7 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
 ## Schritte (je ein Commit)
 
 - [x] 1. Plan (dieses Dokument)
-- [ ] 2. Grundgerüst Frontend:
+- [x] 2. Grundgerüst Frontend:
       - `i18n.js`, Sprachdateien, Einbindung in alle Seiten, Service Worker, `Accept-Language`.
       - `users.language` (Migration 013), `PATCH /api/profile`, Login-Antwort, Auswahl im Profil und beim Login.
       - Gemeinsame Teile übersetzt: Navigation, `config.js`, `offline.js`, `sicherung.js`, Footer, Login, Registrierung.

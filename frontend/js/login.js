@@ -1,9 +1,12 @@
 const form = document.getElementById("loginForm");
+
+// Sprachwahl vor dem Login (nur für dieses Gerät)
+sprachAuswahl(document.getElementById("spracheWahl"), neu => { i18n.setze(neu); location.reload(); });
 const errorBox = document.getElementById("loginError");
 
 // Weiterleitung von apiFetch nach abgelaufener Anmeldung
 if (new URLSearchParams(location.search).has("expired")) {
-  errorBox.innerText = "Deine Sitzung ist abgelaufen – bitte erneut anmelden.";
+  errorBox.innerText = t("login.expired");
   errorBox.className = "alert alert-warning";
 }
 
@@ -19,7 +22,7 @@ form.addEventListener("submit", async e => {
 
     if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      errorBox.innerText = `❌ ${data.error || "Zu viele Anmeldeversuche – bitte später erneut versuchen"}`;
+      errorBox.innerText = `❌ ${data.error || t("login.tooMany")}`;
       errorBox.classList.remove("d-none");
       return;
     }
@@ -34,9 +37,11 @@ form.addEventListener("submit", async e => {
     localStorage.setItem("authToken", data.token);
     localStorage.removeItem("aktivesFahrzeug");
     localStorage.removeItem("fahrzeuge");
+    // Im Profil gewählte Sprache gilt auf diesem Gerät (sonst bleibt die bisherige Wahl)
+    if (data.user?.language) i18n.setze(data.user.language);
 
   } catch (err) {
-    errorBox.innerText = "❌ Benutzername oder Passwort falsch";
+    errorBox.innerText = `❌ ${t("login.failed")}`;
     errorBox.classList.remove("d-none");
     return;
   }
@@ -60,7 +65,7 @@ async function fahrzeugWaehlen() {
   const liste = document.getElementById("fahrzeugListe");
   liste.innerHTML = vehicles.map(v => `
     <button type="button" class="btn ${v.is_default ? "btn-primary" : "btn-outline-primary"}" data-code="${escapeHtml(v.code)}">
-      🚗 ${escapeHtml(v.name)}${v.is_default ? " (Standard)" : ""}
+      🚗 ${escapeHtml(v.name)}${v.is_default ? t("login.default") : ""}
     </button>`).join("");
   liste.addEventListener("click", e => {
     const btn = e.target.closest("button[data-code]");

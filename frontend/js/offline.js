@@ -98,7 +98,7 @@ function aktualisiereWarteschlangeAnzeige() {
     btn.id        = "warteschlangeNav";
     btn.type      = "button";
     btn.className = "btn btn-warning btn-sm ms-lg-2 my-2 my-lg-0";
-    btn.title     = "Offline erfasste Fahrten";
+    btn.title     = t("offline.queueTitle");
     // Fehlerhafte Fahrten lassen sich auf "Neue Fahrt" prüfen, sonst sofort senden
     btn.addEventListener("click", () => {
       if (eigeneWartende().some(f => !sendbar(f)) && !location.pathname.endsWith("driving.html")) {
@@ -110,7 +110,7 @@ function aktualisiereWarteschlangeAnzeige() {
     logoutBtn.parentElement.insertBefore(btn, document.getElementById("fahrzeugKontext") ?? logoutBtn);
   }
   if (btn) {
-    btn.textContent = [anzahl ? `📴 ${anzahl} wartend` : "", fehlerhaft.length ? `⚠️ ${fehlerhaft.length} fehlerhaft` : ""]
+    btn.textContent = [anzahl ? t("offline.waiting", { count: anzahl }) : "", fehlerhaft.length ? t("offline.faulty", { count: fehlerhaft.length }) : ""]
       .filter(Boolean).join(" · ");
     btn.classList.toggle("d-none", alle.length === 0);
   }
@@ -129,11 +129,11 @@ async function sendeFahrt(fahrt, hinweis = "") {
   if (res.status === 409) {
     const err = await res.json().catch(() => ({}));
     if (err.code !== "KM_PLAUSIBILITY") return { status: "fehler", meldung: err.error };
-    if (!confirm(`${hinweis}${err.error}\n\nTrotzdem speichern?`)) return { status: "abgelehnt" };
+    if (!confirm(`${hinweis}${err.error}\n\n${t("offline.saveAnyway")}`)) return { status: "abgelehnt" };
     res = await apiFetch("/api/trips", { method: "POST", body: { ...fahrt, force: true } });
   }
 
-  if (!res.ok) return { status: "fehler", meldung: await apiError(res, "Fehler beim Speichern") };
+  if (!res.ok) return { status: "fehler", meldung: await apiError(res, t("common.saveError")) };
   return { status: "ok" };
 }
 
@@ -148,11 +148,11 @@ async function synchronisiere() {
     let gesendet = 0;
 
     for (const fahrt of eigeneWartende().filter(sendbar)) {
-      const datum = new Date(fahrt.timestamp).toLocaleString("de-DE");
+      const datum = new Date(fahrt.timestamp).toLocaleString(i18n.locale);
       const { userId, fehler, ...body } = fahrt;
       let ergebnis;
       try {
-        ergebnis = await sendeFahrt(body, `Offline erfasste Fahrt vom ${datum}:\n`);
+        ergebnis = await sendeFahrt(body, `${t("offline.tripFrom", { date: datum })}\n`);
       } catch {
         break;  // wieder offline → später erneut versuchen
       }
@@ -161,10 +161,10 @@ async function synchronisiere() {
         // Dauerhaft nicht speicherbar oder km-Stand nicht bestätigt → markieren und
         // mit den übrigen Fahrten weitermachen (bleibt zum Prüfen in der Warteschlange)
         const meldung = ergebnis.status === "fehler"
-          ? ergebnis.meldung || "Unbekannter Fehler"
-          : "km-Stand unplausibel – Speichern nicht bestätigt";
+          ? ergebnis.meldung || t("common.unknownError")
+          : t("offline.notConfirmed");
         aendereWartende(fahrt, f => [{ ...f, fehler: meldung }]);
-        meldeWarteschlange(`Offline erfasste Fahrt vom ${datum} konnte nicht gespeichert werden: ${meldung}`, "danger");
+        meldeWarteschlange(t("offline.couldNotSave", { date: datum, message: meldung }), "danger");
         continue;
       }
 
@@ -174,7 +174,7 @@ async function synchronisiere() {
     }
 
     if (gesendet > 0) {
-      meldeWarteschlange(`✅ ${gesendet} offline erfasste Fahrt(en) nachträglich gespeichert.`);
+      meldeWarteschlange(t("offline.sent", { count: gesendet }));
       // Seiten mit Auswertungen laden daraufhin ihre Daten neu
       document.dispatchEvent(new CustomEvent("fahrtenNachgereicht", { detail: { gesendet } }));
     }
