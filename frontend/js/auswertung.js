@@ -13,130 +13,130 @@ document.head.insertAdjacentHTML("beforeend", `<style>
 </style>`);
 
 const kmText   = n => `${(n ?? 0).toLocaleString(i18n.locale)} km`;
-const zahl     = n => (n ?? 0).toLocaleString(i18n.locale);
+const num     = n => (n ?? 0).toLocaleString(i18n.locale);
 // "3 trips" (number formatted, singular/plural via i18n)
-const fahrtenText = n => t("analysis.trips", { count: n ?? 0, n: zahl(n) });
-const anteil   = (teil, ganz) => (ganz > 0 ? prozentText((teil / ganz) * 100) : "–");
-const monatsFormat = art => new Intl.DateTimeFormat(i18n.locale, { month: art });
-const monatLang = monat => monatsFormat("long").format(new Date(`${monat}-01T12:00:00`));
-const monatKurz = monat => monatsFormat("short").format(new Date(`${monat}-01T12:00:00`));
+const tripsText = n => t("analysis.trips", { count: n ?? 0, n: num(n) });
+const share   = (part, whole) => (whole > 0 ? percentText((part / whole) * 100) : "–");
+const monthFormat = kind => new Intl.DateTimeFormat(i18n.locale, { month: kind });
+const longMonth = month => monthFormat("long").format(new Date(`${month}-01T12:00:00`));
+const shortMonth = month => monthFormat("short").format(new Date(`${month}-01T12:00:00`));
 
 // Breakdown bar: one segment per trip type with 2px gap (never color alone – legend next to it)
-function aufteilungsBalken(werte, { hoehe = 10 } = {}) {
-  const gesamt = FAHRTARTEN.reduce((n, a) => n + (werte[a.key] ?? 0), 0);
-  const beschreibung = FAHRTARTEN.map(a => `${a.label} ${anteil(werte[a.key], gesamt)}`).join(", ");
-  const segmente = gesamt === 0
+function splitBar(values, { height: barHeight = 10 } = {}) {
+  const grandTotal = TRIP_TYPES.reduce((n, a) => n + (values[a.key] ?? 0), 0);
+  const description = TRIP_TYPES.map(a => `${a.label} ${share(values[a.key], grandTotal)}`).join(", ");
+  const segments = grandTotal === 0
     ? `<div style="flex:1;background:var(--bs-secondary-bg)"></div>`
-    : FAHRTARTEN.filter(a => werte[a.key] > 0).map(a =>
-        `<div style="flex:${werte[a.key]} 1 0;background:${a.chart}"></div>`).join("");
-  return `<div class="aufteilung-balken" role="img" aria-label="${escapeHtml(beschreibung)}"
-            style="display:flex;gap:2px;height:${hoehe}px;border-radius:${hoehe / 2}px;overflow:hidden">${segmente}</div>`;
+    : TRIP_TYPES.filter(a => values[a.key] > 0).map(a =>
+        `<div style="flex:${values[a.key]} 1 0;background:${a.chart}"></div>`).join("");
+  return `<div class="aufteilung-balken" role="img" aria-label="${escapeHtml(description)}"
+            style="display:flex;gap:2px;height:${barHeight}px;border-radius:${barHeight / 2}px;overflow:hidden">${segments}</div>`;
 }
 
 // Legend with color swatch, km and share (text in text color, identity via the swatch)
-function aufteilungsLegende(werte) {
-  const gesamt = FAHRTARTEN.reduce((n, a) => n + (werte[a.key] ?? 0), 0);
-  return FAHRTARTEN.map(a => `
+function splitLegend(values) {
+  const grandTotal = TRIP_TYPES.reduce((n, a) => n + (values[a.key] ?? 0), 0);
+  return TRIP_TYPES.map(a => `
     <div class="d-flex align-items-center gap-2">
       <span class="rounded-1 flex-shrink-0" style="width:12px;height:12px;background:${a.chart}"></span>
       <span class="flex-grow-1">${a.label}</span>
-      <span class="fw-semibold zahl">${kmText(werte[a.key])}</span>
-      <span class="text-muted small text-end" style="min-width:3.5rem">${anteil(werte[a.key], gesamt)}</span>
+      <span class="fw-semibold zahl">${kmText(values[a.key])}</span>
+      <span class="text-muted small text-end" style="min-width:3.5rem">${share(values[a.key], grandTotal)}</span>
     </div>`).join("");
 }
 
-function kennzahlKachel({ label, wert, hinweis }) {
+function metricTile({ label, value: rawValue, hint: hint }) {
   return `
     <div class="col">
       <div class="card h-100 shadow-sm border-0">
         <div class="card-body p-2 p-md-3">
           <div class="small text-muted text-truncate">${escapeHtml(label)}</div>
-          <div class="kennzahl-wert">${escapeHtml(wert)}</div>
-          ${hinweis ? `<div class="small text-muted text-truncate">${escapeHtml(hinweis)}</div>` : ""}
+          <div class="kennzahl-wert">${escapeHtml(rawValue)}</div>
+          ${hint ? `<div class="small text-muted text-truncate">${escapeHtml(hint)}</div>` : ""}
         </div>
       </div>
     </div>`;
 }
 
-function monatsTabelle(monate) {
-  const kopf = FAHRTARTEN.map(a => `<th class="text-end">${a.label}</th>`).join("");
-  const zeilen = monate.map(m => `
+function monthTable(months) {
+  const headerCells = TRIP_TYPES.map(a => `<th class="text-end">${a.label}</th>`).join("");
+  const rows = months.map(m => `
     <tr>
-      <td>${escapeHtml(monatLang(m.month))}</td>
-      <td class="text-end">${zahl(m.start_km)}</td>
-      <td class="text-end">${zahl(m.end_km)}</td>
-      <td class="text-end fw-semibold">${zahl(m.total)}</td>
-      ${FAHRTARTEN.map(a => `<td class="text-end">${zahl(m[a.key])} <span class="text-muted small">(${anteil(m[a.key], m.total)})</span></td>`).join("")}
-      <td class="text-end">${zahl(m.trips)}</td>
+      <td>${escapeHtml(longMonth(m.month))}</td>
+      <td class="text-end">${num(m.start_km)}</td>
+      <td class="text-end">${num(m.end_km)}</td>
+      <td class="text-end fw-semibold">${num(m.total)}</td>
+      ${TRIP_TYPES.map(a => `<td class="text-end">${num(m[a.key])} <span class="text-muted small">(${share(m[a.key], m.total)})</span></td>`).join("")}
+      <td class="text-end">${num(m.trips)}</td>
     </tr>`).join("");
   return `
     <div class="table-responsive">
       <table class="table table-sm table-striped align-middle mb-0 monats-tabelle">
         <thead class="table-dark">
           <tr><th>${t("analysis.col.month")}</th><th class="text-end">${t("analysis.col.startKm")}</th><th class="text-end">${t("analysis.col.endKm")}</th>
-              <th class="text-end">${t("analysis.col.driven")}</th>${kopf}<th class="text-end">${t("analysis.col.trips")}</th></tr>
+              <th class="text-end">${t("analysis.col.driven")}</th>${headerCells}<th class="text-end">${t("analysis.col.trips")}</th></tr>
         </thead>
-        <tbody>${zeilen}</tbody>
+        <tbody>${rows}</tbody>
       </table>
     </div>`;
 }
 
-function monatsKarten(monate) {
-  return `<div class="list-group list-group-flush">${monate.map(m => `
+function monthCards(months) {
+  return `<div class="list-group list-group-flush">${months.map(m => `
     <div class="list-group-item px-3 py-3">
       <div class="d-flex justify-content-between align-items-baseline">
-        <strong>${escapeHtml(monatLang(m.month))}</strong>
+        <strong>${escapeHtml(longMonth(m.month))}</strong>
         <span class="fw-semibold">${kmText(m.total)}</span>
       </div>
-      <div class="my-2">${aufteilungsBalken(m, { hoehe: 8 })}</div>
+      <div class="my-2">${splitBar(m, { height: 8 })}</div>
       <div class="d-flex flex-wrap column-gap-3 row-gap-1 small">
-        ${FAHRTARTEN.map(a => `<span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(m[a.key])}</span>`).join("")}
+        ${TRIP_TYPES.map(a => `<span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${num(m[a.key])}</span>`).join("")}
       </div>
-      <div class="small text-muted mt-1">${zahl(m.start_km)} → ${zahl(m.end_km)} km · ${escapeHtml(fahrtenText(m.trips))}</div>
+      <div class="small text-muted mt-1">${num(m.start_km)} → ${num(m.end_km)} km · ${escapeHtml(tripsText(m.trips))}</div>
     </div>`).join("")}</div>`;
 }
 
 // Colors of the current theme (light/dark) for canvas charts
-function diagrammFarben() {
+function chartColors() {
   return {
-    ink:     cssFarbe("--bs-secondary-color") || "#6c757d",
-    flaeche: cssFarbe("--bs-body-bg") || "#fff",                 // card background = gap between segments
-    raster:  cssFarbe("--bs-border-color-translucent") || "rgba(0,0,0,.1)",
-    serien:  FAHRTARTEN.map(fahrtartFarbe),
+    ink:     cssColor("--bs-secondary-color") || "#6c757d",
+    surface: cssColor("--bs-body-bg") || "#fff",                 // card background = gap between segments
+    grid:  cssColor("--bs-border-color-translucent") || "rgba(0,0,0,.1)",
+    series:  TRIP_TYPES.map(tripTypeColor),
   };
 }
 
-const diagramme = new Set();
+const charts = new Set();
 
-function faerbeEin(chart) {
-  const f = diagrammFarben();
-  chart.data.datasets.forEach((ds, i) => { ds.backgroundColor = f.serien[i]; ds.borderColor = f.flaeche; });
+function applyChartColors(chart) {
+  const f = chartColors();
+  chart.data.datasets.forEach((ds, i) => { ds.backgroundColor = f.series[i]; ds.borderColor = f.surface; });
   chart.options.plugins.legend.labels.color = f.ink;
   chart.options.scales.x.ticks.color = f.ink;
   chart.options.scales.y.ticks.color = f.ink;
-  chart.options.scales.y.grid.color  = f.raster;
+  chart.options.scales.y.grid.color  = f.grid;
 }
 
 // Recolor immediately on light/dark switch (also before printing)
 document.addEventListener("themaGeaendert", () => {
-  for (const chart of diagramme) {
-    if (!chart.canvas?.isConnected) { diagramme.delete(chart); continue; }
-    faerbeEin(chart);
+  for (const chart of charts) {
+    if (!chart.canvas?.isConnected) { charts.delete(chart); continue; }
+    applyChartColors(chart);
     chart.update("none");
   }
 });
 
-function zeichneVerlauf(canvas, monate) {
-  const f = diagrammFarben();
+function drawHistoryChart(canvas, months) {
+  const f = chartColors();
   const chart = new Chart(canvas, {
     type: "bar",
     data: {
-      labels: monate.map(m => monatKurz(m.month)),
-      datasets: FAHRTARTEN.map((a, i) => ({
+      labels: months.map(m => shortMonth(m.month)),
+      datasets: TRIP_TYPES.map((a, i) => ({
         label: a.label,
-        data: monate.map(m => m[a.key]),
-        backgroundColor: f.serien[i],
-        borderColor: f.flaeche,
+        data: months.map(m => m[a.key]),
+        backgroundColor: f.series[i],
+        borderColor: f.surface,
         borderWidth: 1,               // in background color → 2px gap between segments
         borderSkipped: false,
         borderRadius: 3,
@@ -161,34 +161,34 @@ function zeichneVerlauf(canvas, monate) {
       scales: {
         x: { stacked: true, grid: { display: false }, ticks: { color: f.ink } },
         y: { stacked: true, beginAtZero: true, border: { display: false },
-             grid: { color: f.raster }, ticks: { color: f.ink, callback: v => zahl(v) } },
+             grid: { color: f.grid }, ticks: { color: f.ink, callback: v => num(v) } },
       },
     },
   });
-  diagramme.add(chart);
+  charts.add(chart);
   return chart;
 }
 
 // Renders the complete analysis into `ziel` and returns the chart instance.
 // kacheln: [{ label, wert, hinweis? }] for the key figures row
-function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart }) {
-  alterChart?.destroy();
+function showYearAnalysis(target, { year: selectedYear, months: months, sum: sums, tiles: tiles, oldChart: previousChart }) {
+  previousChart?.destroy();
 
-  if (monate.length === 0) {
-    ziel.innerHTML = `<div class="alert alert-info">${tHtml("analysis.noTrips", { year: jahr })}</div>`;
+  if (months.length === 0) {
+    target.innerHTML = `<div class="alert alert-info">${tHtml("analysis.noTrips", { year: selectedYear })}</div>`;
     return null;
   }
 
-  ziel.innerHTML = `
-    <div class="row row-cols-3 g-2 g-md-3 mb-3 kennzahlen">${kacheln.map(kennzahlKachel).join("")}</div>
+  target.innerHTML = `
+    <div class="row row-cols-3 g-2 g-md-3 mb-3 kennzahlen">${tiles.map(metricTile).join("")}</div>
 
     <div class="row g-3 mb-3">
       <div class="col-lg-4">
         <div class="card shadow-sm border-0 h-100">
           <div class="card-body">
-            <h2 class="h6 mb-3">${tHtml("analysis.split", { year: jahr })}</h2>
-            ${aufteilungsBalken(summe, { hoehe: 14 })}
-            <div class="d-grid gap-2 mt-3">${aufteilungsLegende(summe)}</div>
+            <h2 class="h6 mb-3">${tHtml("analysis.split", { year: selectedYear })}</h2>
+            ${splitBar(sums, { height: 14 })}
+            <div class="d-grid gap-2 mt-3">${splitLegend(sums)}</div>
           </div>
         </div>
       </div>
@@ -205,9 +205,9 @@ function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart 
 
     <div class="card shadow-sm border-0">
       <div class="card-body pb-0"><h2 class="h6 mb-2">${t("analysis.monthlyOverview")}</h2></div>
-      <div class="d-none d-md-block d-print-block">${monatsTabelle(monate)}</div>
-      <div class="d-md-none d-print-none">${monatsKarten([...monate].reverse())}</div>
+      <div class="d-none d-md-block d-print-block">${monthTable(months)}</div>
+      <div class="d-md-none d-print-none">${monthCards([...months].reverse())}</div>
     </div>`;
 
-  return zeichneVerlauf(ziel.querySelector("canvas"), monate);
+  return drawHistoryChart(target.querySelector("canvas"), months);
 }

@@ -22,11 +22,11 @@ document.getElementById("hauptnavigation").innerHTML = `
             <li><a class="dropdown-item" href="auto.html">${t("nav.vehicleInfo")}</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">${t("nav.appearance")}</h6></li>
-            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="auto">
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme="auto">
               <span aria-hidden="true">◐</span>${t("nav.themeAuto")}<span class="ms-auto darstellung-haken">✓</span></button></li>
-            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="hell">
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme="hell">
               <span aria-hidden="true">☀</span>${t("nav.themeLight")}<span class="ms-auto darstellung-haken">✓</span></button></li>
-            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="dunkel">
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme="dunkel">
               <span aria-hidden="true">☾</span>${t("nav.themeDark")}<span class="ms-auto darstellung-haken">✓</span></button></li>
             <li class="nav-admin d-none"><hr class="dropdown-divider"></li>
             <li class="nav-admin d-none"><a class="dropdown-item" href="admin.html">${t("nav.admin")}</a></li>

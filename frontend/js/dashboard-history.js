@@ -1,30 +1,30 @@
 // js/dashboard-history.js
 // Year history: analysis of completed years for the active vehicle (see auswertung.js)
 
-let chartInstanzHistory = null;
+let historyChartInstance = null;
 
-async function ladeHistoryDashboard(jahr) {
-  const ziel = document.getElementById("historyContent");
-  document.getElementById("printHeadline").textContent = t("history.printHeadline", { year: jahr });
-  await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
+async function loadHistoryDashboard(selectedYear) {
+  const target = document.getElementById("historyContent");
+  document.getElementById("printHeadline").textContent = t("history.printHeadline", { year: selectedYear });
+  await Promise.all([vehicleReady, initialSync]);
 
-  let daten = { months: [], totals: { total: 0, trips: 0 } };
+  let rawData = { months: [], totals: { total: 0, trips: 0 } };
   try {
-    const res = await apiFetch(mitFahrzeug(`/api/trips?year=${jahr}`));
+    const res = await apiFetch(withVehicle(`/api/trips?year=${selectedYear}`));
     if (!res.ok) throw new Error(await apiError(res));
-    daten = await res.json();
+    rawData = await res.json();
   } catch (err) {
-    ziel.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+    target.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
     return;
   }
 
-  const { months: monate, totals: summe } = daten;
-  chartInstanzHistory = zeigeJahresauswertung(ziel, {
-    jahr, monate, summe, alterChart: chartInstanzHistory,
-    kacheln: [
-      { label: t("history.total", { year: jahr }), wert: kmText(summe.total), hinweis: t("history.trips", { count: summe.trips, n: zahl(summe.trips) }) },
-      { label: t("history.perMonth"), wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0) },
-      { label: t("history.activeMonths"), wert: `${monate.length} / 12` },
+  const { months: months, totals: sums } = rawData;
+  historyChartInstance = showYearAnalysis(target, {
+    year: selectedYear, months: months, sum: sums, oldChart: historyChartInstance,
+    tiles: [
+      { label: t("history.total", { year: selectedYear }), value: kmText(sums.total), hint: t("history.trips", { count: sums.trips, n: num(sums.trips) }) },
+      { label: t("history.perMonth"), value: kmText(months.length ? Math.round(sums.total / months.length) : 0) },
+      { label: t("history.activeMonths"), value: `${months.length} / 12` },
     ],
   });
 }
@@ -33,37 +33,37 @@ async function ladeHistoryDashboard(jahr) {
 // "beforeprint" runs after theme.js (switch to light) – also on Ctrl+P.
 window.addEventListener("beforeprint", () => {
   const canvas = document.querySelector("#historyContent canvas");
-  const bild   = document.querySelector("#historyContent .verlauf-druckbild");
-  if (canvas && bild) bild.src = canvas.toDataURL("image/png");
+  const image   = document.querySelector("#historyContent .verlauf-druckbild");
+  if (canvas && image) image.src = canvas.toDataURL("image/png");
 });
 
-function druckeSeite() {
+function printPage() {
   window.print();
 }
 
 function initHistory() {
-  const jahrSelect    = document.getElementById("historyJahrSelect");
-  const aktuellesJahr = new Date().getFullYear();
+  const yearSelect    = document.getElementById("historyJahrSelect");
+  const currentYear = new Date().getFullYear();
 
-  for (let j = aktuellesJahr - 1; j >= START_JAHR; j--) {
-    jahrSelect.insertAdjacentHTML("beforeend", `<option value="${j}">${j}</option>`);
+  for (let j = currentYear - 1; j >= START_YEAR; j--) {
+    yearSelect.insertAdjacentHTML("beforeend", `<option value="${j}">${j}</option>`);
   }
 
   document.getElementById("historyCSVExport").addEventListener("click", () => {
-    downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `fahrten_${jahrSelect.value}.csv`);
+    downloadFile(withVehicle(`/api/export/csv/year/${yearSelect.value}`), `fahrten_${yearSelect.value}.csv`);
   });
-  document.getElementById("historyPDFExport").addEventListener("click", druckeSeite);
-  jahrSelect.addEventListener("change", () => ladeHistoryDashboard(jahrSelect.value));
+  document.getElementById("historyPDFExport").addEventListener("click", printPage);
+  yearSelect.addEventListener("change", () => loadHistoryDashboard(yearSelect.value));
 
-  ersteSynchronisierung.then(() => beiAktualisierung(() => {
-    if (jahrSelect.value) return ladeHistoryDashboard(jahrSelect.value);
+  initialSync.then(() => onRefresh(() => {
+    if (yearSelect.value) return loadHistoryDashboard(yearSelect.value);
   }));
 
-  if (jahrSelect.options.length > 0) {
-    ladeHistoryDashboard(jahrSelect.value);
+  if (yearSelect.options.length > 0) {
+    loadHistoryDashboard(yearSelect.value);
   } else {
     document.getElementById("historyContent").innerHTML = `
-      <div class="alert alert-warning">${tHtml("history.noYears", { start: START_JAHR })}</div>`;
+      <div class="alert alert-warning">${tHtml("history.noYears", { start: START_YEAR })}</div>`;
   }
 }
 

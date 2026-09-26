@@ -1,6 +1,6 @@
 // js/footer.js
 // Shows frontend and backend version (both are bumped automatically on commit)
-async function ladeVersion() {
+async function loadVersion() {
   const [frontend, backend] = await Promise.all([
     fetch("release.ver", { cache: "no-store" })
       .then(res => res.ok ? res.text() : "dev").then(v => v.trim()).catch(() => "dev"),
@@ -12,4 +12,4 @@ async function ladeVersion() {
     backend ? `${frontend} · ${t("footer.backend")} ${backend}` : frontend;
 }
 
-document.addEventListener("DOMContentLoaded", ladeVersion);
+document.addEventListener("DOMContentLoaded", loadVersion);

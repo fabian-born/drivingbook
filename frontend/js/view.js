@@ -1,22 +1,22 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-const jahrSelect  = document.getElementById("jahrSelect");
-const monatSelect = document.getElementById("monatSelect");
+const yearSelect  = document.getElementById("jahrSelect");
+const monthSelect = document.getElementById("monatSelect");
 const tbody       = document.getElementById("fahrtenTabelle");
 const cardList    = document.getElementById("cardList") ?? document.createElement("div");
-const fahrtartFilter = document.getElementById("fahrtartFilter");
+const tripTypeFilter = document.getElementById("fahrtartFilter");
 const csvExportBtn   = document.getElementById("csvExportYear");
 
-let aktuelleFahrten = [];
-let jahresansicht   = false;
+let currentTrips = [];
+let yearView   = false;
 let vehicles      = [];
 let vehicleById   = new Map();
 
 // ----------------- Vehicles (names in the audit log) -----------------
 // Only trips of the active vehicle are shown (see fahrzeug.js).
-async function ladeVehicles() {
-  await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
-  vehicles    = alleFahrzeuge;
+async function loadVehicles() {
+  await Promise.all([vehicleReady, initialSync]);
+  vehicles    = allVehicles;
   vehicleById = new Map(vehicles.map(v => [v.id, v]));
 }
 
@@ -26,99 +26,99 @@ function isMobile() {
 }
 
 // ----------------- Fill years -----------------
-function fuelleJahre() {
-  const aktuellesJahr = new Date().getFullYear();
-  jahrSelect.innerHTML = "";
-  for (let j = aktuellesJahr; j >= START_JAHR; j--) {
-    jahrSelect.innerHTML += `<option value="${j}">${j}</option>`;
+function fillYears() {
+  const currentYear = new Date().getFullYear();
+  yearSelect.innerHTML = "";
+  for (let j = currentYear; j >= START_YEAR; j--) {
+    yearSelect.innerHTML += `<option value="${j}">${j}</option>`;
   }
 }
 
 // ----------------- Load the year's trips (one request) -----------------
 // Returns all trips of the selected year incl. distance; months are filtered locally
-let jahresFahrten = [];
+let yearTrips = [];
 
-async function ladeJahr() {
-  const res = await apiFetch(mitFahrzeug(`/api/trips?year=${jahrSelect.value}`));
+async function loadYear() {
+  const res = await apiFetch(withVehicle(`/api/trips?year=${yearSelect.value}`));
   if (!res.ok) throw new Error(await apiError(res));
-  jahresFahrten = (await res.json()).trips;
+  yearTrips = (await res.json()).trips;
 }
 
 // ----------------- Fill months & preselect current month -----------------
-async function fuelleMonateMitCheck() {
-  const jahr           = jahrSelect.value;
-  const aktuellesJahr  = new Date().getFullYear();
-  const aktuellerMonat = String(new Date().getMonth() + 1).padStart(2, "0");
+async function fillMonths() {
+  const selectedYear           = yearSelect.value;
+  const currentYear  = new Date().getFullYear();
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 
-  setLaden();
+  setLoading();
   try {
-    await ladeJahr();
+    await loadYear();
   } catch {
-    setLeer(t("view.loadError"));
+    setEmpty(t("view.loadError"));
     return;
   }
 
-  const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
-  const monatsname = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString(i18n.locale, { month: "short" });
-  monatSelect.innerHTML = `<option value="alle">${t("view.all")}</option>` +
+  const monthsWithData = new Set(yearTrips.map(f => f.month.slice(5)));
+  const monthName = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString(i18n.locale, { month: "short" });
+  monthSelect.innerHTML = `<option value="alle">${t("view.all")}</option>` +
     Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))
-      .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${monatsname(mm)}</option>`)
+      .map(mm => `<option value="${mm}" ${monthsWithData.has(mm) ? "" : "disabled"}>${monthName(mm)}</option>`)
       .join("");
 
   // Current year → prefer current month, otherwise the first one with data
-  const aktiverMonat = String(jahr) === String(aktuellesJahr) && monateMitDaten.has(aktuellerMonat)
-    ? aktuellerMonat
-    : [...monateMitDaten].sort()[0];
+  const initialMonth = String(selectedYear) === String(currentYear) && monthsWithData.has(currentMonth)
+    ? currentMonth
+    : [...monthsWithData].sort()[0];
 
-  if (aktiverMonat) {
-    monatSelect.value = aktiverMonat;
-    zeigeAuswahl();
+  if (initialMonth) {
+    monthSelect.value = initialMonth;
+    showSelection();
   } else {
-    aktuelleFahrten = [];
-    setLeer(t("view.noDataThisYear"));
+    currentTrips = [];
+    setEmpty(t("view.noDataThisYear"));
   }
 }
 
 // ----------------- Show selected month (or all) from the year's data -----------------
-function zeigeAuswahl() {
-  const monat = monatSelect.value;
-  jahresansicht   = monat === "alle";
-  aktuelleFahrten = jahresansicht
-    ? [...jahresFahrten]
-    : jahresFahrten.filter(f => f.month === `${jahrSelect.value}-${monat}`);
+function showSelection() {
+  const month = monthSelect.value;
+  yearView   = month === "alle";
+  currentTrips = yearView
+    ? [...yearTrips]
+    : yearTrips.filter(f => f.month === `${yearSelect.value}-${month}`);
 
-  if (aktuelleFahrten.length === 0) {
-    setLeer(jahresansicht ? t("view.noDataForYear", { year: jahrSelect.value }) : t("view.noData"));
+  if (currentTrips.length === 0) {
+    setEmpty(yearView ? t("view.noDataForYear", { year: yearSelect.value }) : t("view.noData"));
     return;
   }
   renderAll();
 }
 
 // ----------------- Reload trips from the server (selection is kept) -----------------
-async function ladeFahrten() {
-  if (!jahrSelect.value || !monatSelect.value) return;
+async function loadTrips() {
+  if (!yearSelect.value || !monthSelect.value) return;
   try {
-    await ladeJahr();
+    await loadYear();
   } catch {
-    setLeer(t("view.loadError"));
+    setEmpty(t("view.loadError"));
     return;
   }
   // Enable months with new trips, selection is kept
-  const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
-  for (const option of monatSelect.options) {
-    if (option.value !== "alle") option.disabled = !monateMitDaten.has(option.value);
+  const monthsWithData = new Set(yearTrips.map(f => f.month.slice(5)));
+  for (const option of monthSelect.options) {
+    if (option.value !== "alle") option.disabled = !monthsWithData.has(option.value);
   }
-  zeigeAuswahl();
+  showSelection();
 }
 
 // ----------------- Render-Dispatcher -----------------
 function renderAll() {
-  renderSumme();
-  if (jahresansicht) {
-    renderTabelleJahresansicht();
-    renderCardsJahresansicht();
+  renderTotals();
+  if (yearView) {
+    renderTableYearView();
+    renderCardsYearView();
   } else {
-    renderTabelle();
+    renderTable();
     renderCards();
   }
 }
@@ -127,11 +127,11 @@ function renderAll() {
 // DESKTOP: Table rendering
 // ═══════════════════════════════════════════════
 
-function renderTabelle() {
+function renderTable() {
   tbody.innerHTML = "";
-  const filter = fahrtartFilter.value;
+  const filter = tripTypeFilter.value;
 
-  aktuelleFahrten.forEach((f, i) => {
+  currentTrips.forEach((f, i) => {
     if (filter !== "alle" && f.trip_type !== filter) return;
     const diff = f.distance ?? 0;
 
@@ -144,7 +144,7 @@ function renderTabelle() {
       <td contenteditable="true" data-field="destination">${escapeHtml(f.destination)}</td>
       <td>
         <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
-          ${fahrtartOptionen(f.trip_type)}
+          ${tripTypeOptions(f.trip_type)}
         </select>
       </td>
       <td>
@@ -161,23 +161,23 @@ function renderTabelle() {
   });
 }
 
-function renderTabelleJahresansicht() {
+function renderTableYearView() {
   tbody.innerHTML = "";
-  const filter = fahrtartFilter.value;
-  let laufenderMonat = null;
+  const filter = tripTypeFilter.value;
+  let groupMonth = null;
   let nr = 0;
 
-  aktuelleFahrten.forEach((f, i) => {
+  currentTrips.forEach((f, i) => {
     if (filter !== "alle" && f.trip_type !== filter) return;
-    const monat = monthKeyFromISO(f.timestamp);
+    const month = monthKeyFromISO(f.timestamp);
 
-    if (monat !== laufenderMonat) {
-      laufenderMonat = monat;
+    if (month !== groupMonth) {
+      groupMonth = month;
       nr = 0;
       const trH = document.createElement("tr");
       trH.className = "table-dark";
       trH.innerHTML = `<td colspan="7" class="fw-bold small">
-        <span class="mdi mdi-calendar-month me-1"></span>${formatMonat(monat)}
+        <span class="mdi mdi-calendar-month me-1"></span>${formatMonth(month)}
       </td>`;
       tbody.appendChild(trH);
     }
@@ -190,7 +190,7 @@ function renderTabelleJahresansicht() {
       <td>${escapeHtml(f.odometer_km)}</td>
       <td>${diff >= 0 ? diff : "–"}</td>
       <td>${escapeHtml(f.destination)}</td>
-      <td>${fahrtartBadge(f.trip_type)}</td>
+      <td>${tripTypeBadge(f.trip_type)}</td>
       <td>${new Date(f.timestamp).toLocaleString(i18n.locale)}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
@@ -203,31 +203,31 @@ function renderTabelleJahresansicht() {
 
 function renderCards() {
   cardList.innerHTML = "";
-  const filter = fahrtartFilter.value;
+  const filter = tripTypeFilter.value;
 
-  aktuelleFahrten.forEach((f, i) => {
+  currentTrips.forEach((f, i) => {
     if (filter !== "alle" && f.trip_type !== filter) return;
     const diff = f.distance ?? 0;
     cardList.appendChild(buildCard(f, i, diff, false));
   });
 }
 
-function renderCardsJahresansicht() {
+function renderCardsYearView() {
   cardList.innerHTML = "";
-  const filter = fahrtartFilter.value;
-  let laufenderMonat = null;
+  const filter = tripTypeFilter.value;
+  let groupMonth = null;
   let nr = 0;
 
-  aktuelleFahrten.forEach((f, i) => {
+  currentTrips.forEach((f, i) => {
     if (filter !== "alle" && f.trip_type !== filter) return;
-    const monat = monthKeyFromISO(f.timestamp);
+    const month = monthKeyFromISO(f.timestamp);
 
-    if (monat !== laufenderMonat) {
-      laufenderMonat = monat;
+    if (month !== groupMonth) {
+      groupMonth = month;
       nr = 0;
       const div = document.createElement("div");
       div.className = "month-divider";
-      div.innerHTML = `<span class="mdi mdi-calendar-month me-1"></span>${formatMonat(monat)}`;
+      div.innerHTML = `<span class="mdi mdi-calendar-month me-1"></span>${formatMonth(month)}`;
       cardList.appendChild(div);
     }
 
@@ -238,23 +238,23 @@ function renderCardsJahresansicht() {
 }
 
 function buildCard(f, i, diff, readonly, nr) {
-  const zeitpunkt = new Date(f.timestamp).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" });
-  const strecke   = f.distance == null ? "" : `+${zahl(Math.max(diff, 0))} km`;
+  const when = new Date(f.timestamp).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" });
+  const distanceText   = f.distance == null ? "" : `+${num(Math.max(diff, 0))} km`;
 
   const div = document.createElement("div");
   div.className = "fahrt-card";
   div.dataset.index = i;
-  div.style.setProperty("--fahrtart-farbe", fahrtartInfo(f.trip_type).chart);
+  div.style.setProperty("--fahrtart-farbe", tripTypeInfo(f.trip_type).chart);
 
   if (readonly) {
     div.innerHTML = `
       <div class="d-flex justify-content-between align-items-center gap-2">
-        <span class="card-meta">${escapeHtml(zeitpunkt)}</span>
-        ${fahrtartBadge(f.trip_type)}
+        <span class="card-meta">${escapeHtml(when)}</span>
+        ${tripTypeBadge(f.trip_type)}
       </div>
       <div class="d-flex align-items-baseline gap-2 mt-1">
-        <span class="card-km">${zahl(f.odometer_km)} km</span>
-        <span class="strecke">${strecke}</span>
+        <span class="card-km">${num(f.odometer_km)} km</span>
+        <span class="strecke">${distanceText}</span>
       </div>
       <div class="card-ziel">${escapeHtml(f.destination)}</div>
       <div class="d-flex justify-content-between align-items-center mt-1">
@@ -276,7 +276,7 @@ function buildCard(f, i, diff, readonly, nr) {
             data-index="${i}" data-field="odometer_km" value="${escapeHtml(f.odometer_km)}">
           <span class="input-group-text">km</span>
         </div>
-        <span class="strecke">${strecke}</span>
+        <span class="strecke">${distanceText}</span>
       </div>
 
       <input type="text" class="form-control mb-2 card-field-ziel" aria-label="${t("view.col.destination")}"
@@ -284,7 +284,7 @@ function buildCard(f, i, diff, readonly, nr) {
 
       <div class="d-flex align-items-center gap-2">
         <select class="form-select card-fahrtart" data-index="${i}" aria-label="${t("view.tripType")}">
-          ${fahrtartOptionen(f.trip_type)}
+          ${tripTypeOptions(f.trip_type)}
         </select>
         <span class="card-meta">#${i + 1}</span>${historyButton(f)}
       </div>`;
@@ -294,25 +294,25 @@ function buildCard(f, i, diff, readonly, nr) {
 }
 
 // ----------------- Total of the displayed trips -----------------
-function renderSumme() {
+function renderTotals() {
   const box = document.getElementById("auswahlSumme");
-  const filter = fahrtartFilter.value;
-  const fahrten = aktuelleFahrten.filter(f => filter === "alle" || f.trip_type === filter);
-  box.classList.toggle("d-none", fahrten.length === 0);
-  if (fahrten.length === 0) return;
+  const filter = tripTypeFilter.value;
+  const trips = currentTrips.filter(f => filter === "alle" || f.trip_type === filter);
+  box.classList.toggle("d-none", trips.length === 0);
+  if (trips.length === 0) return;
 
-  const summe = Object.fromEntries(FAHRTARTEN.map(a => [a.key, 0]));
-  for (const f of fahrten) summe[fahrtartInfo(f.trip_type).key] += Math.max(f.distance ?? 0, 0);
-  const gesamt = FAHRTARTEN.reduce((n, a) => n + summe[a.key], 0);
+  const sums = Object.fromEntries(TRIP_TYPES.map(a => [a.key, 0]));
+  for (const f of trips) sums[tripTypeInfo(f.trip_type).key] += Math.max(f.distance ?? 0, 0);
+  const grandTotal = TRIP_TYPES.reduce((n, a) => n + sums[a.key], 0);
 
-  document.getElementById("auswahlTitel").textContent = jahresansicht
-    ? t("analysis.year", { year: jahrSelect.value })
-    : formatMonat(`${jahrSelect.value}-${monatSelect.value}`);
-  document.getElementById("auswahlKm").textContent      = kmText(gesamt);
-  document.getElementById("auswahlFahrten").textContent = `· ${t("analysis.trips", { count: fahrten.length, n: fahrten.length })}`;
-  document.getElementById("auswahlBalken").innerHTML    = aufteilungsBalken(summe, { hoehe: 8 });
-  document.getElementById("auswahlLegende").innerHTML   = FAHRTARTEN.map(a => `
-    <span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(summe[a.key])} km</span>`).join("");
+  document.getElementById("auswahlTitel").textContent = yearView
+    ? t("analysis.year", { year: yearSelect.value })
+    : formatMonth(`${yearSelect.value}-${monthSelect.value}`);
+  document.getElementById("auswahlKm").textContent      = kmText(grandTotal);
+  document.getElementById("auswahlFahrten").textContent = `· ${t("analysis.trips", { count: trips.length, n: trips.length })}`;
+  document.getElementById("auswahlBalken").innerHTML    = splitBar(sums, { height: 8 });
+  document.getElementById("auswahlLegende").innerHTML   = TRIP_TYPES.map(a => `
+    <span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${num(sums[a.key])} km</span>`).join("");
 }
 
 // ═══════════════════════════════════════════════
@@ -320,14 +320,14 @@ function renderSumme() {
 // ═══════════════════════════════════════════════
 
 cardList.addEventListener("change", async e => {
-  if (jahresansicht) return;
+  if (yearView) return;
 
   // Trip type dropdown
   if (e.target.classList.contains("card-fahrtart")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].trip_type = e.target.value;
-    e.target.closest(".fahrt-card").style.setProperty("--fahrtart-farbe", fahrtartInfo(e.target.value).chart);
-    if (await speichereFahrt(i)) renderSumme();
+    currentTrips[i].trip_type = e.target.value;
+    e.target.closest(".fahrt-card").style.setProperty("--fahrtart-farbe", tripTypeInfo(e.target.value).chart);
+    if (await saveTrip(i)) renderTotals();
   }
 
   // Timestamp
@@ -340,32 +340,32 @@ cardList.addEventListener("change", async e => {
 });
 
 cardList.addEventListener("blur", async e => {
-  if (jahresansicht) return;
+  if (yearView) return;
 
   if (e.target.classList.contains("card-field-km")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].odometer_km = Number(e.target.value);
-    await speichereFahrt(i);
+    currentTrips[i].odometer_km = Number(e.target.value);
+    await saveTrip(i);
   }
 
   if (e.target.classList.contains("card-field-ziel")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].destination = e.target.value;
-    await speichereFahrt(i);
+    currentTrips[i].destination = e.target.value;
+    await saveTrip(i);
   }
 }, true);
 
 // History buttons also work in the (otherwise read-only) year view
 [cardList, tbody].forEach(el => el.addEventListener("click", e => {
   const btn = e.target.closest(".history-btn");
-  if (btn) zeigeVerlauf(btn.dataset.id);
+  if (btn) showHistory(btn.dataset.id);
 }));
 
 cardList.addEventListener("click", e => {
-  if (jahresansicht) return;
+  if (yearView) return;
   const btn = e.target.closest(".delete-btn");
   if (!btn) return;
-  zeigeLoeschModal(btn.dataset.index);
+  showDeleteModal(btn.dataset.index);
 });
 
 // ═══════════════════════════════════════════════
@@ -373,23 +373,23 @@ cardList.addEventListener("click", e => {
 // ═══════════════════════════════════════════════
 
 tbody.addEventListener("blur", async e => {
-  if (jahresansicht) return;
+  if (yearView) return;
   if (!e.target.dataset.field) return;
   const tr    = e.target.closest("tr");
   const index = tr.dataset.index;
   const field = e.target.dataset.field;
-  aktuelleFahrten[index][field] =
+  currentTrips[index][field] =
     field === "odometer_km" ? Number(e.target.innerText) : e.target.innerText;
-  await speichereFahrt(index);
+  await saveTrip(index);
 }, true);
 
 tbody.addEventListener("change", async e => {
-  if (jahresansicht) return;
+  if (yearView) return;
 
   if (e.target.classList.contains("fahrtart-select")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].trip_type = e.target.value;
-    if (await speichereFahrt(i)) renderSumme();
+    currentTrips[i].trip_type = e.target.value;
+    if (await saveTrip(i)) renderTotals();
   }
 
   if (e.target.classList.contains("timestamp-input")) {
@@ -400,10 +400,10 @@ tbody.addEventListener("change", async e => {
 });
 
 tbody.addEventListener("click", e => {
-  if (jahresansicht) return;
+  if (yearView) return;
   const btn = e.target.closest(".delete-btn");
   if (!btn) return;
-  zeigeLoeschModal(btn.dataset.index);
+  showDeleteModal(btn.dataset.index);
 });
 
 // ═══════════════════════════════════════════════
@@ -411,66 +411,66 @@ tbody.addEventListener("click", e => {
 // ═══════════════════════════════════════════════
 
 async function handleTimestampChange(index, localVal) {
-  const alterMonthKey  = `${jahrSelect.value}-${monatSelect.value}`;
-  const neuesTimestamp = new Date(localVal).toISOString();
-  const neuerMonthKey  = monthKeyFromISO(neuesTimestamp);
-  if (!neuerMonthKey) return;
+  const oldMonthKey  = `${yearSelect.value}-${monthSelect.value}`;
+  const newTimestamp = new Date(localVal).toISOString();
+  const newMonthKey  = monthKeyFromISO(newTimestamp);
+  if (!newMonthKey) return;
 
-  const gespeichert = await speichereFahrt(index, { timestamp: neuesTimestamp });
-  if (!gespeichert) return;
+  const saved = await saveTrip(index, { timestamp: newTimestamp });
+  if (!saved) return;
 
-  aktuelleFahrten[index].timestamp = neuesTimestamp;
-  if (neuerMonthKey !== alterMonthKey) {
+  currentTrips[index].timestamp = newTimestamp;
+  if (newMonthKey !== oldMonthKey) {
     // Trip now belongs to another month → reload the year's data and distances
-    await ladeFahrten();
-    zeigeHinweis(t("view.moved", { month: neuerMonthKey }), "info");
+    await loadTrips();
+    showHint(t("view.moved", { month: newMonthKey }), "info");
   }
 }
 
 // Saves changes to a trip by ID. Without `aenderungen`, the
 // editable fields from aktuelleFahrten[index] are sent.
-async function speichereFahrt(index, aenderungen) {
-  const fahrt = aktuelleFahrten[index];
-  const body  = aenderungen ?? {
-    odometer_km: fahrt.odometer_km,
-    destination: fahrt.destination,
-    trip_type:   fahrt.trip_type,
+async function saveTrip(index, changes) {
+  const trip = currentTrips[index];
+  const body  = changes ?? {
+    odometer_km: trip.odometer_km,
+    destination: trip.destination,
+    trip_type:   trip.trip_type,
   };
 
   try {
-    let res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body });
+    let res = await apiFetch(`/api/trips/${trip.id}`, { method: "PUT", body });
 
     // Odometer reading doesn't match the neighbouring trips → ask and force if confirmed
     if (res.status === 409) {
       const err = await res.json().catch(() => ({}));
       if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\n${t("offline.saveAnyway")}`)) {
-        res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body: { ...body, force: true } });
+        res = await apiFetch(`/api/trips/${trip.id}`, { method: "PUT", body: { ...body, force: true } });
       } else {
-        zeigeHinweis(t("view.notSaved", { error: err.error || res.status }), "warning");
-        ladeFahrten();  // reset the display to the saved state
+        showHint(t("view.notSaved", { error: err.error || res.status }), "warning");
+        loadTrips();  // reset the display to the saved state
         return false;
       }
     }
 
     if (!res.ok) {
-      zeigeHinweis(`${t("common.saveError")}: ${await apiError(res)}`, "danger");
+      showHint(`${t("common.saveError")}: ${await apiError(res)}`, "danger");
       return false;
     }
-    fahrt.edited = true;
+    trip.edited = true;
     return true;
   } catch (err) {
     console.error("Speicherfehler:", err);
-    zeigeHinweis(`${t("common.saveError")}.`, "danger");
+    showHint(`${t("common.saveError")}.`, "danger");
     return false;
   }
 }
 
-function zeigeLoeschModal(index) {
-  const fahrt    = aktuelleFahrten[index];
-  const zeitpunkt = new Date(fahrt.timestamp).toLocaleString(i18n.locale);
+function showDeleteModal(index) {
+  const trip    = currentTrips[index];
+  const when = new Date(trip.timestamp).toLocaleString(i18n.locale);
 
   document.getElementById("confirmDeleteInfo").textContent =
-    `#${parseInt(index) + 1} · ${fahrt.odometer_km} km · ${fahrt.destination} · ${fahrt.trip_type} · ${zeitpunkt}`;
+    `#${parseInt(index) + 1} · ${trip.odometer_km} km · ${trip.destination} · ${trip.trip_type} · ${when}`;
   document.getElementById("confirmDeleteIndex").value = index;
 
   new bootstrap.Modal(document.getElementById("deleteModal")).show();
@@ -478,13 +478,13 @@ function zeigeLoeschModal(index) {
 
 document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () => {
   const index = document.getElementById("confirmDeleteIndex").value;
-  const fahrt = aktuelleFahrten[index];
+  const trip = currentTrips[index];
 
   try {
-    const res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/trips/${trip.id}`, { method: "DELETE" });
     if (res.ok) {
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
-      await ladeFahrten();  // the following trip's distance changes too
+      await loadTrips();  // the following trip's distance changes too
     } else {
       alert(t("view.deleteError"));
     }
@@ -510,24 +510,24 @@ function monthKeyFromISO(isoString) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonat(monthKey) {
+function formatMonth(monthKey) {
   if (!monthKey) return monthKey;
   const [y, m] = monthKey.split("-");
   return new Date(y, parseInt(m) - 1).toLocaleString(i18n.locale, { month: "long", year: "numeric" });
 }
 
-function setLaden(text = t("view.loading")) {
+function setLoading(text = t("view.loading")) {
   tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
-function setLeer(text) {
+function setEmpty(text) {
   document.getElementById("auswahlSumme").classList.add("d-none");
   tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
 
-function zeigeHinweis(text, typ = "info") {
+function showHint(text, type = "info") {
   let container = document.getElementById("hinweisContainer");
   if (!container) {
     container = document.createElement("div");
@@ -536,7 +536,7 @@ function zeigeHinweis(text, typ = "info") {
     document.body.appendChild(container);
   }
   const div = document.createElement("div");
-  div.className = `alert alert-${typ} alert-dismissible fade show shadow`;
+  div.className = `alert alert-${type} alert-dismissible fade show shadow`;
   div.innerHTML = `${escapeHtml(text)}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
   container.appendChild(div);
   setTimeout(() => div.remove(), 5000);
@@ -546,37 +546,37 @@ function zeigeHinweis(text, typ = "info") {
 // Filter & Export & Swipe
 // ═══════════════════════════════════════════════
 
-fahrtartFilter.addEventListener("change", renderAll);
+tripTypeFilter.addEventListener("change", renderAll);
 
 csvExportBtn?.addEventListener("click", () => {
-  downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `${t("view.fileCsv")}_${jahrSelect.value}.csv`);
+  downloadFile(withVehicle(`/api/export/csv/year/${yearSelect.value}`), `${t("view.fileCsv")}_${yearSelect.value}.csv`);
 });
 
 document.getElementById("pdfExportYear")?.addEventListener("click", () => {
-  downloadDatei(mitFahrzeug(`/api/export/pdf/year/${jahrSelect.value}`), `${t("view.filePdf")}_${jahrSelect.value}.pdf`);
+  downloadFile(withVehicle(`/api/export/pdf/year/${yearSelect.value}`), `${t("view.filePdf")}_${yearSelect.value}.pdf`);
 });
 
 let startX = 0;
 const swipeTarget = document.body;
 swipeTarget.addEventListener("touchstart", e => startX = e.touches[0].clientX);
 swipeTarget.addEventListener("touchend", e => {
-  if (jahresansicht) return;
+  if (yearView) return;
   const diff = e.changedTouches[0].clientX - startX;
   if (Math.abs(diff) < 60) return;
-  const opts = [...monatSelect.options].filter(o => o.value !== "alle" && !o.disabled);
+  const opts = [...monthSelect.options].filter(o => o.value !== "alle" && !o.disabled);
   if (opts.length === 0) return;
-  const curIdx = opts.findIndex(o => o.value === monatSelect.value);
-  if (diff < 0 && curIdx < opts.length - 1) monatSelect.value = opts[curIdx + 1].value;
-  if (diff > 0 && curIdx > 0)               monatSelect.value = opts[curIdx - 1].value;
-  zeigeAuswahl();
+  const curIdx = opts.findIndex(o => o.value === monthSelect.value);
+  if (diff < 0 && curIdx < opts.length - 1) monthSelect.value = opts[curIdx + 1].value;
+  if (diff > 0 && curIdx > 0)               monthSelect.value = opts[curIdx - 1].value;
+  showSelection();
 });
 
 // ═══════════════════════════════════════════════
 // Init
 // ═══════════════════════════════════════════════
 
-jahrSelect.addEventListener("change", fuelleMonateMitCheck);
-monatSelect.addEventListener("change", zeigeAuswahl);
+yearSelect.addEventListener("change", fillMonths);
+monthSelect.addEventListener("change", showSelection);
 
 // ═══════════════════════════════════════════════
 // Audit log
@@ -590,75 +590,75 @@ function historyButton(f) {
           </button>`;
 }
 
-const FELD_LABELS = { odometer_km: t("view.odometer"), destination: t("view.field.destination"), trip_type: t("view.tripType"),
+const FIELD_LABELS = { odometer_km: t("view.odometer"), destination: t("view.field.destination"), trip_type: t("view.tripType"),
                       timestamp: t("view.col.time"), vehicle_id: t("view.field.vehicle") };
-const AKTIONEN    = { create: t("view.action.create"), update: t("view.action.update"), delete: t("view.action.delete") };
-const QUELLEN     = { web: "Web", api_token: t("view.source.apiToken"), admin: t("nav.admin") };
-const quelleText  = quelle => QUELLEN[quelle] || quelle;
+const ACTION_LABELS    = { create: t("view.action.create"), update: t("view.action.update"), delete: t("view.action.delete") };
+const SOURCE_LABELS     = { web: "Web", api_token: t("view.source.apiToken"), admin: t("nav.admin") };
+const sourceText  = source => SOURCE_LABELS[source] || source;
 
-function formatWert(feld, wert) {
-  if (wert == null) return "–";
-  if (feld === "timestamp")   return new Date(wert).toLocaleString(i18n.locale);
-  if (feld === "odometer_km") return `${wert} km`;
-  if (feld === "trip_type")   return fahrtartInfo(wert).label;
-  if (feld === "vehicle_id")  return vehicleById.get(wert)?.name ?? t("view.vehicleNumber", { id: wert });
-  return String(wert);
+function formatValue(fieldName, rawValue) {
+  if (rawValue == null) return "–";
+  if (fieldName === "timestamp")   return new Date(rawValue).toLocaleString(i18n.locale);
+  if (fieldName === "odometer_km") return `${rawValue} km`;
+  if (fieldName === "trip_type")   return tripTypeInfo(rawValue).label;
+  if (fieldName === "vehicle_id")  return vehicleById.get(rawValue)?.name ?? t("view.vehicleNumber", { id: rawValue });
+  return String(rawValue);
 }
 
 // Describes an audit log entry as HTML (values are escaped)
-function beschreibeEintrag(e) {
+function describeEntry(e) {
   if (e.action === "update") {
-    const zeilen = Object.keys(FELD_LABELS)
+    const rows = Object.keys(FIELD_LABELS)
       .filter(f => JSON.stringify(e.old_data?.[f]) !== JSON.stringify(e.new_data?.[f]))
-      .map(f => `${FELD_LABELS[f]}: <del>${escapeHtml(formatWert(f, e.old_data?.[f]))}</del>
-                 → <strong>${escapeHtml(formatWert(f, e.new_data?.[f]))}</strong>`);
-    return zeilen.length ? zeilen.join("<br>") : escapeHtml(t("view.history.noChange"));
+      .map(f => `${FIELD_LABELS[f]}: <del>${escapeHtml(formatValue(f, e.old_data?.[f]))}</del>
+                 → <strong>${escapeHtml(formatValue(f, e.new_data?.[f]))}</strong>`);
+    return rows.length ? rows.join("<br>") : escapeHtml(t("view.history.noChange"));
   }
   const d = e.action === "delete" ? e.old_data : e.new_data;
-  return escapeHtml(`${formatWert("timestamp", d.timestamp)} · ${formatWert("odometer_km", d.odometer_km)} · ${formatWert("trip_type", d.trip_type)} · ${d.destination}`);
+  return escapeHtml(`${formatValue("timestamp", d.timestamp)} · ${formatValue("odometer_km", d.odometer_km)} · ${formatValue("trip_type", d.trip_type)} · ${d.destination}`);
 }
 
-function zeigeProtokoll(titel, eintraege, leerText) {
-  document.getElementById("auditModalLabel").textContent = titel;
-  document.getElementById("auditModalBody").innerHTML = eintraege.length === 0
-    ? `<p class="text-muted mb-0">${escapeHtml(leerText)}</p>`
-    : `<ul class="list-group list-group-flush">${eintraege.map(e => `
+function showAuditLog(title, entries, emptyText) {
+  document.getElementById("auditModalLabel").textContent = title;
+  document.getElementById("auditModalBody").innerHTML = entries.length === 0
+    ? `<p class="text-muted mb-0">${escapeHtml(emptyText)}</p>`
+    : `<ul class="list-group list-group-flush">${entries.map(e => `
         <li class="list-group-item px-0">
           <div class="d-flex justify-content-between small text-muted mb-1">
-            <span>${escapeHtml(new Date(e.changed_at).toLocaleString(i18n.locale))} · ${escapeHtml(quelleText(e.source))}</span>
-            <span>${e.trip_id ? `${tHtml("view.tripId", { id: e.trip_id })} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
+            <span>${escapeHtml(new Date(e.changed_at).toLocaleString(i18n.locale))} · ${escapeHtml(sourceText(e.source))}</span>
+            <span>${e.trip_id ? `${tHtml("view.tripId", { id: e.trip_id })} · ` : ""}${escapeHtml(ACTION_LABELS[e.action] || e.action)}</span>
           </div>
-          <div class="small">${beschreibeEintrag(e)}</div>
+          <div class="small">${describeEntry(e)}</div>
         </li>`).join("")}</ul>`;
   bootstrap.Modal.getOrCreateInstance(document.getElementById("auditModal")).show();
 }
 
-async function zeigeVerlauf(id) {
+async function showHistory(id) {
   const res = await apiFetch(`/api/trips/${id}/history`);
-  if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
-  zeigeProtokoll(t("view.history.title"), await res.json(), t("view.history.empty"));
+  if (!res.ok) return showHint(await apiError(res), "danger");
+  showAuditLog(t("view.history.title"), await res.json(), t("view.history.empty"));
 }
 
 document.getElementById("auditYear")?.addEventListener("click", async () => {
-  const jahr = jahrSelect.value;
-  const res  = await apiFetch(mitFahrzeug(`/api/audit?year=${jahr}`));
-  if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
-  zeigeProtokoll(t("view.audit.yearTitle", { year: jahr }), await res.json(),
-    t("view.audit.empty", { year: jahr }));
+  const selectedYear = yearSelect.value;
+  const res  = await apiFetch(withVehicle(`/api/audit?year=${selectedYear}`));
+  if (!res.ok) return showHint(await apiError(res), "danger");
+  showAuditLog(t("view.audit.yearTitle", { year: selectedYear }), await res.json(),
+    t("view.audit.empty", { year: selectedYear }));
 });
 
-ladeVehicles().then(() => {
-  fuelleJahre();
-  fuelleMonateMitCheck();
-  beiAktualisierung(aktualisiereListe);
+loadVehicles().then(() => {
+  fillYears();
+  fillMonths();
+  onRefresh(refreshList);
 });
 
 // Reload (late-synced trips, returning to the app, every 5 minutes);
 // offline.js waits until no input is in progress
-function aktualisiereListe() {
+function refreshList() {
   // Empty view → recheck the month list (the month may still have been disabled)
-  if (aktuelleFahrten.length === 0) return fuelleMonateMitCheck();
-  return ladeFahrten();
+  if (currentTrips.length === 0) return fillMonths();
+  return loadTrips();
 }
 
 }); // DOMContentLoaded

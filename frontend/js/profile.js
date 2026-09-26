@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────────────────
   // Load profile
   // ──────────────────────────────────────────────────────────
-  async function ladeProfil() {
+  async function loadProfile() {
     try {
       const res  = await apiFetch(`/api/profile`);
       const data = await res.json();
@@ -16,10 +16,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("profileCreated").textContent =
         new Date(data.user.created_at).toLocaleString(i18n.locale);
       document.getElementById("profileCountry").textContent =
-        landName(data.user.country);
-      sprachAuswahl(document.getElementById("profileLanguage"), speichereSprache, data.user.language);
+        countryName(data.user.country);
+      languageSelect(document.getElementById("profileLanguage"), saveLanguage, data.user.language);
 
-      renderTokenTabelle(data.tokens);
+      renderTokenTable(data.tokens);
 
     } catch (err) {
       console.error("Profil-Ladefehler:", err);
@@ -27,17 +27,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Save language in the profile (applies on all devices) and apply it immediately
-  async function speichereSprache(language) {
+  async function saveLanguage(language) {
     const res = await apiFetch("/api/profile", { method: "PATCH", body: { language } });
     if (!res.ok) return alert(await apiError(res, t("profile.languageSaveFailed")));
-    i18n.setze(language);
+    i18n.set(language);
     location.reload();
   }
 
   // ──────────────────────────────────────────────────────────
   // Render token table
   // ──────────────────────────────────────────────────────────
-  function renderTokenTabelle(tokens) {
+  function renderTokenTable(tokens) {
     const tbody = document.getElementById("tokenTabelle");
     if (!tokens.length) {
       tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">${t("profile.tokens.none")}</td></tr>`;
@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("newTokenValue").value = data.token;
 
       // Reload table
-      await ladeProfil();
+      await loadProfile();
 
     } catch { alert(t("profile.networkError")); }
   });
@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await apiFetch(`/api/tokens/${btn.dataset.id}`, {
         method: "DELETE",
       });
-      if (res.ok) await ladeProfil();
+      if (res.ok) await loadProfile();
       else alert(t("profile.tokens.deleteFailed"));
     } catch { alert(t("profile.networkError")); }
   });
@@ -178,43 +178,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ──────────────────────────────────────────────────────────
   // Backup
   // ──────────────────────────────────────────────────────────
-  const sicherungAlert = (text, typ) => {
+  const backupAlert = (text, type) => {
     const box = document.getElementById("sicherungAlert");
-    box.className   = `alert alert-${typ}`;
+    box.className   = `alert alert-${type}`;
     box.textContent = text;
   };
 
-  async function zeigeSicherungsStatus() {
-    const status = await ladeSicherungsStatus();
+  async function showBackupStatus() {
+    const status = await loadBackupStatus();
     if (!status) return;
     document.getElementById("sicherungTabelle").innerHTML = status.vehicles.length === 0
       ? `<tr><td colspan="3" class="text-muted">${t("profile.backup.noVehicles")}</td></tr>`
       : status.vehicles.map(v => `
         <tr class="${v.remind ? "table-warning" : ""}">
           <td>${escapeHtml(v.name)}</td>
-          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.remind ? ` <span class="badge text-bg-warning">${t("profile.backup.due")}</span>` : ""}</td>
+          <td>${escapeHtml(shortDate(v.last_backup_at))}${v.remind ? ` <span class="badge text-bg-warning">${t("profile.backup.due")}</span>` : ""}</td>
           <td class="text-end">${v.changes}</td>
         </tr>`).join("");
   }
 
   document.getElementById("sichernBtn").addEventListener("click", async () => {
-    await sichereAlles();
-    await zeigeSicherungsStatus();
+    await backupAll();
+    await showBackupStatus();
   });
 
   document.getElementById("wiederherstellenBtn").addEventListener("click", async () => {
-    const datei = document.getElementById("wiederherstellenDatei").files[0];
-    if (!datei) return sicherungAlert(t("profile.backup.chooseFile"), "warning");
+    const file = document.getElementById("wiederherstellenDatei").files[0];
+    if (!file) return backupAlert(t("profile.backup.chooseFile"), "warning");
     try {
-      const ergebnis = await stelleSicherungWiederHer(datei);
-      if (!ergebnis) return;
-      sicherungAlert(`${t("profile.backup.restored")}\n${ergebnis.text}`, "success");
-      await zeigeSicherungsStatus();
+      const result = await restoreBackup(file);
+      if (!result) return;
+      backupAlert(`${t("profile.backup.restored")}\n${result.text}`, "success");
+      await showBackupStatus();
     } catch (err) {
-      sicherungAlert(err.message, "danger");
+      backupAlert(err.message, "danger");
     }
   });
 
   // ── Init ──────────────────────────────────────────────────
-  await Promise.all([ladeProfil(), zeigeSicherungsStatus()]);
+  await Promise.all([loadProfile(), showBackupStatus()]);
 });

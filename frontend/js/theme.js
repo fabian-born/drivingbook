@@ -7,7 +7,7 @@
 (function () {
   const KEY    = "darstellung";
   const system = window.matchMedia("(prefers-color-scheme: dark)");
-  let druck    = false;
+  let printing    = false;
 
   // Trip type colors – separate steps per mode, checked against the background
   document.head.insertAdjacentHTML("beforeend", `<style>
@@ -19,37 +19,37 @@
     }
   </style>`);
 
-  function modus() {
+  function themeMode() {
     try { return localStorage.getItem(KEY) || "auto"; } catch { return "auto"; }
   }
 
-  function istDunkel() {
-    if (druck) return false;
-    const m = modus();
+  function isDark() {
+    if (printing) return false;
+    const m = themeMode();
     return m === "dunkel" || (m === "auto" && system.matches);
   }
 
-  function anwenden() {
-    const dunkel = istDunkel();
-    const vorher = document.documentElement.getAttribute("data-bs-theme");
-    document.documentElement.setAttribute("data-bs-theme", dunkel ? "dark" : "light");
-    if (vorher && vorher !== (dunkel ? "dark" : "light")) {
-      document.dispatchEvent(new CustomEvent("themaGeaendert", { detail: { dunkel } }));
+  function applyTheme() {
+    const dark = isDark();
+    const previousTheme = document.documentElement.getAttribute("data-bs-theme");
+    document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+    if (previousTheme && previousTheme !== (dark ? "dark" : "light")) {
+      document.dispatchEvent(new CustomEvent("themaGeaendert", { detail: { dark: dark } }));
     }
   }
 
-  window.darstellung = {
-    modus,
-    istDunkel,
-    setze(m) {
+  window.theme = {
+    mode: themeMode,
+    isDark: isDark,
+    set(m) {
       try { localStorage.setItem(KEY, m); } catch { /* for this session only */ }
-      anwenden();
+      applyTheme();
     },
   };
 
-  system.addEventListener("change", () => { if (modus() === "auto") anwenden(); });
-  window.addEventListener("beforeprint", () => { druck = true;  anwenden(); });
-  window.addEventListener("afterprint",  () => { druck = false; anwenden(); });
+  system.addEventListener("change", () => { if (themeMode() === "auto") applyTheme(); });
+  window.addEventListener("beforeprint", () => { printing = true;  applyTheme(); });
+  window.addEventListener("afterprint",  () => { printing = false; applyTheme(); });
 
-  anwenden();
+  applyTheme();
 })();

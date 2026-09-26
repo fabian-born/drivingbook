@@ -14,116 +14,116 @@
 //       data-i18n-attr="placeholder:key;title:key2" (attributes)
 
 (function () {
-  const SPRACHEN = { de: "Deutsch", en: "English" };
+  const LANGUAGES = { de: "Deutsch", en: "English" };
   const LOCALES  = { de: "de-DE", en: "en-GB" };
-  const STANDARD = "de";
+  const DEFAULT_LANGUAGE = "de";
   const KEY      = "sprache";
 
-  function gespeichert() {
+  function saved() {
     try { return localStorage.getItem(KEY); } catch { return null; }
   }
 
   // Setting → browser language → German
-  function ermittleSprache() {
-    const wahl = gespeichert();
-    if (wahl && SPRACHEN[wahl]) return wahl;
+  function detectLanguage() {
+    const storedChoice = saved();
+    if (storedChoice && LANGUAGES[storedChoice]) return storedChoice;
     for (const l of navigator.languages ?? [navigator.language]) {
-      const kurz = String(l).slice(0, 2).toLowerCase();
-      if (SPRACHEN[kurz]) return kurz;
+      const langPrefix = String(l).slice(0, 2).toLowerCase();
+      if (LANGUAGES[langPrefix]) return langPrefix;
     }
-    return STANDARD;
+    return DEFAULT_LANGUAGE;
   }
 
-  function lade(sprache) {
+  function loadMessages(currentLanguage) {
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open("GET", `lang/${sprache}.json`, false);   // synchronous on purpose (see above)
+      xhr.open("GET", `lang/${currentLanguage}.json`, false);   // synchronous on purpose (see above)
       xhr.send();
       if (xhr.status === 200) return JSON.parse(xhr.responseText);
-      console.error(`Sprachdatei lang/${sprache}.json: HTTP ${xhr.status}`);
+      console.error(`Sprachdatei lang/${currentLanguage}.json: HTTP ${xhr.status}`);
     } catch (err) {
-      console.error(`Sprachdatei lang/${sprache}.json nicht lesbar:`, err);
+      console.error(`Sprachdatei lang/${currentLanguage}.json nicht lesbar:`, err);
     }
     return {};
   }
 
-  const sprache = ermittleSprache();
-  const texte   = lade(sprache);
-  const rueckfall = sprache === STANDARD ? texte : lade(STANDARD);
-  const plural  = new Intl.PluralRules(LOCALES[sprache]);
+  const currentLanguage = detectLanguage();
+  const messages   = loadMessages(currentLanguage);
+  const fallbackMessages = currentLanguage === DEFAULT_LANGUAGE ? messages : loadMessages(DEFAULT_LANGUAGE);
+  const plural  = new Intl.PluralRules(LOCALES[currentLanguage]);
 
-  const suche = (baum, key) => key.split(".").reduce((o, k) => (o == null ? undefined : o[k]), baum);
+  const lookup = (tree, key) => key.split(".").reduce((o, k) => (o == null ? undefined : o[k]), tree);
 
   function finde(key, params) {
     if (typeof params?.count === "number") {
       const form = `${key}_${plural.select(params.count)}`;
-      const text = suche(texte, form) ?? suche(texte, `${key}_other`)
-                ?? suche(rueckfall, form) ?? suche(rueckfall, `${key}_other`);
+      const text = lookup(messages, form) ?? lookup(messages, `${key}_other`)
+                ?? lookup(fallbackMessages, form) ?? lookup(fallbackMessages, `${key}_other`);
       if (typeof text === "string") return text;
     }
-    const text = suche(texte, key) ?? suche(rueckfall, key);
+    const text = lookup(messages, key) ?? lookup(fallbackMessages, key);
     return typeof text === "string" ? text : key;
   }
 
-  const ersetze = (text, params, wandle) =>
-    text.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, name) => (params && name in params ? wandle(params[name]) : m));
+  const interpolate = (text, params, transform) =>
+    text.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, name) => (params && name in params ? transform(params[name]) : m));
 
   const escape = v => String(v ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
   function t(key, params) {
-    return ersetze(finde(key, params), params, v => String(v ?? ""));
+    return interpolate(finde(key, params), params, v => String(v ?? ""));
   }
 
-  const vorhanden = key => finde(key) !== key;
+  const hasKey = key => finde(key) !== key;
 
   function tHtml(key, params) {
-    return ersetze(finde(key, params), params, escape);
+    return interpolate(finde(key, params), params, escape);
   }
 
   // Translates static HTML (including sections inserted later).
   // If a translation is missing, the German text from the HTML stays.
-  function uebersetze(wurzel = document) {
-    wurzel.querySelectorAll("[data-i18n]").forEach(el => {
-      if (vorhanden(el.dataset.i18n)) el.textContent = t(el.dataset.i18n);
+  function translatePage(root = document) {
+    root.querySelectorAll("[data-i18n]").forEach(el => {
+      if (hasKey(el.dataset.i18n)) el.textContent = t(el.dataset.i18n);
     });
-    wurzel.querySelectorAll("[data-i18n-html]").forEach(el => {
-      if (vorhanden(el.dataset.i18nHtml)) el.innerHTML = t(el.dataset.i18nHtml);
+    root.querySelectorAll("[data-i18n-html]").forEach(el => {
+      if (hasKey(el.dataset.i18nHtml)) el.innerHTML = t(el.dataset.i18nHtml);
     });
-    wurzel.querySelectorAll("[data-i18n-attr]").forEach(el => {
-      for (const paar of el.dataset.i18nAttr.split(";")) {
-        const [attr, key] = paar.split(":").map(s => s.trim());
-        if (attr && key && vorhanden(key)) el.setAttribute(attr, t(key));
+    root.querySelectorAll("[data-i18n-attr]").forEach(el => {
+      for (const pair of el.dataset.i18nAttr.split(";")) {
+        const [attr, key] = pair.split(":").map(s => s.trim());
+        if (attr && key && hasKey(key)) el.setAttribute(attr, t(key));
       }
     });
   }
 
   // Change the setting: stored choice (null = automatic), then reload
-  function setze(neu) {
+  function setLanguage(newValue) {
     try {
-      if (neu && SPRACHEN[neu]) localStorage.setItem(KEY, neu);
+      if (newValue && LANGUAGES[newValue]) localStorage.setItem(KEY, newValue);
       else localStorage.removeItem(KEY);
     } catch { /* for this session only */ }
   }
 
-  document.documentElement.lang = sprache;
+  document.documentElement.lang = currentLanguage;
   // Hide until translated so no German text flashes up
-  if (sprache !== STANDARD) document.documentElement.classList.add("i18n-wartet");
+  if (currentLanguage !== DEFAULT_LANGUAGE) document.documentElement.classList.add("i18n-wartet");
   document.head.insertAdjacentHTML("beforeend", "<style>html.i18n-wartet body { visibility: hidden; }</style>");
   document.addEventListener("DOMContentLoaded", () => {
-    uebersetze();
+    translatePage();
     document.documentElement.classList.remove("i18n-wartet");
   });
 
   window.t     = t;
   window.tHtml = tHtml;
   window.i18n  = {
-    sprache,
-    locale: LOCALES[sprache],
-    sprachen: SPRACHEN,
-    gewaehlt: () => gespeichert(),   // null = automatic
-    setze,
-    uebersetze,
+    language: currentLanguage,
+    locale: LOCALES[currentLanguage],
+    languages: LANGUAGES,
+    selected: () => saved(),   // null = automatic
+    set: setLanguage,
+    translate: translatePage,
   };
 })();

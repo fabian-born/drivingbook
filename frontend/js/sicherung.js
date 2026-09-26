@@ -2,66 +2,66 @@
 // Backup & restore – used in the account (everything), in the
 // vehicle info (one vehicle) and for the reminder on the dashboard.
 
-const heute       = () => new Date().toISOString().slice(0, 10);
-const datumKurz   = d => (d ? new Date(d).toLocaleDateString(i18n.locale) : t("common.never"));
+const today       = () => new Date().toISOString().slice(0, 10);
+const shortDate   = d => (d ? new Date(d).toLocaleDateString(i18n.locale) : t("common.never"));
 
-function sichereAlles() {
-  return downloadDatei("/api/backup", `${t("backup.fileAll")}_${heute()}.json`);
+function backupAll() {
+  return downloadFile("/api/backup", `${t("backup.fileAll")}_${today()}.json`);
 }
 
-function sichereFahrzeugDatei(vehicle) {
-  return downloadDatei(`/api/vehicles/${vehicle.id}/export`, `${t("backup.fileVehicle")}_${vehicle.code}_${heute()}.json`);
+function backupVehicleFile(vehicle) {
+  return downloadFile(`/api/vehicles/${vehicle.id}/export`, `${t("backup.fileVehicle")}_${vehicle.code}_${today()}.json`);
 }
 
-async function ladeSicherungsStatus() {
+async function loadBackupStatus() {
   const res = await apiFetch("/api/backup/status");
   return res.ok ? res.json() : null;
 }
 
-function zeileErgebnis(name, e) {
-  const teile = [t("backup.added", { count: e.trips })];
-  if (e.reassigned) teile.push(t("backup.reassigned", { count: e.reassigned }));
-  if (e.skipped)    teile.push(t("backup.skipped", { count: e.skipped }));
-  if (e.years)      teile.push(t("backup.years", { count: e.years }));
-  if (e.audit)      teile.push(t("backup.audit", { count: e.audit }));
-  return `${name}${e.created ? t("backup.created") : ""}: ${teile.join(", ")}`;
+function resultLine(name, e) {
+  const parts = [t("backup.added", { count: e.trips })];
+  if (e.reassigned) parts.push(t("backup.reassigned", { count: e.reassigned }));
+  if (e.skipped)    parts.push(t("backup.skipped", { count: e.skipped }));
+  if (e.years)      parts.push(t("backup.years", { count: e.years }));
+  if (e.audit)      parts.push(t("backup.audit", { count: e.audit }));
+  return `${name}${e.created ? t("backup.created") : ""}: ${parts.join(", ")}`;
 }
 
 // Reads a backup file (full or vehicle backup), asks for confirmation and
 // restores it. Returns { text, vehicle } or null on cancel; throws on errors.
-async function stelleSicherungWiederHer(datei) {
-  let daten;
+async function restoreBackup(file) {
+  let rawData;
   try {
-    daten = JSON.parse(await datei.text());
+    rawData = JSON.parse(await file.text());
   } catch {
     throw new Error(t("backup.invalidJson"));
   }
 
-  if (["drivingbook-sicherung", "drivingbook-fahrzeug"].includes(daten.format)) {
+  if (["drivingbook-sicherung", "drivingbook-fahrzeug"].includes(rawData.format)) {
     throw new Error(t("backup.oldFormat"));
   }
-  const gesamt = daten.format === "drivingbook-backup";
-  if (!gesamt && daten.format !== "drivingbook-vehicle") {
+  const grandTotal = rawData.format === "drivingbook-backup";
+  if (!grandTotal && rawData.format !== "drivingbook-vehicle") {
     throw new Error(t("backup.notABackup"));
   }
 
-  const inhalt = gesamt
-    ? t("backup.contentAll", { count: daten.vehicles?.length ?? 0 })
-    : t("backup.contentVehicle", { name: daten.vehicle?.name });
-  const erstellt = daten.created_at;
-  if (!confirm(`${t("backup.confirmRestore", { date: datumKurz(erstellt), content: inhalt })}\n\n` +
+  const content = grandTotal
+    ? t("backup.contentAll", { count: rawData.vehicles?.length ?? 0 })
+    : t("backup.contentVehicle", { name: rawData.vehicle?.name });
+  const created = rawData.created_at;
+  if (!confirm(`${t("backup.confirmRestore", { date: shortDate(created), content: content })}\n\n` +
                t("backup.confirmHint"))) {
     return null;
   }
 
-  const res = await apiFetch(gesamt ? "/api/backup/restore" : "/api/vehicles/import", { method: "POST", body: daten });
+  const res = await apiFetch(grandTotal ? "/api/backup/restore" : "/api/vehicles/import", { method: "POST", body: rawData });
   if (!res.ok) throw new Error(await apiError(res, t("backup.restoreFailed")));
   const e = await res.json();
 
-  if (!gesamt) {
-    return { text: zeileErgebnis(e.vehicle.name, { ...e.imported, created: e.created }), vehicle: e.vehicle };
+  if (!grandTotal) {
+    return { text: resultLine(e.vehicle.name, { ...e.imported, created: e.created }), vehicle: e.vehicle };
   }
-  const zeilen = e.vehicles.map(f => zeileErgebnis(f.name, f));
-  if (e.unassigned.trips || e.unassigned.audit) zeilen.push(zeileErgebnis(t("backup.unassigned"), e.unassigned));
-  return { text: zeilen.join("\n"), vehicle: null };
+  const rows = e.vehicles.map(f => resultLine(f.name, f));
+  if (e.unassigned.trips || e.unassigned.audit) rows.push(resultLine(t("backup.unassigned"), e.unassigned));
+  return { text: rows.join("\n"), vehicle: null };
 }

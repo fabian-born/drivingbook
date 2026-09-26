@@ -3,38 +3,38 @@
 // queue (offline.js) and are sent later automatically.
 
 const $ = id => document.getElementById(id);
-const LETZTER_STAND_KEY = code => `letzterStand:${code}`;   // for the hint, offline too
+const LAST_READING_KEY = code => `letzterStand:${code}`;   // for the hint, offline too
 
-let letzterStand = null;   // { km, zeit } of the active vehicle's last trip
+let lastReading = null;   // { km, zeit } of the active vehicle's last trip
 
 // ── Vehicle & last reading ───────────────────────────────────
 // New trips always belong to the active vehicle from the navigation.
 
-function relativeZeit(iso) {
+function relativeTime(iso) {
   const rtf  = new Intl.RelativeTimeFormat(i18n.locale, { numeric: "auto" });
   const diff = new Date(iso) - new Date();
-  const tage = Math.round(diff / 86400e3);
-  if (Math.abs(tage) >= 1) return rtf.format(tage, "day");
-  const stunden = Math.round(diff / 3600e3);
-  return Math.abs(stunden) >= 1 ? rtf.format(stunden, "hour") : t("driving.justNow");
+  const days = Math.round(diff / 86400e3);
+  if (Math.abs(days) >= 1) return rtf.format(days, "day");
+  const hours = Math.round(diff / 3600e3);
+  return Math.abs(hours) >= 1 ? rtf.format(hours, "hour") : t("driving.justNow");
 }
 
-function merkeLetztenStand(code, stand) {
-  letzterStand = stand;
-  try { localStorage.setItem(LETZTER_STAND_KEY(code), JSON.stringify(stand)); } catch { /* optional */ }
-  zeigeLetztenStand();
+function rememberLastReading(code, reading) {
+  lastReading = reading;
+  try { localStorage.setItem(LAST_READING_KEY(code), JSON.stringify(reading)); } catch { /* optional */ }
+  showLastReading();
 }
 
-function zeigeLetztenStand() {
-  $("letzterStand").textContent = letzterStand
-    ? t("driving.lastReading", { km: letzterStand.km.toLocaleString(i18n.locale), time: relativeZeit(letzterStand.zeit) })
+function showLastReading() {
+  $("letzterStand").textContent = lastReading
+    ? t("driving.lastReading", { km: lastReading.km.toLocaleString(i18n.locale), time: relativeTime(lastReading.time) })
     : t("driving.noTripYet");
-  $("kmstand").placeholder = letzterStand ? String(letzterStand.km) : "0";
-  aktualisiereKmHinweis();
+  $("kmstand").placeholder = lastReading ? String(lastReading.km) : "0";
+  updateKmHint();
 }
 
-async function zeigeFahrzeug() {
-  const vehicle = await fahrzeugBereit;
+async function showVehicle() {
+  const vehicle = await vehicleReady;
   if (!vehicle) {
     $("fahrzeugName").textContent = t("driving.noVehicle");
     $("letzterStand").textContent = t("driving.manageVehicles");
@@ -46,174 +46,174 @@ async function zeigeFahrzeug() {
   $("fahrzeugKennzeichen").classList.toggle("d-none", !vehicle.license_plate);
 
   try {
-    letzterStand = JSON.parse(localStorage.getItem(LETZTER_STAND_KEY(vehicle.code)));
-  } catch { letzterStand = null; }
-  zeigeLetztenStand();
+    lastReading = JSON.parse(localStorage.getItem(LAST_READING_KEY(vehicle.code)));
+  } catch { lastReading = null; }
+  showLastReading();
 
   try {
     const res = await apiFetch(`/api/vehicles/${vehicle.id}/info`);
     if (!res.ok) return;
     const { overall } = await res.json();
-    merkeLetztenStand(vehicle.code, overall.odometer_current != null
-      ? { km: overall.odometer_current, zeit: overall.last_trip }
+    rememberLastReading(vehicle.code, overall.odometer_current != null
+      ? { km: overall.odometer_current, time: overall.last_trip }
       : null);
   } catch { /* offline → last known reading */ }
 }
 
 // Live hint below the km field: difference to the last trip
-function aktualisiereKmHinweis() {
-  const hinweis = $("kmHinweis");
-  const wert    = $("kmstand").value;
-  hinweis.classList.remove("text-danger", "text-success");
+function updateKmHint() {
+  const hint = $("kmHinweis");
+  const rawValue    = $("kmstand").value;
+  hint.classList.remove("text-danger", "text-success");
   $("kmstand").classList.remove("is-invalid");
 
-  if (!wert || !letzterStand) {
-    hinweis.innerHTML = "&nbsp;";
+  if (!rawValue || !lastReading) {
+    hint.innerHTML = "&nbsp;";
     return;
   }
-  const diff = Number(wert) - letzterStand.km;
+  const diff = Number(rawValue) - lastReading.km;
   if (diff < 0) {
-    hinweis.textContent = t("driving.belowLast", { km: letzterStand.km.toLocaleString(i18n.locale) });
-    hinweis.classList.add("text-danger");
+    hint.textContent = t("driving.belowLast", { km: lastReading.km.toLocaleString(i18n.locale) });
+    hint.classList.add("text-danger");
     $("kmstand").classList.add("is-invalid");
   } else {
-    hinweis.textContent = t("driving.sinceLast", { km: diff.toLocaleString(i18n.locale) });
-    hinweis.classList.add("text-success");
+    hint.textContent = t("driving.sinceLast", { km: diff.toLocaleString(i18n.locale) });
+    hint.classList.add("text-success");
   }
 }
 
 // ── Location ─────────────────────────────────────────────────
 
-function holeStandort() {
-  if (!navigator.geolocation) return zeigeStatus(t("driving.geoUnsupported"), "warning");
+function fetchLocation() {
+  if (!navigator.geolocation) return showStatus(t("driving.geoUnsupported"), "warning");
   const btn = $("standortBtn");
   btn.disabled = true;
   navigator.geolocation.getCurrentPosition(
     async position => {
-      await uebernehmePosition(position);
+      await applyPosition(position);
       btn.disabled = false;
     },
     error => {
       const msgs = [t("driving.geoDenied"), t("driving.geoUnavailable"), t("driving.geoTimeout")];
-      zeigeStatus(msgs[error.code - 1] || t("driving.geoUnknown"), "warning");
+      showStatus(msgs[error.code - 1] || t("driving.geoUnknown"), "warning");
       btn.disabled = false;
     },
     { enableHighAccuracy: true, timeout: 15000 }
   );
 }
 
-async function uebernehmePosition(position) {
+async function applyPosition(position) {
   const lat = position.coords.latitude.toFixed(6);
   const lon = position.coords.longitude.toFixed(6);
-  const zielFeld = $("ziel");
+  const destinationField = $("ziel");
 
   // Offline: enter coordinates – the backend resolves them to an address when saving
   if (!navigator.onLine) {
-    zielFeld.value = `${lat}, ${lon}`;
+    destinationField.value = `${lat}, ${lon}`;
     return;
   }
 
   try {
     const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`);
     const addr = (await res.json()).address || {};
-    const strasse = [addr.road, addr.house_number].filter(Boolean).join(" ");
-    const ort     = [addr.postcode, addr.city || addr.town || addr.village].filter(Boolean).join(" ");
-    zielFeld.value = [strasse, ort].filter(Boolean).join(", ") || `${lat}, ${lon}`;
+    const street = [addr.road, addr.house_number].filter(Boolean).join(" ");
+    const place     = [addr.postcode, addr.city || addr.town || addr.village].filter(Boolean).join(" ");
+    destinationField.value = [street, place].filter(Boolean).join(", ") || `${lat}, ${lon}`;
   } catch (err) {
     console.error("Standort:", err);
-    zielFeld.value = `${lat}, ${lon}`;
+    destinationField.value = `${lat}, ${lon}`;
   }
 }
 
 // ── Status display ───────────────────────────────────────────
 
-function zeigeStatus(text, typ = "success") {
+function showStatus(text, type = "success") {
   const box = $("statusMeldung");
-  box.className   = `alert alert-${typ}`;
+  box.className   = `alert alert-${type}`;
   box.textContent = text;
   box.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 // ── Offline queue ────────────────────────────────────────────
 
-function aktualisiereOfflineHinweis(anzahl, fehlerhaft = []) {
-  $("offlineHinweis").classList.toggle("d-none", anzahl === 0);
-  $("offlineAnzahl").textContent = t("driving.waiting", { count: anzahl });
+function updateOfflineHint(count, failed = []) {
+  $("offlineHinweis").classList.toggle("d-none", count === 0);
+  $("offlineAnzahl").textContent = t("driving.waiting", { count: count });
 
-  $("offlineFehler").classList.toggle("d-none", fehlerhaft.length === 0);
-  $("offlineFehlerListe").innerHTML = fehlerhaft.map((f, i) => `
+  $("offlineFehler").classList.toggle("d-none", failed.length === 0);
+  $("offlineFehlerListe").innerHTML = failed.map((f, i) => `
     <li class="border-top border-danger-subtle pt-2">
       <div class="small"><strong>${escapeHtml(new Date(f.timestamp).toLocaleString(i18n.locale))}</strong> ·
         ${escapeHtml(Number(f.odometer_km).toLocaleString(i18n.locale))} km · ${escapeHtml(f.destination)}</div>
       <div class="small text-danger-emphasis mb-1">${escapeHtml(f.fehler)}</div>
       <div class="d-flex gap-2">
-        <button type="button" class="btn btn-sm btn-outline-danger" data-erneut="${i}">${escapeHtml(t("driving.resend"))}</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-verwerfen="${i}">${escapeHtml(t("driving.discard"))}</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-resend="${i}">${escapeHtml(t("driving.resend"))}</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-discard="${i}">${escapeHtml(t("driving.discard"))}</button>
       </div>
     </li>`).join("");
-  offlineFehlerAktuell = fehlerhaft;
+  offlineErrorShown = failed;
 }
 
-let offlineFehlerAktuell = [];
+let offlineErrorShown = [];
 
 // ── Record ───────────────────────────────────────────────────
 
-function formularLeeren() {
+function clearForm() {
   $("kmstand").value = "";
   $("ziel").value = "";
-  aktualisiereKmHinweis();
+  updateKmHint();
 }
 
 // After saving (or queueing), the new reading becomes the last reading
-function erfasst(fahrt) {
-  if (aktivesFahrzeug) merkeLetztenStand(aktivesFahrzeug.code, { km: Number(fahrt.odometer_km), zeit: fahrt.timestamp });
-  formularLeeren();
+function onTripSaved(trip) {
+  if (activeVehicle) rememberLastReading(activeVehicle.code, { km: Number(trip.odometer_km), time: trip.timestamp });
+  clearForm();
 }
 
-function inWarteschlange(fahrt) {
-  inWarteschlangeAufnehmen(fahrt);
-  erfasst(fahrt);
-  zeigeStatus(t("driving.queued"), "warning");
+function onTripQueued(trip) {
+  enqueueTrip(trip);
+  onTripSaved(trip);
+  showStatus(t("driving.queued"), "warning");
 }
 
-function setzeSpeichern(aktiv) {
-  $("speichernBtn").disabled = aktiv;
-  $("speichernSpinner").classList.toggle("d-none", !aktiv);
+function setSaving(isActive) {
+  $("speichernBtn").disabled = isActive;
+  $("speichernSpinner").classList.toggle("d-none", !isActive);
 }
 
-async function addFahrt() {
-  const kmstand  = $("kmstand").value;
-  const ziel     = $("ziel").value.trim();
-  const fahrtart = document.querySelector('input[name="fahrtart"]:checked')?.value;
+async function addTrip() {
+  const odometer  = $("kmstand").value;
+  const target     = $("ziel").value.trim();
+  const tripType = document.querySelector('input[name="fahrtart"]:checked')?.value;
 
-  if (!kmstand || !ziel || !fahrtart) {
-    (kmstand ? $("ziel") : $("kmstand")).focus();
-    return zeigeStatus(t("driving.required"), "warning");
+  if (!odometer || !target || !tripType) {
+    (odometer ? $("ziel") : $("kmstand")).focus();
+    return showStatus(t("driving.required"), "warning");
   }
 
   // Timestamp is captured at entry time, even if sent later
-  const fahrt = { odometer_km: kmstand, destination: ziel, trip_type: fahrtart, timestamp: new Date().toISOString() };
+  const trip = { odometer_km: odometer, destination: target, trip_type: tripType, timestamp: new Date().toISOString() };
 
   // Code is captured at entry time, even if sent later while offline
-  const vehicle = await fahrzeugBereit;
-  if (vehicle) fahrt.vehicle_code = vehicle.code;
+  const vehicle = await vehicleReady;
+  if (vehicle) trip.vehicle_code = vehicle.code;
 
-  if (!navigator.onLine) return inWarteschlange(fahrt);
+  if (!navigator.onLine) return onTripQueued(trip);
 
-  setzeSpeichern(true);   // prevents duplicate entries from double taps
+  setSaving(true);   // prevents duplicate entries from double taps
   try {
-    const ergebnis = await sendeFahrt(fahrt);
-    if (ergebnis.status === "ok") {
-      erfasst(fahrt);
-      zeigeStatus(t("driving.saved"));
-    } else if (ergebnis.status === "fehler") {
-      zeigeStatus(ergebnis.meldung, "danger");
+    const result = await sendTrip(trip);
+    if (result.status === "ok") {
+      onTripSaved(trip);
+      showStatus(t("driving.saved"));
+    } else if (result.status === "fehler") {
+      showStatus(result.message, "danger");
     }
   } catch (err) {
     console.error("Fehler beim Speichern:", err);
-    inWarteschlange(fahrt);  // network error → handle as offline
+    onTripQueued(trip);  // network error → handle as offline
   } finally {
-    setzeSpeichern(false);
+    setSaving(false);
   }
 }
 
@@ -222,27 +222,27 @@ async function addFahrt() {
 // Show queue messages in the form instead of as a top-right notice
 document.addEventListener("warteschlange", e => {
   e.preventDefault();
-  zeigeStatus(e.detail.text, e.detail.typ);
+  showStatus(e.detail.text, e.detail.type);
 });
-document.addEventListener("warteschlangeGeaendert", e => aktualisiereOfflineHinweis(e.detail.anzahl, e.detail.fehlerhaft));
+document.addEventListener("warteschlangeGeaendert", e => updateOfflineHint(e.detail.count, e.detail.failed));
 
 document.addEventListener("DOMContentLoaded", () => {
-  aktualisiereWarteschlangeAnzeige();
+  updateQueueDisplay();
   $("offlineFehlerListe").addEventListener("click", e => {
-    const erneut    = e.target.closest("[data-erneut]");
-    const verwerfen = e.target.closest("[data-verwerfen]");
-    if (erneut) sendeWartendeErneut(offlineFehlerAktuell[erneut.dataset.erneut]);
-    if (verwerfen && confirm(t("driving.confirmDiscard"))) {
-      verwerfeWartende(offlineFehlerAktuell[verwerfen.dataset.verwerfen]);
+    const retryBtn    = e.target.closest("[data-resend]");
+    const discardBtn = e.target.closest("[data-discard]");
+    if (retryBtn) resendPending(offlineErrorShown[retryBtn.dataset.resend]);
+    if (discardBtn && confirm(t("driving.confirmDiscard"))) {
+      discardPending(offlineErrorShown[discardBtn.dataset.discard]);
     }
   });
-  $("syncJetzt").addEventListener("click", synchronisiere);
-  $("standortBtn").addEventListener("click", holeStandort);
-  $("kmstand").addEventListener("input", aktualisiereKmHinweis);
+  $("syncJetzt").addEventListener("click", synchronize);
+  $("standortBtn").addEventListener("click", fetchLocation);
+  $("kmstand").addEventListener("input", updateKmHint);
   $("fahrtFormular").addEventListener("submit", e => {
     e.preventDefault();
-    addFahrt();
+    addTrip();
   });
-  zeigeFahrzeug();
-  beiAktualisierung(zeigeFahrzeug);   // refresh last odometer reading
+  showVehicle();
+  onRefresh(showVehicle);   // refresh last odometer reading
 });

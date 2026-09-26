@@ -13,7 +13,7 @@ Sichtbare Texte kommen aus `lang/*.json` und sind davon nicht betroffen.
 ## Schritte (je ein Commit, danach Browser-Tests grün)
 
 - [x] a. Kommentare (JS, HTML, CSS, sw.js). Prüfung per Token-Vergleich: nur Kommentare geändert.
-- [ ] b. Funktionen und Variablen (AST-basiert über alle Skripte gemeinsam, da globaler Namensraum;
+- [x] b. Funktionen und Variablen (AST-basiert über alle Skripte gemeinsam, da globaler Namensraum;
       dazu Inline-Skripte und `onclick` in HTML).
 - [ ] c. DOM-IDs, CSS-Klassen, eigene Events, Dateinamen (`js/*.js`) inkl. Browser-Tests,
       `APP_SHELL` in `sw.js` und `<script src>`.

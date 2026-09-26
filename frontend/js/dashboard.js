@@ -1,57 +1,57 @@
 // js/dashboard.js
 // Dashboard: analysis of the current year for the active vehicle (see auswertung.js)
 
-const aktuellesJahr  = new Date().getFullYear();
-const aktuellerMonat = `${aktuellesJahr}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+const currentYear  = new Date().getFullYear();
+const currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
-let chartInstanz = null;
+let chartInstance = null;
 
-async function ladeDashboard() {
-    const ziel = document.getElementById("dashboardInhalt");
-    document.getElementById("dashboardJahr").textContent = aktuellesJahr;
+async function loadDashboard() {
+    const target = document.getElementById("dashboardInhalt");
+    document.getElementById("dashboardJahr").textContent = currentYear;
 
     // One query for the whole year; the backend computes distances (from the previous year's last odometer reading)
-    const res = await apiFetch(mitFahrzeug(`/api/trips?year=${aktuellesJahr}`));
+    const res = await apiFetch(withVehicle(`/api/trips?year=${currentYear}`));
     if (!res.ok) {
-        ziel.innerHTML = `<div class="alert alert-danger">${escapeHtml(await apiError(res))}</div>`;
+        target.innerHTML = `<div class="alert alert-danger">${escapeHtml(await apiError(res))}</div>`;
         return;
     }
-    const { months: monate, totals: summe } = await res.json();
-    const dieserMonat = monate.find(m => m.month === aktuellerMonat);
+    const { months: months, totals: sums } = await res.json();
+    const thisMonth = months.find(m => m.month === currentMonth);
 
-    chartInstanz = zeigeJahresauswertung(ziel, {
-        jahr: aktuellesJahr, monate, summe, alterChart: chartInstanz,
-        kacheln: [
-            { label: t("dashboard.thisMonth"), wert: kmText(dieserMonat?.total),
-              hinweis: fahrtenText(dieserMonat?.trips) },
-            { label: t("analysis.year", { year: aktuellesJahr }), wert: kmText(summe.total), hinweis: fahrtenText(summe.trips) },
-            { label: t("dashboard.avgPerMonth"), wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0),
-              hinweis: t("dashboard.months", { count: monate.length }) },
+    chartInstance = showYearAnalysis(target, {
+        year: currentYear, months: months, sum: sums, oldChart: chartInstance,
+        tiles: [
+            { label: t("dashboard.thisMonth"), value: kmText(thisMonth?.total),
+              hint: tripsText(thisMonth?.trips) },
+            { label: t("analysis.year", { year: currentYear }), value: kmText(sums.total), hint: tripsText(sums.trips) },
+            { label: t("dashboard.avgPerMonth"), value: kmText(months.length ? Math.round(sums.total / months.length) : 0),
+              hint: t("dashboard.months", { count: months.length }) },
         ],
     });
 }
 
 // Reminder: last backup older than 30 days and changes since then
-async function pruefeSicherung() {
-    const status = await ladeSicherungsStatus().catch(() => null);
-    const faellig = status?.vehicles.filter(v => v.remind) ?? [];
+async function checkBackup() {
+    const status = await loadBackupStatus().catch(() => null);
+    const due = status?.vehicles.filter(v => v.remind) ?? [];
     const box = document.getElementById("sicherungHinweis");
-    box.classList.toggle("d-none", faellig.length === 0);
-    if (faellig.length === 0) return;
+    box.classList.toggle("d-none", due.length === 0);
+    if (due.length === 0) return;
 
-    const nie = faellig.every(v => !v.last_backup_at);
-    document.getElementById("sicherungHinweisText").textContent = nie
+    const neverBackedUp = due.every(v => !v.last_backup_at);
+    document.getElementById("sicherungHinweisText").textContent = neverBackedUp
         ? t("dashboard.neverBackedUp")
         : t("dashboard.backupOverdue", { days: status.reminder_days });
 }
 
 document.getElementById("sicherungJetztBtn").addEventListener("click", async () => {
-    await sichereAlles();
-    pruefeSicherung();
+    await backupAll();
+    checkBackup();
 });
 
-Promise.all([fahrzeugBereit, ersteSynchronisierung]).then(() => {
-    ladeDashboard();
-    pruefeSicherung();
-    beiAktualisierung(ladeDashboard);
+Promise.all([vehicleReady, initialSync]).then(() => {
+    loadDashboard();
+    checkBackup();
+    onRefresh(loadDashboard);
 });

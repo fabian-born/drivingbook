@@ -6,72 +6,72 @@ const $ = id => document.getElementById(id);
 
 const euro    = n => n.toLocaleString(i18n.locale, { style: "currency", currency: "EUR" });
 const km      = n => `${n.toLocaleString(i18n.locale)} km`;
-const prozent = (anteil, stellen = 1) =>
-  prozentText(anteil * 100, stellen);
-const datum   = d => new Date(d).toLocaleDateString(i18n.locale);
+const percent = (share, decimals = 1) =>
+  percentText(share * 100, decimals);
+const localDate   = d => new Date(d).toLocaleDateString(i18n.locale);
 
 // Empty number fields → null
-const zahl = id => ($(id).value === "" ? null : Number($(id).value));
+const num = id => ($(id).value === "" ? null : Number($(id).value));
 
-function zeigeAlert(id, text, typ) {
+function showAlert(id, text, type) {
   const box = $(id);
-  box.className   = `alert alert-${typ}`;
+  box.className   = `alert alert-${type}`;
   box.textContent = text;
-  if (typ === "success") setTimeout(() => box.classList.add("d-none"), 3000);
+  if (type === "success") setTimeout(() => box.classList.add("d-none"), 3000);
 }
 
 // ── Year ─────────────────────────────────────────────────────
 
-function fuelleJahre() {
-  const aktuell = new Date().getFullYear();
-  for (let j = aktuell; j >= START_JAHR; j--) {
+function fillYears() {
+  const thisYear = new Date().getFullYear();
+  for (let j = thisYear; j >= START_YEAR; j--) {
     $("jahrSelect").insertAdjacentHTML("beforeend", `<option value="${j}">${j}</option>`);
   }
 }
 
 // ── Active vehicle ───────────────────────────────────────────
 
-async function ladeInfo() {
-  if (!aktivesFahrzeug) return;
-  const jahr = $("jahrSelect").value;
+async function loadInfo() {
+  if (!activeVehicle) return;
+  const selectedYear = $("jahrSelect").value;
 
-  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/info?year=${jahr}`);
-  if (!res.ok) return zeigeAlert("datenAlert", await apiError(res), "danger");
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/info?year=${selectedYear}`);
+  if (!res.ok) return showAlert("datenAlert", await apiError(res), "danger");
   const info = await res.json();
 
-  zeigeFahrzeug(info.vehicle);
-  zeigeKennzahlen(info);
-  zeigeKosten(info.costs);
-  zeigeVergleich(info);
+  showVehicle(info.vehicle);
+  showMetrics(info);
+  showCosts(info.costs);
+  showComparison(info);
 }
 
 // ── Check ────────────────────────────────────────────────────
 
-const AMPEL  = {
-  green:  { text: t("auto.check.green"),  farbe: "success" },
-  yellow: { text: t("auto.check.yellow"), farbe: "warning" },
-  red:    { text: t("auto.check.red"),    farbe: "danger" },
+const CHECK_STATUS  = {
+  green:  { text: t("auto.check.green"),  color: "success" },
+  yellow: { text: t("auto.check.yellow"), color: "warning" },
+  red:    { text: t("auto.check.red"),    color: "danger" },
 };
-const STUFE = {
-  error:   { icon: "mdi-close-circle",        farbe: "text-danger" },
-  warning: { icon: "mdi-alert",               farbe: "text-warning" },
-  info:    { icon: "mdi-information-outline", farbe: "text-secondary" },
+const SEVERITY = {
+  error:   { icon: "mdi-close-circle",        color: "text-danger" },
+  warning: { icon: "mdi-alert",               color: "text-warning" },
+  info:    { icon: "mdi-information-outline", color: "text-secondary" },
 };
 
-async function ladePruefung() {
-  if (!aktivesFahrzeug) return;
-  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/check?year=${$("jahrSelect").value}`);
+async function loadCheck() {
+  if (!activeVehicle) return;
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/check?year=${$("jahrSelect").value}`);
   if (!res.ok) return;
-  const { status: ampel, findings: befunde } = await res.json();
+  const { status: checkStatus, findings: findings } = await res.json();
 
-  $("pruefAmpel").className   = `badge text-bg-${AMPEL[ampel].farbe}`;
-  $("pruefAmpel").textContent = AMPEL[ampel].text;
+  $("pruefAmpel").className   = `badge text-bg-${CHECK_STATUS[checkStatus].color}`;
+  $("pruefAmpel").textContent = CHECK_STATUS[checkStatus].text;
 
-  $("pruefListe").innerHTML = befunde.length === 0
+  $("pruefListe").innerHTML = findings.length === 0
     ? `<li class="list-group-item text-success"><span class="mdi mdi-check-circle me-2"></span>${escapeHtml(t("auto.check.none"))}</li>`
-    : befunde.map(b => `
+    : findings.map(b => `
         <li class="list-group-item d-flex gap-2">
-          <span class="mdi ${STUFE[b.level].icon} ${STUFE[b.level].farbe}"></span>
+          <span class="mdi ${SEVERITY[b.level].icon} ${SEVERITY[b.level].color}"></span>
           <div>
             ${b.timestamp ? `<div class="small text-muted">${escapeHtml(new Date(b.timestamp).toLocaleString(i18n.locale))} · ${escapeHtml(km(b.odometer_km))}</div>` : ""}
             ${escapeHtml(b.text)}
@@ -79,7 +79,7 @@ async function ladePruefung() {
         </li>`).join("");
 }
 
-function zeigeFahrzeug(v) {
+function showVehicle(v) {
   $("autoName").textContent = v.name;
   $("autoCode").textContent = v.code;
   $("autoKennzeichen").textContent = v.license_plate ?? "";
@@ -91,22 +91,22 @@ function zeigeFahrzeug(v) {
   $("fdAntrieb").value     = v.drive_type;
 }
 
-function zeigeKennzahlen({ overall: gesamt, year_totals: jahr, year }) {
-  $("kzKmAktuell").textContent = gesamt.odometer_current != null ? km(gesamt.odometer_current) : "–";
-  $("kzKmJahr").textContent    = km(jahr.total);
-  const privat = jahr.private + jahr.commute;
-  $("kzPrivat").textContent    = jahr.total > 0
-    ? `${km(privat)} (${prozent(privat / jahr.total)})`
+function showMetrics({ overall: grandTotal, year_totals: selectedYear, year }) {
+  $("kzKmAktuell").textContent = grandTotal.odometer_current != null ? km(grandTotal.odometer_current) : "–";
+  $("kzKmJahr").textContent    = km(selectedYear.total);
+  const privateKm = selectedYear.private + selectedYear.commute;
+  $("kzPrivat").textContent    = selectedYear.total > 0
+    ? `${km(privateKm)} (${percent(privateKm / selectedYear.total)})`
     : "–";
-  $("kzFahrten").textContent   = jahr.trips.toLocaleString(i18n.locale);
-  $("kzZeitraum").textContent  = gesamt.trips > 0
-    ? t("auto.figures.period", { count: gesamt.trips, trips: gesamt.trips.toLocaleString(i18n.locale),
-                                 from: datum(gesamt.first_trip), to: datum(gesamt.last_trip) })
+  $("kzFahrten").textContent   = selectedYear.trips.toLocaleString(i18n.locale);
+  $("kzZeitraum").textContent  = grandTotal.trips > 0
+    ? t("auto.figures.period", { count: grandTotal.trips, trips: grandTotal.trips.toLocaleString(i18n.locale),
+                                 from: localDate(grandTotal.first_trip), to: localDate(grandTotal.last_trip) })
     : t("auto.figures.noTrips");
   $("vgJahr").textContent = year;
 }
 
-function zeigeKosten(k) {
+function showCosts(k) {
   $("kGesamt").value     = k?.total_costs ?? "";
   $("kAfa").value        = k?.depreciation || "";
   $("kArbeitsweg").value = k?.commute_km || "";
@@ -114,124 +114,124 @@ function zeigeKosten(k) {
   $("kSteuersatz").value = k?.tax_rate ?? "";
 }
 
-function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison: vg }) {
-  const hinweis = $("vgHinweis");
-  $("vgErgebnis").classList.toggle("d-none", !vg);
+function showComparison({ vehicle, costs: costs, year_totals: selectedYear, comparison: comparison }) {
+  const hint = $("vgHinweis");
+  $("vgErgebnis").classList.toggle("d-none", !comparison);
 
-  if (!vg) {
-    hinweis.textContent = vehicle.list_price == null
+  if (!comparison) {
+    hint.textContent = vehicle.list_price == null
       ? t("auto.compare.needListPrice")
       : t("auto.compare.needCosts");
-    hinweis.classList.remove("d-none");
+    hint.classList.remove("d-none");
     return;
   }
-  hinweis.classList.add("d-none");
+  hint.classList.add("d-none");
 
   // 1% rule
-  const satz = prozentText(vg.rate, 3);
-  $("vgPauschalSumme").textContent = euro(vg.flat_rate.total);
+  const rateText = percentText(comparison.rate, 3);
+  $("vgPauschalSumme").textContent = euro(comparison.flat_rate.total);
   $("vgPauschalDetail").innerHTML = [
-    tHtml("auto.compare.flatRateDetail", { count: Number(kosten.months), rate: satz, price: euro(vg.list_price), result: euro(vg.flat_rate.private_use) }),
-    vg.flat_rate.commute > 0 ? tHtml("auto.compare.flatRateCommute", { km: kosten.commute_km.toLocaleString(i18n.locale), result: euro(vg.flat_rate.commute) }) : "",
-    vg.flat_rate.capped ? tHtml("auto.compare.capped", { costs: euro(vg.total_costs) }) : "",
+    tHtml("auto.compare.flatRateDetail", { count: Number(costs.months), rate: rateText, price: euro(comparison.list_price), result: euro(comparison.flat_rate.private_use) }),
+    comparison.flat_rate.commute > 0 ? tHtml("auto.compare.flatRateCommute", { km: costs.commute_km.toLocaleString(i18n.locale), result: euro(comparison.flat_rate.commute) }) : "",
+    comparison.flat_rate.capped ? tHtml("auto.compare.capped", { costs: euro(comparison.total_costs) }) : "",
   ].filter(Boolean).join("<br>");
 
   // Logbook
-  const fb = vg.logbook;
-  $("vgFahrtenbuchSumme").textContent = fb ? euro(fb.total) : "–";
-  $("vgFahrtenbuchDetail").textContent = fb
-    ? t("auto.compare.logbookDetail", { share: prozent(fb.private_share), private: km(jahr.private + jahr.commute),
-                                        total: km(jahr.total), costs: euro(vg.total_costs) })
+  const logbook = comparison.logbook;
+  $("vgFahrtenbuchSumme").textContent = logbook ? euro(logbook.total) : "–";
+  $("vgFahrtenbuchDetail").textContent = logbook
+    ? t("auto.compare.logbookDetail", { share: percent(logbook.private_share), private: km(selectedYear.private + selectedYear.commute),
+                                        total: km(selectedYear.total), costs: euro(comparison.total_costs) })
     : t("auto.compare.noKm");
 
-  $("vgPauschal").classList.toggle("gewinner", vg.recommendation === "flat_rate");
-  $("vgFahrtenbuch").classList.toggle("gewinner", vg.recommendation === "logbook");
+  $("vgPauschal").classList.toggle("gewinner", comparison.recommendation === "flat_rate");
+  $("vgFahrtenbuch").classList.toggle("gewinner", comparison.recommendation === "logbook");
 
   // Recommendation
-  const empfehlung = $("vgEmpfehlung");
-  empfehlung.classList.toggle("d-none", !vg.recommendation);
-  if (vg.recommendation) {
-    const ersparnis = vg.tax_savings != null ? t("auto.compare.savings", { amount: euro(vg.tax_savings) }) : "";
-    empfehlung.className = `alert mt-3 mb-3 alert-${vg.recommendation === "logbook" ? "success" : "warning"}`;
-    empfehlung.innerHTML = vg.recommendation === "logbook"
-      ? tHtml("auto.compare.logbookWins", { amount: euro(vg.difference), savings: ersparnis })
-      : tHtml("auto.compare.flatRateWins", { amount: euro(-vg.difference), savings: ersparnis });
+  const recommendation = $("vgEmpfehlung");
+  recommendation.classList.toggle("d-none", !comparison.recommendation);
+  if (comparison.recommendation) {
+    const savings = comparison.tax_savings != null ? t("auto.compare.savings", { amount: euro(comparison.tax_savings) }) : "";
+    recommendation.className = `alert mt-3 mb-3 alert-${comparison.recommendation === "logbook" ? "success" : "warning"}`;
+    recommendation.innerHTML = comparison.recommendation === "logbook"
+      ? tHtml("auto.compare.logbookWins", { amount: euro(comparison.difference), savings: savings })
+      : tHtml("auto.compare.flatRateWins", { amount: euro(-comparison.difference), savings: savings });
   }
 
   // Threshold: up to which private share is the logbook worthwhile?
-  const grenze = vg.break_even_share;
-  $("vgBreakEvenBox").classList.toggle("d-none", grenze == null);
-  if (grenze != null) {
-    $("vgBreakEvenText").innerHTML = grenze >= 1
+  const breakEven = comparison.break_even_share;
+  $("vgBreakEvenBox").classList.toggle("d-none", breakEven == null);
+  if (breakEven != null) {
+    $("vgBreakEvenText").innerHTML = breakEven >= 1
       ? escapeHtml(t("auto.compare.alwaysEven"))
-      : tHtml("auto.compare.breakEven", { share: prozent(grenze) }) +
-        (fb ? (jahr.total ? tHtml("auto.compare.yourShareIs", { share: prozent(fb.private_share) }) : escapeHtml(t("auto.compare.yourShareOpen"))) : ".");
-    $("vgBreakEvenZone").style.width = `${Math.min(grenze, 1) * 100}%`;
+      : tHtml("auto.compare.breakEven", { share: percent(breakEven) }) +
+        (logbook ? (selectedYear.total ? tHtml("auto.compare.yourShareIs", { share: percent(logbook.private_share) }) : escapeHtml(t("auto.compare.yourShareOpen"))) : ".");
+    $("vgBreakEvenZone").style.width = `${Math.min(breakEven, 1) * 100}%`;
     const marker = $("vgPrivatMarker");
-    marker.classList.toggle("d-none", !fb);
-    if (fb) marker.style.left = `calc(${fb.private_share * 100}% - 1px)`;
+    marker.classList.toggle("d-none", !logbook);
+    if (logbook) marker.style.left = `calc(${logbook.private_share * 100}% - 1px)`;
     $("vgBreakEvenBalken").setAttribute("aria-label",
-      t("auto.compare.barLabel", { share: prozent(grenze) }) + (fb ? t("auto.compare.barCurrent", { share: prozent(fb.private_share) }) : ""));
+      t("auto.compare.barLabel", { share: percent(breakEven) }) + (logbook ? t("auto.compare.barCurrent", { share: percent(logbook.private_share) }) : ""));
   }
 }
 
-async function speichereDaten() {
+async function saveData() {
   const body = {
     name:          $("fdName").value.trim(),
     license_plate: $("fdKennzeichen").value.trim(),
-    list_price:    zahl("fdListenpreis"),
+    list_price:    num("fdListenpreis"),
     drive_type:    $("fdAntrieb").value,
   };
-  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}`, { method: "PATCH", body });
-  if (!res.ok) return zeigeAlert("datenAlert", await apiError(res), "danger");
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}`, { method: "PATCH", body });
+  if (!res.ok) return showAlert("datenAlert", await apiError(res), "danger");
 
-  zeigeAlert("datenAlert", t("auto.data.saved"), "success");
-  const option = document.querySelector(`#fahrzeugKontext option[value="${aktivesFahrzeug.code}"]`);
+  showAlert("datenAlert", t("auto.data.saved"), "success");
+  const option = document.querySelector(`#fahrzeugKontext option[value="${activeVehicle.code}"]`);
   if (option) option.textContent = `🚗 ${body.name}`;
-  await Promise.all([ladeInfo(), ladeFahrzeugliste()]);
+  await Promise.all([loadInfo(), loadVehicleList()]);
 }
 
-async function speichereKosten() {
+async function saveCosts() {
   const body = {
-    total_costs:  zahl("kGesamt"),
-    depreciation: zahl("kAfa"),
-    commute_km:   zahl("kArbeitsweg"),
-    months:       zahl("kMonate") ?? 12,
-    tax_rate:     zahl("kSteuersatz"),
+    total_costs:  num("kGesamt"),
+    depreciation: num("kAfa"),
+    commute_km:   num("kArbeitsweg"),
+    months:       num("kMonate") ?? 12,
+    tax_rate:     num("kSteuersatz"),
   };
-  if (body.total_costs == null) return zeigeAlert("kostenAlert", t("auto.compare.needTotal"), "warning");
+  if (body.total_costs == null) return showAlert("kostenAlert", t("auto.compare.needTotal"), "warning");
 
-  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/years/${$("jahrSelect").value}`, { method: "PUT", body });
-  if (!res.ok) return zeigeAlert("kostenAlert", await apiError(res), "danger");
+  const res = await apiFetch(`/api/vehicles/${activeVehicle.id}/years/${$("jahrSelect").value}`, { method: "PUT", body });
+  if (!res.ok) return showAlert("kostenAlert", await apiError(res), "danger");
 
-  zeigeAlert("kostenAlert", t("auto.compare.saved"), "success");
-  await ladeInfo();
+  showAlert("kostenAlert", t("auto.compare.saved"), "success");
+  await loadInfo();
 }
 
 // ── Export / Import ──────────────────────────────────────────
 
 function initExportImport() {
-  $("exportBtn").disabled = !aktivesFahrzeug;
-  $("exportBtn").addEventListener("click", () => sichereFahrzeugDatei(aktivesFahrzeug));
+  $("exportBtn").disabled = !activeVehicle;
+  $("exportBtn").addEventListener("click", () => backupVehicleFile(activeVehicle));
 
   $("importBtn").addEventListener("click", async () => {
-    const datei = $("importDatei").files[0];
-    if (!datei) return zeigeAlert("importAlert", t("auto.backup.chooseFile"), "warning");
+    const file = $("importDatei").files[0];
+    if (!file) return showAlert("importAlert", t("auto.backup.chooseFile"), "warning");
 
     $("importBtn").disabled = true;
     try {
-      const ergebnis = await stelleSicherungWiederHer(datei);
-      if (!ergebnis) return;
-      if (ergebnis.vehicle && ergebnis.vehicle.code !== aktivesFahrzeug?.code) {
+      const result = await restoreBackup(file);
+      if (!result) return;
+      if (result.vehicle && result.vehicle.code !== activeVehicle?.code) {
         // different (possibly newly created) vehicle → select it
-        alert(`${t("auto.backup.restored")}\n${ergebnis.text}\n\n${t("auto.backup.selecting", { name: ergebnis.vehicle.name })}`);
-        waehleFahrzeug(ergebnis.vehicle.code);
+        alert(`${t("auto.backup.restored")}\n${result.text}\n\n${t("auto.backup.selecting", { name: result.vehicle.name })}`);
+        selectVehicle(result.vehicle.code);
         return location.reload();
       }
-      zeigeAlert("importAlert", `${t("auto.backup.restored")}\n${ergebnis.text}`, "info");
-      await Promise.all([ladeInfo(), ladePruefung(), ladeFahrzeugliste()]);
+      showAlert("importAlert", `${t("auto.backup.restored")}\n${result.text}`, "info");
+      await Promise.all([loadInfo(), loadCheck(), loadVehicleList()]);
     } catch (err) {
-      zeigeAlert("importAlert", err.message, "danger");
+      showAlert("importAlert", err.message, "danger");
     } finally {
       $("importBtn").disabled = false;
     }
@@ -240,7 +240,7 @@ function initExportImport() {
 
 // ── My vehicles ──────────────────────────────────────────────
 
-async function ladeFahrzeugliste() {
+async function loadVehicleList() {
   const tbody = $("vehicleTabelle");
   const res = await apiFetch("/api/vehicles");
   if (!res.ok) {
@@ -254,10 +254,10 @@ async function ladeFahrzeugliste() {
   }
 
   tbody.innerHTML = vehicles.map(v => {
-    const aktiv = v.code === aktivesFahrzeug?.code;
+    const isActive = v.code === activeVehicle?.code;
     return `
       <tr>
-        <td>${aktiv
+        <td>${isActive
           ? `<strong>${escapeHtml(v.name)}</strong> <span class="badge bg-primary">${escapeHtml(t("auto.list.active"))}</span>`
           : `<a href="#" class="waehle-vehicle" data-code="${escapeHtml(v.code)}" title="${escapeHtml(t("auto.list.select"))}">${escapeHtml(v.name)}</a>`}</td>
         <td class="d-none d-sm-table-cell">${escapeHtml(v.license_plate ?? "–")}</td>
@@ -274,18 +274,18 @@ async function ladeFahrzeugliste() {
   }).join("");
 }
 
-function initFahrzeugverwaltung() {
-  const formular = $("newVehicleForm");
-  const neuBtn   = $("newVehicleBtn");
+function initVehicleManagement() {
+  const vehicleForm = $("newVehicleForm");
+  const newBtn   = $("newVehicleBtn");
 
-  neuBtn.addEventListener("click", () => {
-    formular.classList.remove("d-none");
-    neuBtn.classList.add("d-none");
+  newBtn.addEventListener("click", () => {
+    vehicleForm.classList.remove("d-none");
+    newBtn.classList.add("d-none");
     $("vehicleNameInput").focus();
   });
   $("cancelVehicleBtn").addEventListener("click", () => {
-    formular.classList.add("d-none");
-    neuBtn.classList.remove("d-none");
+    vehicleForm.classList.add("d-none");
+    newBtn.classList.remove("d-none");
   });
 
   $("createVehicleBtn").addEventListener("click", async () => {
@@ -297,49 +297,49 @@ function initFahrzeugverwaltung() {
     if (!res.ok) return alert(await apiError(res, t("auto.list.createError")));
 
     // Select the new vehicle right away so its data can be entered
-    waehleFahrzeug((await res.json()).code);
+    selectVehicle((await res.json()).code);
     location.reload();
   });
 
   $("vehicleTabelle").addEventListener("click", async e => {
-    const waehlen = e.target.closest(".waehle-vehicle");
-    if (waehlen) {
+    const selectBtn = e.target.closest(".waehle-vehicle");
+    if (selectBtn) {
       e.preventDefault();
-      waehleFahrzeug(waehlen.dataset.code);
+      selectVehicle(selectBtn.dataset.code);
       return location.reload();
     }
 
-    const standard = e.target.closest(".set-default-vehicle-btn");
-    if (standard) {
-      const res = await apiFetch(`/api/vehicles/${standard.dataset.id}/default`, { method: "PATCH" });
+    const defaultBtn = e.target.closest(".set-default-vehicle-btn");
+    if (defaultBtn) {
+      const res = await apiFetch(`/api/vehicles/${defaultBtn.dataset.id}/default`, { method: "PATCH" });
       if (!res.ok) return alert(await apiError(res, t("auto.list.defaultError")));
-      return ladeFahrzeugliste();
+      return loadVehicleList();
     }
 
-    const loeschen = e.target.closest(".delete-vehicle-btn");
-    if (loeschen) await loescheFahrzeug(Number(loeschen.dataset.id));
+    const deleteBtn = e.target.closest(".delete-vehicle-btn");
+    if (deleteBtn) await deleteVehicle(Number(deleteBtn.dataset.id));
   });
 }
 
 // Delete a vehicle. If it has trips, they are moved to another vehicle
 // (otherwise they would vanish from all views and the logbook PDF).
-async function loescheFahrzeug(id) {
-  const name = alleFahrzeuge.find(v => v.id === id)?.name ?? t("auto.delete.fallbackName");
+async function deleteVehicle(id) {
+  const name = allVehicles.find(v => v.id === id)?.name ?? t("auto.delete.fallbackName");
   if (!confirm(t("auto.delete.confirmQuestion", { name }))) return;
 
   const res = await apiFetch(`/api/vehicles/${id}`, { method: "DELETE" });
   if (res.ok) return location.reload();   // re-determine navigation and active vehicle
 
-  const fehler = await res.json().catch(() => ({}));
-  if (fehler.code !== "HAS_TRIPS") return alert(fehler.error || t("auto.delete.error"));
+  const failure = await res.json().catch(() => ({}));
+  if (failure.code !== "HAS_TRIPS") return alert(failure.error || t("auto.delete.error"));
 
-  const andere = alleFahrzeuge.filter(v => v.id !== id);
-  if (andere.length === 0) {
-    return alert(t("auto.delete.noTarget", { name, count: Number(fehler.count) }));
+  const otherVehicles = allVehicles.filter(v => v.id !== id);
+  if (otherVehicles.length === 0) {
+    return alert(t("auto.delete.noTarget", { name, count: Number(failure.count) }));
   }
 
-  $("loeschenText").textContent = t("auto.delete.moveText", { name, count: Number(fehler.count) });
-  $("loeschenZiel").innerHTML = andere.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
+  $("loeschenText").textContent = t("auto.delete.moveText", { name, count: Number(failure.count) });
+  $("loeschenZiel").innerHTML = otherVehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
   const modal = bootstrap.Modal.getOrCreateInstance($("loeschenModal"));
   $("loeschenBestaetigen").onclick = async () => {
     const r = await apiFetch(`/api/vehicles/${id}?target=${$("loeschenZiel").value}`, { method: "DELETE" });
@@ -353,17 +353,17 @@ async function loescheFahrzeug(id) {
 // ── Start ────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", async () => {
-  fuelleJahre();
-  initFahrzeugverwaltung();
-  $("jahrSelect").addEventListener("change", () => Promise.all([ladeInfo(), ladePruefung()]));
-  $("datenSpeichernBtn").addEventListener("click", speichereDaten);
-  $("kostenSpeichernBtn").addEventListener("click", speichereKosten);
+  fillYears();
+  initVehicleManagement();
+  $("jahrSelect").addEventListener("change", () => Promise.all([loadInfo(), loadCheck()]));
+  $("datenSpeichernBtn").addEventListener("click", saveData);
+  $("kostenSpeichernBtn").addEventListener("click", saveCosts);
   $("copyCodeBtn").addEventListener("click", () => navigator.clipboard.writeText($("autoCode").textContent));
 
-  await fahrzeugBereit;
-  $("autoInhalt").classList.toggle("d-none", !aktivesFahrzeug);
-  $("keinFahrzeug").classList.toggle("d-none", !!aktivesFahrzeug);
+  await vehicleReady;
+  $("autoInhalt").classList.toggle("d-none", !activeVehicle);
+  $("keinFahrzeug").classList.toggle("d-none", !!activeVehicle);
   initExportImport();
-  await Promise.all([ladeInfo(), ladePruefung(), ladeFahrzeugliste()]);
-  beiAktualisierung(() => Promise.all([ladeInfo(), ladePruefung()]));
+  await Promise.all([loadInfo(), loadCheck(), loadVehicleList()]);
+  onRefresh(() => Promise.all([loadInfo(), loadCheck()]));
 });

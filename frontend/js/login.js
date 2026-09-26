@@ -1,7 +1,7 @@
 const form = document.getElementById("loginForm");
 
 // Language choice before login (this device only)
-sprachAuswahl(document.getElementById("spracheWahl"), neu => { i18n.setze(neu); location.reload(); });
+languageSelect(document.getElementById("spracheWahl"), newValue => { i18n.set(newValue); location.reload(); });
 const errorBox = document.getElementById("loginError");
 
 // Redirect from apiFetch after the session expired
@@ -38,7 +38,7 @@ form.addEventListener("submit", async e => {
     localStorage.removeItem("aktivesFahrzeug");
     localStorage.removeItem("fahrzeuge");
     // The language chosen in the profile applies on this device (otherwise the previous choice stays)
-    if (data.user?.language) i18n.setze(data.user.language);
+    if (data.user?.language) i18n.set(data.user.language);
 
   } catch (err) {
     errorBox.innerText = `❌ ${t("login.failed")}`;
@@ -46,11 +46,11 @@ form.addEventListener("submit", async e => {
     return;
   }
 
-  await fahrzeugWaehlen();
+  await promptVehicleChoice();
 });
 
 // With several vehicles let the user pick one first, otherwise go straight to the dashboard
-async function fahrzeugWaehlen() {
+async function promptVehicleChoice() {
   let vehicles = [];
   try {
     const res = await apiFetch("/api/vehicles");
@@ -62,12 +62,12 @@ async function fahrzeugWaehlen() {
     return;
   }
 
-  const liste = document.getElementById("fahrzeugListe");
-  liste.innerHTML = vehicles.map(v => `
+  const listEl = document.getElementById("fahrzeugListe");
+  listEl.innerHTML = vehicles.map(v => `
     <button type="button" class="btn ${v.is_default ? "btn-primary" : "btn-outline-primary"}" data-code="${escapeHtml(v.code)}">
       🚗 ${escapeHtml(v.name)}${v.is_default ? t("login.default") : ""}
     </button>`).join("");
-  liste.addEventListener("click", e => {
+  listEl.addEventListener("click", e => {
     const btn = e.target.closest("button[data-code]");
     if (!btn) return;
     localStorage.setItem("aktivesFahrzeug", btn.dataset.code);

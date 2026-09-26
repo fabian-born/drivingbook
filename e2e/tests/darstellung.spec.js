@@ -28,15 +28,15 @@ test.describe("Hell-/Dunkelmodus", () => {
 
     // manuell „Dunkel“ – gilt auch nach dem Neuladen, obwohl das System hell ist
     await page.getByRole("button", { name: "Profil" }).click();
-    await page.locator("[data-darstellung=dunkel]").click();
+    await page.locator("[data-theme=dunkel]").click();
     expect(await thema(page)).toBe("dark");
     await page.reload();
     expect(await thema(page)).toBe("dark");
     await page.getByRole("button", { name: "Profil" }).click();
-    await expect(page.locator("[data-darstellung=dunkel]")).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator("[data-theme=dunkel]")).toHaveAttribute("aria-checked", "true");
 
     // zurück auf „Automatisch“
-    await page.locator("[data-darstellung=auto]").click();
+    await page.locator("[data-theme=auto]").click();
     expect(await thema(page)).toBe("light");
   });
 

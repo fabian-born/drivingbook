@@ -2,7 +2,7 @@
 // Empty = same origin; nginx in the frontend container forwards /api to the backend
 const API_BASE_URL = "";
 //const API_BASE_URL = "http://192.168.4.249:3000"
-const START_JAHR = 2024;
+const START_YEAR = 2024;
 
 
 const logoutBtn = document.getElementById("logoutBtn");
@@ -27,9 +27,9 @@ function tokenPayload() {
 
 // Navigation: highlight the current page, show admin entries to admins only
 (function initNavigation() {
-  const seite = location.pathname.split("/").pop() || "index.html";
+  const currentPage = location.pathname.split("/").pop() || "index.html";
   document.querySelectorAll(".navbar-nav a[href]").forEach(link => {
-    if (link.getAttribute("href") !== seite) return;
+    if (link.getAttribute("href") !== currentPage) return;
     link.classList.add("active");
     link.setAttribute("aria-current", "page");
     link.closest(".dropdown")?.querySelector(".dropdown-toggle").classList.add("active");
@@ -39,17 +39,17 @@ function tokenPayload() {
   }
 
   // Appearance: auto / light / dark (theme.js)
-  const markiereDarstellung = () => document.querySelectorAll("[data-darstellung]").forEach(btn => {
-    const aktiv = btn.dataset.darstellung === window.darstellung?.modus();
-    btn.setAttribute("aria-checked", aktiv);
+  const markThemeButtons = () => document.querySelectorAll("[data-theme]").forEach(btn => {
+    const isActive = btn.dataset.theme === window.theme?.mode();
+    btn.setAttribute("aria-checked", isActive);
     btn.setAttribute("role", "menuitemradio");
-    btn.querySelector(".darstellung-haken").style.visibility = aktiv ? "visible" : "hidden";
+    btn.querySelector(".darstellung-haken").style.visibility = isActive ? "visible" : "hidden";
   });
-  document.querySelectorAll("[data-darstellung]").forEach(btn => btn.addEventListener("click", () => {
-    window.darstellung?.setze(btn.dataset.darstellung);
-    markiereDarstellung();
+  document.querySelectorAll("[data-theme]").forEach(btn => btn.addEventListener("click", () => {
+    window.theme?.set(btn.dataset.theme);
+    markThemeButtons();
   }));
-  markiereDarstellung();
+  markThemeButtons();
 })();
 
 // Trip types: value (as in the backend), key in totals, label,
@@ -57,42 +57,42 @@ function tokenPayload() {
 // Chart colors are CSS variables from theme.js (separate steps for light/dark,
 // checked with the palette validator); in light mode commute has < 3:1 contrast
 // → always paired with legend/labels and a table.
-const FAHRTARTEN = [
-  { wert: "business", key: "business", label: t("tripType.business"), farbe: "primary", chart: "var(--fa-business)" },
-  { wert: "private",  key: "private",  label: t("tripType.private"),  farbe: "success", chart: "var(--fa-private)" },
-  { wert: "commute",  key: "commute",  label: t("tripType.commute"),  farbe: "warning", chart: "var(--fa-commute)" },
+const TRIP_TYPES = [
+  { value: "business", key: "business", label: t("tripType.business"), color: "primary", chart: "var(--fa-business)" },
+  { value: "private",  key: "private",  label: t("tripType.private"),  color: "success", chart: "var(--fa-private)" },
+  { value: "commute",  key: "commute",  label: t("tripType.commute"),  color: "warning", chart: "var(--fa-commute)" },
 ];
 
 // Display name of a country (ISO code from the profile)
-const landName = code => (code ? t(`country.${code}`) : "–");
+const countryName = code => (code ? t(`country.${code}`) : "–");
 
 // Resolved color (for canvas charts, which don't understand CSS variables)
-const cssFarbe = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const fahrtartFarbe = art => cssFarbe(`--fa-${art.key}`);
-const fahrtartInfo = wert => FAHRTARTEN.find(a => a.wert === wert) ?? { wert, label: wert, farbe: "secondary" };
+const cssColor = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const tripTypeColor = kind => cssColor(`--fa-${kind.key}`);
+const tripTypeInfo = rawValue => TRIP_TYPES.find(a => a.value === rawValue) ?? { value: rawValue, label: rawValue, color: "secondary" };
 
-function fahrtartOptionen(ausgewaehlt) {
-  return FAHRTARTEN.map(a =>
-    `<option value="${a.wert}" ${a.wert === ausgewaehlt ? "selected" : ""}>${a.label}</option>`).join("");
+function tripTypeOptions(selectedType) {
+  return TRIP_TYPES.map(a =>
+    `<option value="${a.value}" ${a.value === selectedType ? "selected" : ""}>${a.label}</option>`).join("");
 }
 
-function fahrtartBadge(wert) {
-  const a = fahrtartInfo(wert);
-  return `<span class="badge text-bg-${a.farbe} card-badge">${escapeHtml(a.label)}</span>`;
+function tripTypeBadge(rawValue) {
+  const a = tripTypeInfo(rawValue);
+  return `<span class="badge text-bg-${a.color} card-badge">${escapeHtml(a.label)}</span>`;
 }
 
 // Percentage in the language's notation ("12,3 %" or "12.3%")
-const prozentText = (zahl, stellen = 1) =>
-  t("common.percent", { value: zahl.toLocaleString(i18n.locale, { maximumFractionDigits: stellen }) });
+const percentText = (num, decimals = 1) =>
+  t("common.percent", { value: num.toLocaleString(i18n.locale, { maximumFractionDigits: decimals }) });
 
 // Fills a <select> with "Automatic" + all languages (each in its own spelling);
 // `beiAenderung` receives the code or null (= automatic)
-function sprachAuswahl(select, beiAenderung, gewaehlt = i18n.gewaehlt()) {
+function languageSelect(select, onChange, selectedValue = i18n.selected()) {
   if (!select) return;
   select.innerHTML = [`<option value="">${escapeHtml(t("language.auto"))}</option>`,
-    ...Object.entries(i18n.sprachen).map(([code, name]) => `<option value="${code}">${escapeHtml(name)}</option>`)].join("");
-  select.value = gewaehlt ?? "";
-  select.addEventListener("change", () => beiAenderung(select.value || null));
+    ...Object.entries(i18n.languages).map(([code, name]) => `<option value="${code}">${escapeHtml(name)}</option>`)].join("");
+  select.value = selectedValue ?? "";
+  select.addEventListener("change", () => onChange(select.value || null));
 }
 
 // Escapes HTML special characters before data is inserted via innerHTML
@@ -110,7 +110,7 @@ function escapeHtml(value) {
 async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
   const authToken = localStorage.getItem("authToken");
   // Language for the backend's error messages, PDF and CSV
-  const options   = { method, headers: { "Accept-Language": i18n.sprache, ...headers } };
+  const options   = { method, headers: { "Accept-Language": i18n.language, ...headers } };
 
   if (authToken) options.headers["Authorization"] = `Bearer ${authToken}`;
   if (body !== undefined) {
@@ -136,14 +136,14 @@ async function apiError(res, fallback = t("common.unknownError")) {
 
 // Fetches a file with the auth header and offers it as a download
 // (a plain link would not send an Authorization header)
-async function downloadDatei(path, dateiname) {
+async function downloadFile(path, filename) {
   try {
     const res = await apiFetch(path);
     if (!res.ok) return alert(await apiError(res, t("common.exportFailed")));
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(await res.blob());
-    link.download = dateiname;
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   } catch (err) {
