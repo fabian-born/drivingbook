@@ -9,12 +9,12 @@ import { steuerVergleich } from "../lib/steuer.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { pruefeJahr } from "../lib/pruefung.js";
 import { sichereFahrzeug, stelleFahrzeugWiederHer } from "../lib/sicherung.js";
-import { COL, TAB, antriebSql, antriebZuDb } from "../lib/dbschema.js";
+import { ausAltformat } from "../lib/altformat.js";
 import { withTransaction } from "../db.js";
 import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
-                        list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type`;
+                        list_price::float8 AS list_price, drive_type`;
 
 export function vehicleRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
@@ -45,7 +45,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       `UPDATE vehicles SET ${setClause}
        WHERE  id = $${fields.length + 1} AND user_id = $${fields.length + 2}
        RETURNING ${VEHICLE_FIELDS}`,
-      [...fields.map(f => (f === "drive_type" ? antriebZuDb(changes[f]) : changes[f])), id, req.userId]
+      [...fields.map(f => changes[f]), id, req.userId]
     );
     if (result.rows.length === 0) {
       throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
@@ -62,13 +62,13 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
 
     const [gesamt, jahr, kosten] = await Promise.all([
       pool.query(
-        `SELECT COUNT(*)::int AS fahrten,
-                MIN(timestamp) AS erste_fahrt,
-                MAX(timestamp) AS letzte_fahrt,
-                (SELECT ${COL.kmstand} FROM ${TAB.fahrten}
+        `SELECT COUNT(*)::int AS trips,
+                MIN(timestamp) AS first_trip,
+                MAX(timestamp) AS last_trip,
+                (SELECT odometer_km FROM trips
                  WHERE user_id = $1 AND vehicle_id = $2
-                 ORDER BY timestamp DESC, id DESC LIMIT 1) AS km_aktuell
-         FROM   ${TAB.fahrten}
+                 ORDER BY timestamp DESC, id DESC LIMIT 1) AS odometer_current
+         FROM   trips
          WHERE  user_id = $1 AND vehicle_id = $2`,
         [req.userId, id]
       ),
@@ -81,14 +81,14 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       ),
     ]);
 
-    const km = fasseZusammen(jahr).summe;
+    const km = fasseZusammen(jahr).totals;
     return res.json({
       vehicle,
       year,
-      gesamt:    gesamt.rows[0],
-      jahr:      km,
-      kosten:    kosten.rows[0] ?? null,
-      vergleich: steuerVergleich(vehicle, kosten.rows[0] ?? null, km),
+      overall:     gesamt.rows[0],
+      year_totals: km,
+      costs:       kosten.rows[0] ?? null,
+      comparison:  steuerVergleich(vehicle, kosten.rows[0] ?? null, km),
     });
   }));
 
@@ -99,24 +99,24 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     if (!daten) {
       throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
     }
-    res.attachment(`fahrzeug_${daten.fahrzeug.code}_${daten.erstellt_am.slice(0, 10)}.json`);
+    res.attachment(`fahrzeug_${daten.vehicle.code}_${daten.created_at.slice(0, 10)}.json`);
     return res.json(daten);
   }));
 
   // POST /api/vehicles/import  →  Fahrzeug-Sicherung wiederherstellen (ergänzt nur)
-  // Fahrzeug mit gleichem Code wird ergänzt, sonst neu angelegt
+  // Fahrzeug mit gleichem Code wird ergänzt, sonst neu angelegt. Akzeptiert Format v2 und v1.
   router.post("/vehicles/import", requireAuth, express.json({ limit: "25mb" }), asyncHandler(async (req, res) => {
-    const daten = parse(importBody, req.body);
+    const daten = parse(importBody, ausAltformat(req.body));
     const ergebnis = await withTransaction(pool, client => stelleFahrzeugWiederHer(client, req.userId, daten));
     const fahrzeug = (await pool.query(`SELECT ${VEHICLE_FIELDS} FROM vehicles WHERE id = $1`, [ergebnis.vehicle_id])).rows[0];
 
-    console.log(`📥 Wiederherstellung für User ${req.userId}: ${ergebnis.fahrten} Fahrten → Fahrzeug ${fahrzeug.code}`);
-    const { vehicle_id, neu, ...importiert } = ergebnis;
-    return res.status(neu ? 201 : 200).json({ vehicle: fahrzeug, neu, importiert });
+    console.log(`📥 Wiederherstellung für User ${req.userId}: ${ergebnis.trips} Fahrten → Fahrzeug ${fahrzeug.code}`);
+    const { vehicle_id, created, ...imported } = ergebnis;
+    return res.status(created ? 201 : 200).json({ vehicle: fahrzeug, created, imported });
   }));
 
-  // GET /api/vehicles/:id/pruefung?year=YYYY  →  Ampel + Auffälligkeiten eines Jahres
-  router.get("/vehicles/:id/pruefung", requireAuth, asyncHandler(async (req, res) => {
+  // GET /api/vehicles/:id/check?year=YYYY  →  Ampel (status) + Auffälligkeiten (findings) eines Jahres
+  router.get("/vehicles/:id/check", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
     const year = parse(infoQuery, req.query).year
       ?? Number(new Date().toLocaleString("en-CA", { timeZone: tz, year: "numeric" }));
@@ -125,9 +125,9 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     const [fahrten, audit, ohneFahrzeug] = await Promise.all([
       jahresFahrten(pool, { userId: req.userId, year, vehicleId: id, timezone: tz }),
       pool.query(
-        `SELECT COUNT(DISTINCT ${COL.fahrtId}) FILTER (WHERE action = 'update')::int AS geaendert,
-                COUNT(DISTINCT ${COL.fahrtId}) FILTER (WHERE action = 'delete')::int AS geloescht
-         FROM   ${TAB.audit}
+        `SELECT COUNT(DISTINCT trip_id) FILTER (WHERE action = 'update')::int AS geaendert,
+                COUNT(DISTINCT trip_id) FILTER (WHERE action = 'delete')::int AS geloescht
+         FROM   trip_audit
          WHERE  user_id = $1
            AND  $3 IN ((old_data->>'vehicle_id')::int, (new_data->>'vehicle_id')::int)
            AND  $2 IN (
@@ -137,7 +137,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
         [req.userId, year, id, tz]
       ),
       pool.query(
-        `SELECT COUNT(*)::int AS anzahl FROM ${TAB.fahrten}
+        `SELECT COUNT(*)::int AS count FROM trips
          WHERE  user_id = $1 AND vehicle_id IS NULL
            AND  timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
            AND  timestamp <  make_timestamptz($2 + 1, 1, 1, 0, 0, 0, $3)`,
@@ -147,7 +147,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
 
     return res.json({
       year,
-      ...pruefeJahr(fahrten, { ...audit.rows[0], ohneFahrzeug: ohneFahrzeug.rows[0].anzahl }),
+      ...pruefeJahr(fahrten, { ...audit.rows[0], ohneFahrzeug: ohneFahrzeug.rows[0].count }),
     });
   }));
 

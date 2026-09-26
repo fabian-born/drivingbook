@@ -13,7 +13,7 @@ const ROW_FILL  = "#f2f2f2";
 
 const km = n => (n == null ? "–" : n.toLocaleString("de-DE"));
 
-const FAHRTART_LABEL = { privat: "Privat", "geschäftlich": "Geschäftlich", arbeitsweg: "Arbeitsweg" };
+const FAHRTART_LABEL = { private: "Privat", business: "Geschäftlich", commute: "Arbeitsweg" };
 
 // Übersicht je Fahrzeug aus jahresFahrten() – dieselbe Berechnung wie Dashboard
 // und Auto-Info (Strecke ab dem letzten km-Stand vor dem Jahr, Rückschritte zählen 0)
@@ -28,9 +28,9 @@ export function fahrzeugUebersicht(trips) {
     const erste = fahrten[0], letzte = fahrten.at(-1);
     return {
       name:    erste.vehicle_name || "Ohne Fahrzeug",
-      startKm: erste.kmstand - (erste.strecke ?? 0),
-      endKm:   letzte.kmstand,
-      ...fasseZusammen(fahrten).summe,
+      startKm: erste.odometer_km - (erste.distance ?? 0),
+      endKm:   letzte.odometer_km,
+      ...fasseZusammen(fahrten).totals,
     };
   });
 }
@@ -40,14 +40,15 @@ function describeAudit(entry, formatTs) {
   const fmt = (field, value) => {
     if (value == null) return "–";
     if (field === "timestamp") return formatTs(value);
-    if (field === "kmstand")   return `${km(value)} km`;
+    if (field === "odometer_km") return `${km(value)} km`;
+    if (field === "trip_type")   return FAHRTART_LABEL[value] ?? String(value);
     return String(value);
   };
-  const labels = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug-ID" };
+  const labels = { odometer_km: "km-Stand", destination: "Ziel", trip_type: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug-ID" };
 
   if (entry.action === "delete") {
     const o = entry.old_data;
-    return `Gelöscht: ${fmt("timestamp", o.timestamp)}, ${fmt("kmstand", o.kmstand)}, ${o.fahrtart}, ${o.ziel}`;
+    return `Gelöscht: ${fmt("timestamp", o.timestamp)}, ${fmt("odometer_km", o.odometer_km)}, ${fmt("trip_type", o.trip_type)}, ${o.destination}`;
   }
   const changes = Object.keys(labels)
     .filter(f => JSON.stringify(entry.old_data?.[f]) !== JSON.stringify(entry.new_data?.[f]))
@@ -128,12 +129,12 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       ];
       drawRow(summaryCols, ["Fahrzeug", "Start-km", "End-km", "Gesamt km", "Privat km", "Geschäftlich km", "Arbeitsweg km"], { bold: true, fill: ROW_FILL });
       for (const v of vehicles) {
-        const total = v.gesamt;
+        const total = v.total;
         const pct   = n => (total > 0 ? ` (${((n / total) * 100).toFixed(1)} %)` : "");
         drawRow(summaryCols, [
           v.name, km(v.startKm), km(v.endKm), km(total),
-          km(v.privat) + pct(v.privat), km(v.geschaeftlich) + pct(v.geschaeftlich),
-          km(v.arbeitsweg) + pct(v.arbeitsweg),
+          km(v.private) + pct(v.private), km(v.business) + pct(v.business),
+          km(v.commute) + pct(v.commute),
         ]);
       }
 
@@ -154,10 +155,10 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       rows.forEach((t, i) => {
         drawRow(tripCols, [
           // Rückschritte bleiben hier als negative Strecke sichtbar
-          i + 1, formatTs(t.timestamp).replace(", ", " "), km(t.kmstand), km(t.strecke),
-          FAHRTART_LABEL[t.fahrtart] ?? t.fahrtart,
+          i + 1, formatTs(t.timestamp).replace(", ", " "), km(t.odometer_km), km(t.distance),
+          FAHRTART_LABEL[t.trip_type] ?? t.trip_type,
           ...(multiVehicle ? [t.vehicle_name || "–"] : []),
-          t.edited ? `${t.ziel} *` : t.ziel,
+          t.edited ? `${t.destination} *` : t.destination,
         ], { fill: i % 2 ? ROW_FILL : null, onNewPage: drawHeader });
       });
 
@@ -178,7 +179,7 @@ export function renderYearPdf(stream, { year, username, trips, audit, timezone }
       const drawAuditHeader = () => drawRow(auditCols, ["Geändert am", "Fahrt-ID", "Änderung"], { bold: true, fill: ROW_FILL });
       drawAuditHeader();
       audit.forEach((a, i) => {
-        drawRow(auditCols, [formatTs(a.changed_at), `#${a.fahrt_id}`, describeAudit(a, formatTs)],
+        drawRow(auditCols, [formatTs(a.changed_at), `#${a.trip_id}`, describeAudit(a, formatTs)],
           { fill: i % 2 ? ROW_FILL : null, onNewPage: drawAuditHeader });
       });
     }

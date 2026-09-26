@@ -9,7 +9,7 @@ import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
 import { bearbeiteOhneFahrzeug, bericht, entferneDuplikate } from "../lib/aufraeumen.js";
-import { createUserBody, duplikateBody, idParam, ohneFahrzeugBody, vehicleBody } from "../schemas.js";
+import { createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   const router = express.Router();
@@ -68,32 +68,32 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
 
   // ── Datenbank aufräumen ────────────────────────────────────
 
-  // GET /api/admin/aufraeumen  →  Bericht: doppelte Fahrten, Fahrten ohne Fahrzeug
-  router.get("/admin/aufraeumen", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  // GET /api/admin/cleanup  →  Bericht: doppelte Fahrten, Fahrten ohne Fahrzeug
+  router.get("/admin/cleanup", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
     return res.json(await bericht(pool));
   }));
 
-  // POST /api/admin/aufraeumen/duplikate  →  überzählige Duplikate löschen
+  // POST /api/admin/cleanup/duplicates  →  überzählige Duplikate löschen
   // Body: { ids? }  ohne ids: alle aktuell erkannten
-  router.post("/admin/aufraeumen/duplikate", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-    const { ids } = parse(duplikateBody, req.body);
+  router.post("/admin/cleanup/duplicates", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    const { ids } = parse(duplicatesBody, req.body);
     const ergebnis = await withTransaction(pool, client => entferneDuplikate(client, ids ?? null));
-    console.log(`🧹 Admin ${req.userId}: ${ergebnis.entfernt} doppelte Fahrten gelöscht`);
+    console.log(`🧹 Admin ${req.userId}: ${ergebnis.removed} doppelte Fahrten gelöscht`);
     return res.json(ergebnis);
   }));
 
-  // POST /api/admin/aufraeumen/ohne-fahrzeug  →  Fahrten ohne Fahrzeug zuordnen oder löschen
-  // Body: { user_id, aktion: "zuordnen" | "loeschen", vehicle_id? }
-  router.post("/admin/aufraeumen/ohne-fahrzeug", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-    const daten = parse(ohneFahrzeugBody, req.body);
-    if (daten.aktion === "zuordnen") {
+  // POST /api/admin/cleanup/unassigned  →  Fahrten ohne Fahrzeug zuordnen oder löschen
+  // Body: { user_id, action: "assign" | "delete", vehicle_id? }
+  router.post("/admin/cleanup/unassigned", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    const daten = parse(unassignedBody, req.body);
+    if (daten.action === "assign") {
       const vehicle = await pool.query(`SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [daten.vehicle_id, daten.user_id]);
       if (vehicle.rows.length === 0) {
         throw new HttpError(400, "Fahrzeug gehört nicht zu diesem Benutzer");
       }
     }
     const ergebnis = await withTransaction(pool, client => bearbeiteOhneFahrzeug(client, daten));
-    console.log(`🧹 Admin ${req.userId}: ${ergebnis.anzahl} Fahrten ohne Fahrzeug von User ${daten.user_id} → ${daten.aktion}`);
+    console.log(`🧹 Admin ${req.userId}: ${ergebnis.count} Fahrten ohne Fahrzeug von User ${daten.user_id} → ${daten.action}`);
     return res.json(ergebnis);
   }));
 

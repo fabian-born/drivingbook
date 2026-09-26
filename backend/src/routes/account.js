@@ -8,8 +8,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { writeAudit } from "../lib/fahrten.js";
-import { TAB, antriebSql, fahrtSpalten } from "../lib/dbschema.js";
+import { TRIP_COLUMNS, writeAudit } from "../lib/fahrten.js";
 import { changePasswordBody, idParam, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {
@@ -22,7 +21,7 @@ export function accountRoutes({ pool, requireAuth }) {
   );
   const listVehicles = userId => pool.query(
     `SELECT id, name, code, is_default, created_at, license_plate,
-            list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type
+            list_price::float8 AS list_price, drive_type
      FROM vehicles
      WHERE user_id = $1 ORDER BY is_default DESC, id ASC`,
     [userId]
@@ -109,13 +108,13 @@ export function accountRoutes({ pool, requireAuth }) {
     return res.json(updated);
   }));
 
-  // DELETE /api/vehicles/:id[?ziel=ID]  →  Fahrzeug löschen
-  // Hat es Fahrten, müssen sie vorher zu einem anderen Fahrzeug des Users (ziel)
+  // DELETE /api/vehicles/:id[?target=ID]  →  Fahrzeug löschen
+  // Hat es Fahrten, müssen sie vorher zu einem anderen Fahrzeug des Users (target)
   // umziehen – sonst verschwänden sie aus allen Ansichten und dem Fahrtenbuch-PDF.
-  // Ohne ziel antwortet der Endpunkt dann mit 409 (code HAT_FAHRTEN, anzahl).
+  // Ohne target antwortet der Endpunkt dann mit 409 (code HAS_TRIPS, count).
   router.delete("/vehicles/:id", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
-    const { ziel } = parse(vehicleDeleteQuery, req.query);
+    const { target: ziel } = parse(vehicleDeleteQuery, req.query);
 
     const verschoben = await withTransaction(pool, async client => {
       const vehicle = (await client.query(
@@ -126,7 +125,7 @@ export function accountRoutes({ pool, requireAuth }) {
       }
 
       const fahrten = (await client.query(
-        `SELECT ${fahrtSpalten()} FROM ${TAB.fahrten}
+        `SELECT ${TRIP_COLUMNS} FROM trips
          WHERE user_id = $1 AND vehicle_id = $2 FOR UPDATE`,
         [req.userId, id]
       )).rows;
@@ -134,7 +133,7 @@ export function accountRoutes({ pool, requireAuth }) {
       if (fahrten.length > 0) {
         if (ziel === undefined) {
           throw new HttpError(409, `Das Fahrzeug hat ${fahrten.length} Fahrt(en) – bitte angeben, zu welchem Fahrzeug sie umziehen`,
-            { code: "HAT_FAHRTEN", anzahl: fahrten.length });
+            { code: "HAS_TRIPS", count: fahrten.length });
         }
         const zielOk = ziel !== id && (await client.query(
           `SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [ziel, req.userId]
@@ -144,8 +143,8 @@ export function accountRoutes({ pool, requireAuth }) {
         }
         for (const alt of fahrten) {
           const neu = (await client.query(
-            `UPDATE ${TAB.fahrten} SET vehicle_id = $1 WHERE id = $2
-             RETURNING ${fahrtSpalten()}`,
+            `UPDATE trips SET vehicle_id = $1 WHERE id = $2
+             RETURNING ${TRIP_COLUMNS}`,
             [ziel, alt.id]
           )).rows[0];
           await writeAudit(client, {
@@ -159,7 +158,7 @@ export function accountRoutes({ pool, requireAuth }) {
       return fahrten.length;
     });
 
-    return res.json({ message: "Fahrzeug gelöscht", verschoben });
+    return res.json({ message: "Fahrzeug gelöscht", moved: verschoben });
   }));
 
   // ── API-Tokens ─────────────────────────────────────────────

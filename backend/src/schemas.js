@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 
-export const FAHRTARTEN  = ["privat", "geschäftlich", "arbeitsweg"];
+export const TRIP_TYPES  = ["business", "private", "commute"];
 const MAX_INT            = 2147483647;  // Obergrenze von PostgreSQL INTEGER
 
 // Zahl oder rein numerischer String (Formulare senden Strings)
@@ -50,23 +50,26 @@ export const auditQuery = z.object({
 });
 
 // ── Fahrten ──────────────────────────────────────────────────
-const KM_MSG = "kmstand muss eine ganze Zahl ≥ 0 sein";
-const TS_MSG = "Ungültiger Timestamp";
+const KM_MSG = "km-Stand muss eine ganze Zahl ≥ 0 sein";
+const TS_MSG = "Ungültiger Zeitpunkt";
 
-export const fahrtFields = {
-  kmstand: numeric(
-    z.number({ error: KM_MSG }).int({ error: KM_MSG }).min(0, { error: KM_MSG }).max(MAX_INT, { error: KM_MSG })
-  ),
-  ziel: text("ziel darf nicht leer sein", 500),
-  fahrtart: z.enum(FAHRTARTEN, { error: `fahrtart muss einer der Werte sein: ${FAHRTARTEN.join(", ")}` }),
-  timestamp: z.union([z.string(), z.number()], { error: TS_MSG }).transform((v, ctx) => {
-    const d = new Date(v);
-    if (isNaN(d)) {
-      ctx.issues.push({ code: "custom", message: TS_MSG, input: v });
-      return z.NEVER;
-    }
-    return d.toISOString();
-  }),
+const zeitpunkt = z.union([z.string(), z.number()], { error: TS_MSG }).transform((v, ctx) => {
+  const d = new Date(v);
+  if (isNaN(d)) {
+    ctx.issues.push({ code: "custom", message: TS_MSG, input: v });
+    return z.NEVER;
+  }
+  return d.toISOString();
+});
+const kmStand = numeric(
+  z.number({ error: KM_MSG }).int({ error: KM_MSG }).min(0, { error: KM_MSG }).max(MAX_INT, { error: KM_MSG })
+);
+
+export const tripFields = {
+  odometer_km: kmStand,
+  destination: text("Ziel darf nicht leer sein", 500),
+  trip_type:   z.enum(TRIP_TYPES, { error: `Fahrtart muss einer der Werte sein: ${TRIP_TYPES.join(", ")}` }),
+  timestamp:   zeitpunkt,
 };
 
 // vehicle_code ist immer optional; null entfernt die Zuordnung,
@@ -79,8 +82,21 @@ const vehicleCode = z.union(
 // force: true speichert trotz Warnung der km-Plausibilitätsprüfung
 const force = z.boolean({ error: "force muss true oder false sein" }).optional();
 
-export const fahrtCreate = z.object({ ...fahrtFields, vehicle_code: vehicleCode, force });
-export const fahrtUpdate = z.object({ ...fahrtFields, vehicle_code: vehicleCode, force }).partial();
+export const tripCreate = z.object({ ...tripFields, vehicle_code: vehicleCode, force });
+export const tripUpdate = z.object({ ...tripFields, vehicle_code: vehicleCode, force }).partial();
+
+// Übergang für Home Assistant: POST /api/fahrt mit den früheren deutschen Feldern
+export const LEGACY_TRIP_TYPES = { privat: "private", "geschäftlich": "business", arbeitsweg: "commute" };
+export const legacyTripCreate = z.object({
+  kmstand:  kmStand,
+  ziel:     text("Ziel darf nicht leer sein", 500),
+  fahrtart: z.enum(Object.keys(LEGACY_TRIP_TYPES), { error: `fahrtart muss einer der Werte sein: ${Object.keys(LEGACY_TRIP_TYPES).join(", ")}` }),
+  timestamp: zeitpunkt,
+  vehicle_code: vehicleCode,
+  force,
+}).transform(({ kmstand, ziel, fahrtart, ...rest }) => ({
+  ...rest, odometer_km: kmstand, destination: ziel, trip_type: LEGACY_TRIP_TYPES[fahrtart],
+}));
 
 // ── Auth & Benutzer ──────────────────────────────────────────
 const PASSWORD_MSG = "Passwort muss mindestens 8 Zeichen haben";
@@ -133,7 +149,8 @@ export const tokenBody = z.object({
 });
 
 // ── Auto-Info ────────────────────────────────────────────────
-export const DRIVE_TYPES = ["verbrenner", "hybrid", "elektro", "elektro_teuer"];
+export const DRIVE_TYPES = ["combustion", "hybrid", "electric", "electric_high_price"];
+export const LEGACY_DRIVE_TYPES = { verbrenner: "combustion", hybrid: "hybrid", elektro: "electric", elektro_teuer: "electric_high_price" };
 
 // Dezimalzahl; Formulare senden Strings, ggf. mit Komma ("1.234,56" oder "1234,56").
 // Leerer String → null
@@ -184,54 +201,55 @@ export const vehicleYearBody = z.object({
 }).refine(d => d.depreciation <= d.total_costs, { error: "AfA/Leasing darf die Gesamtkosten nicht übersteigen" });
 
 // ── Sicherung: einzelnes Fahrzeug oder ganzes Konto ─────────
-export const EXPORT_FORMAT  = "drivingbook-fahrzeug";     // Einzelsicherung (Auto-Info)
-export const BACKUP_FORMAT  = "drivingbook-sicherung";    // Gesamtsicherung (Konto)
-export const EXPORT_VERSION = 1;
-const MAX_IMPORT_FAHRTEN    = 100_000;
-
-const MAX_IMPORT_PROTOKOLL = 500_000;
-const fahrtId = z.number().int().min(1).max(MAX_INT);
+// Format v2 (englisch). Dateien im Format v1 (deutsch, bis 09/2026) übersetzt
+// lib/altformat.js vor der Prüfung in v2.
+export const VEHICLE_BACKUP_FORMAT = "drivingbook-vehicle";   // Einzelsicherung (Auto-Info)
+export const BACKUP_FORMAT         = "drivingbook-backup";    // Gesamtsicherung (Konto)
+export const BACKUP_VERSION        = 2;
+const MAX_IMPORT_TRIPS = 100_000;
+const MAX_IMPORT_AUDIT = 500_000;
+const tripId = z.number().int().min(1).max(MAX_INT);
 
 // Protokolldaten feldweise prüfen – ungültige Werte würden später Auswertungen
 // (Casts auf timestamptz/int in SQL) scheitern lassen; unbekannte Felder entfallen
-const auditDaten = z.object({
-  kmstand:    fahrtFields.kmstand.optional(),
-  ziel:       z.string().max(500).optional(),
-  fahrtart:   fahrtFields.fahrtart.optional(),
-  timestamp:  fahrtFields.timestamp.optional(),
-  vehicle_id: z.number().int().min(1).max(MAX_INT).nullable().optional(),
+const auditData = z.object({
+  odometer_km: tripFields.odometer_km.optional(),
+  destination: z.string().max(500).optional(),
+  trip_type:   tripFields.trip_type.optional(),
+  timestamp:   tripFields.timestamp.optional(),
+  vehicle_id:  z.number().int().min(1).max(MAX_INT).nullable().optional(),
 }, { error: "Ungültige Protokolldaten" }).nullable().optional().transform(v => v ?? null);
 
-const importFahrten = z.array(z.object({
-  id:        fahrtId,
-  kmstand:   fahrtFields.kmstand,
-  ziel:      fahrtFields.ziel,
-  fahrtart:  fahrtFields.fahrtart,
-  timestamp: fahrtFields.timestamp,
-}), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_FAHRTEN, { error: `Höchstens ${MAX_IMPORT_FAHRTEN} Fahrten pro Fahrzeug` });
+const importTrips = z.array(z.object({
+  id:          tripId,
+  odometer_km: tripFields.odometer_km,
+  destination: tripFields.destination,
+  trip_type:   tripFields.trip_type,
+  timestamp:   tripFields.timestamp,
+}), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_TRIPS, { error: `Höchstens ${MAX_IMPORT_TRIPS} Fahrten pro Fahrzeug` });
 
-const importProtokoll = z.array(z.object({
-  fahrt_id:   fahrtId,
+const importAudit = z.array(z.object({
+  trip_id:    tripId,
   action:     z.enum(["create", "update", "delete"]),
-  old_data:   auditDaten,
-  new_data:   auditDaten,
+  old_data:   auditData,
+  new_data:   auditData,
   source:     z.string().max(20).optional().default("web"),
-  changed_at: fahrtFields.timestamp,
+  changed_at: tripFields.timestamp,
 }), { error: "Ungültiges Änderungsprotokoll" })
-  .max(MAX_IMPORT_PROTOKOLL, { error: `Höchstens ${MAX_IMPORT_PROTOKOLL} Protokolleinträge pro Fahrzeug` })
+  .max(MAX_IMPORT_AUDIT, { error: `Höchstens ${MAX_IMPORT_AUDIT} Protokolleinträge pro Fahrzeug` })
   .optional().default([]);
 
 // Alle Daten eines Fahrzeugs (Teil beider Formate)
-const fahrzeugDaten = z.object({
-  fahrzeug: z.object({
+const vehicleData = z.object({
+  vehicle: z.object({
     id:            z.number().int().min(1).max(MAX_INT).nullable().optional().catch(null),
     name:          text("Fahrzeugname fehlt", 100),
     code:          z.string().trim().toUpperCase().regex(/^[A-Z0-9]{6}$/).nullable().optional().catch(null),
     license_plate: z.string().trim().max(20).nullable().optional().catch(null),
     list_price:    z.number().min(0).max(10_000_000).nullable().optional().catch(null),
-    drive_type:    z.enum(DRIVE_TYPES).optional().catch("verbrenner"),
+    drive_type:    z.enum(DRIVE_TYPES).optional().catch("combustion"),
   }, { error: "Fahrzeugdaten fehlen" }),
-  jahre: z.array(z.object({
+  years: z.array(z.object({
     year:         z.number().int().min(1900).max(2999),
     total_costs:  z.number().min(0).max(10_000_000),
     depreciation: z.number().min(0).max(10_000_000).optional().default(0),
@@ -239,35 +257,35 @@ const fahrzeugDaten = z.object({
     months:       z.number().int().min(1).max(12).optional().default(12),
     tax_rate:     z.number().min(0).max(60).nullable().optional().default(null),
   }), { error: "Ungültige Jahreskosten" }).optional().default([]),
-  fahrten:   importFahrten,
-  protokoll: importProtokoll,
+  trips: importTrips,
+  audit: importAudit,
 });
 
-export const importBody = fahrzeugDaten.extend({
-  format:  z.literal(EXPORT_FORMAT, { error: "Keine Fahrzeug-Sicherung" }),
-  version: z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
+export const importBody = vehicleData.extend({
+  format:  z.literal(VEHICLE_BACKUP_FORMAT, { error: "Keine Fahrzeug-Sicherung" }),
+  version: z.literal(BACKUP_VERSION, { error: `Nicht unterstützte Version (erwartet ${BACKUP_VERSION})` }),
 });
 
 export const backupBody = z.object({
-  format:    z.literal(BACKUP_FORMAT, { error: "Keine Gesamtsicherung" }),
-  version:   z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
-  fahrzeuge: z.array(fahrzeugDaten, { error: "Fahrzeuge fehlen" }),
-  ohne_fahrzeug: z.object({ fahrten: importFahrten, protokoll: importProtokoll })
-    .optional().default({ fahrten: [], protokoll: [] }),
+  format:     z.literal(BACKUP_FORMAT, { error: "Keine Gesamtsicherung" }),
+  version:    z.literal(BACKUP_VERSION, { error: `Nicht unterstützte Version (erwartet ${BACKUP_VERSION})` }),
+  vehicles:   z.array(vehicleData, { error: "Fahrzeuge fehlen" }),
+  unassigned: z.object({ trips: importTrips, audit: importAudit })
+    .optional().default({ trips: [], audit: [] }),
 });
 
 // ── Admin: Datenbank aufräumen ───────────────────────────────
 const idListe = z.array(z.number().int().positive(), { error: "ids muss eine Liste von Fahrt-IDs sein" });
 
-export const duplikateBody = z.object({ ids: idListe.optional() });
+export const duplicatesBody = z.object({ ids: idListe.optional() });
 
-export const ohneFahrzeugBody = z.object({
+export const unassignedBody = z.object({
   user_id:    z.number({ error: "user_id erforderlich" }).int().positive(),
-  aktion:     z.enum(["zuordnen", "loeschen"], { error: "aktion muss 'zuordnen' oder 'loeschen' sein" }),
+  action:     z.enum(["assign", "delete"], { error: "action muss 'assign' oder 'delete' sein" }),
   vehicle_id: z.number().int().positive().optional(),
-}).refine(d => d.aktion !== "zuordnen" || d.vehicle_id, { error: "vehicle_id erforderlich zum Zuordnen" });
+}).refine(d => d.action !== "assign" || d.vehicle_id, { error: "vehicle_id erforderlich zum Zuordnen" });
 
-// DELETE /api/vehicles/:id?ziel=ID – Zielfahrzeug für vorhandene Fahrten
+// DELETE /api/vehicles/:id?target=ID – Zielfahrzeug für vorhandene Fahrten
 export const vehicleDeleteQuery = z.object({
-  ziel: z.string().regex(/^\d{1,9}$/, { error: "Ungültiges Zielfahrzeug" }).transform(Number).optional(),
+  target: z.string().regex(/^\d{1,9}$/, { error: "Ungültiges Zielfahrzeug" }).transform(Number).optional(),
 });

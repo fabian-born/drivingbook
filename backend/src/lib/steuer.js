@@ -12,17 +12,17 @@
 
 // Monatlicher Pauschalsatz in Prozent des Listenpreises
 export const PAUSCHALSATZ = {
-  verbrenner:    1,
-  hybrid:        0.5,
-  elektro:       0.25,
-  elektro_teuer: 0.5,
+  combustion:          1,
+  hybrid:              0.5,
+  electric:            0.25,
+  electric_high_price: 0.5,
 };
 
 const runde = betrag => Math.round(betrag * 100) / 100;
 
 // vehicle: { list_price, drive_type }
 // kosten:  { total_costs, depreciation, commute_km, months, tax_rate } oder null
-// km:      { privat, arbeitsweg?, gesamt }
+// km:      { private, commute?, total } (Summen aus fasseZusammen)
 // Liefert null, solange Listenpreis oder Kosten fehlen.
 export function steuerVergleich(vehicle, kosten, km) {
   if (vehicle.list_price == null || !kosten) return null;
@@ -40,7 +40,7 @@ export function steuerVergleich(vehicle, kosten, km) {
   const pauschal = Math.min(pauschalOhneDeckel, kostenGesamt);
 
   // Fahrten zur Arbeit sind beim Fahrtenbuch Teil der privaten Nutzung
-  const privatAnteil = km.gesamt > 0 ? (km.privat + (km.arbeitsweg ?? 0)) / km.gesamt : null;
+  const privatAnteil = km.total > 0 ? (km.private + (km.commute ?? 0)) / km.total : null;
   const fahrtenbuch  = privatAnteil == null ? null : kostenGesamt * privatAnteil;
 
   // Bis zu diesem Privatanteil ist das Fahrtenbuch günstiger
@@ -52,22 +52,22 @@ export function steuerVergleich(vehicle, kosten, km) {
     : Math.abs(differenz) * kosten.tax_rate / 100;
 
   return {
-    satz,
-    listenpreis,
-    kosten_gesamt:       runde(kostenGesamt),
-    pauschal: {
-      privatnutzung:     runde(privatnutzung),
-      arbeitsweg:        runde(arbeitsweg),
-      gedeckelt:         pauschalOhneDeckel > kostenGesamt,
-      summe:             runde(pauschal),
+    rate:             satz,
+    list_price:       listenpreis,
+    total_costs:      runde(kostenGesamt),
+    flat_rate: {
+      private_use:    runde(privatnutzung),
+      commute:        runde(arbeitsweg),
+      capped:         pauschalOhneDeckel > kostenGesamt,
+      total:          runde(pauschal),
     },
-    fahrtenbuch: fahrtenbuch == null ? null : {
-      privat_anteil:     privatAnteil,
-      summe:             runde(fahrtenbuch),
+    logbook: fahrtenbuch == null ? null : {
+      private_share:  privatAnteil,
+      total:          runde(fahrtenbuch),
     },
-    break_even_anteil:   breakEven,
-    differenz:           differenz == null ? null : runde(differenz),
-    empfehlung:          differenz == null ? null : (differenz > 0 ? "fahrtenbuch" : "pauschal"),
-    steuer_ersparnis:    ersparnis == null ? null : runde(ersparnis),
+    break_even_share: breakEven,
+    difference:       differenz == null ? null : runde(differenz),
+    recommendation:   differenz == null ? null : (differenz > 0 ? "logbook" : "flat_rate"),
+    tax_savings:      ersparnis == null ? null : runde(ersparnis),
   };
 }

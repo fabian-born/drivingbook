@@ -1,7 +1,8 @@
 // ============================================================
 // Prüfung eines Jahres vor der Steuererklärung
 // Markiert, was bei einer Betriebsprüfung auffallen könnte.
-// Stufen: fehler (rot) · warnung (gelb) · hinweis (nur Info)
+// Stufen (level): error (rot) · warning (gelb) · info (nur Hinweis)
+// Ergebnis: { status: "green" | "yellow" | "red", findings: [...] }
 // ============================================================
 
 export const GRENZEN = {
@@ -19,53 +20,53 @@ const km = n => `${n.toLocaleString("de-DE")} km`;
 // extra:   { geaendert, geloescht, ohneFahrzeug, jetzt }
 export function pruefeJahr(fahrten, { geaendert = 0, geloescht = 0, ohneFahrzeug = 0, jetzt = new Date() } = {}) {
   const befunde = [];
-  const befund  = (stufe, typ, text, f) => befunde.push({
-    stufe, typ, text,
-    ...(f ? { fahrt_id: f.id, timestamp: f.timestamp, kmstand: f.kmstand } : {}),
+  const befund  = (level, type, text, f) => befunde.push({
+    level, type, text,
+    ...(f ? { trip_id: f.id, timestamp: f.timestamp, odometer_km: f.odometer_km } : {}),
   });
 
   for (const f of fahrten) {
-    if (f.strecke != null && f.strecke < 0) {
-      befund("fehler", "rueckschritt",
-        `km-Stand ${km(f.kmstand)} ist ${km(-f.strecke)} kleiner als bei der vorherigen Fahrt.`, f);
+    if (f.distance != null && f.distance < 0) {
+      befund("error", "odometer_decrease",
+        `km-Stand ${km(f.odometer_km)} ist ${km(-f.distance)} kleiner als bei der vorherigen Fahrt.`, f);
     }
     if (new Date(f.timestamp) > jetzt) {
-      befund("fehler", "zukunft", "Fahrt liegt in der Zukunft.", f);
+      befund("error", "future", "Fahrt liegt in der Zukunft.", f);
     }
 
-    const pause = f.vorher_timestamp ? (new Date(f.timestamp) - new Date(f.vorher_timestamp)) / TAG_MS : 0;
-    if (pause > GRENZEN.pauseTage && f.strecke > GRENZEN.pauseKm) {
-      befund("warnung", "luecke",
-        `${Math.floor(pause)} Tage ohne Eintrag, dabei ${km(f.strecke)} gefahren – fehlen Fahrten?`, f);
-    } else if (f.strecke > GRENZEN.grosseStrecke) {
-      befund("warnung", "grosse_strecke",
-        `${km(f.strecke)} seit der vorherigen Fahrt – fehlen dazwischen Fahrten?`, f);
+    const pause = f.previous_timestamp ? (new Date(f.timestamp) - new Date(f.previous_timestamp)) / TAG_MS : 0;
+    if (pause > GRENZEN.pauseTage && f.distance > GRENZEN.pauseKm) {
+      befund("warning", "gap",
+        `${Math.floor(pause)} Tage ohne Eintrag, dabei ${km(f.distance)} gefahren – fehlen Fahrten?`, f);
+    } else if (f.distance > GRENZEN.grosseStrecke) {
+      befund("warning", "long_distance",
+        `${km(f.distance)} seit der vorherigen Fahrt – fehlen dazwischen Fahrten?`, f);
     }
 
-    if (KOORDINATEN.test(f.ziel)) {
-      befund("warnung", "koordinaten", "Ziel ist nur eine Koordinate – bitte Adresse oder Kunde eintragen.", f);
+    if (KOORDINATEN.test(f.destination)) {
+      befund("warning", "coordinates", "Ziel ist nur eine Koordinate – bitte Adresse oder Kunde eintragen.", f);
     }
   }
 
   if (ohneFahrzeug > 0) {
-    befund("warnung", "ohne_fahrzeug",
+    befund("warning", "unassigned",
       `${ohneFahrzeug} Fahrt(en) in diesem Jahr sind keinem Fahrzeug zugeordnet.`);
   }
   if (geaendert > 0) {
-    befund("hinweis", "geaendert",
+    befund("info", "edited",
       `${geaendert} Fahrt(en) wurden nachträglich geändert – nachvollziehbar im Änderungsprotokoll.`);
   }
   if (geloescht > 0) {
-    befund("hinweis", "geloescht",
+    befund("info", "deleted",
       `${geloescht} Fahrt(en) wurden gelöscht – nachvollziehbar im Änderungsprotokoll.`);
   }
   if (fahrten.length === 0) {
-    befund("hinweis", "leer", "In diesem Jahr sind keine Fahrten erfasst.");
+    befund("info", "empty", "In diesem Jahr sind keine Fahrten erfasst.");
   }
 
-  const ampel = befunde.some(b => b.stufe === "fehler") ? "rot"
-    : befunde.some(b => b.stufe === "warnung") ? "gelb"
-    : "gruen";
+  const status = befunde.some(b => b.level === "error") ? "red"
+    : befunde.some(b => b.level === "warning") ? "yellow"
+    : "green";
 
-  return { ampel, befunde };
+  return { status, findings: befunde };
 }

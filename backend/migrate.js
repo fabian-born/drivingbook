@@ -29,7 +29,6 @@ import pg       from "pg";
 import fs       from "fs";
 import path     from "path";
 import readline from "readline";
-import { COL, TAB, fahrtartZuDb } from "./src/lib/dbschema.js";
 
 const { Pool } = pg;
 
@@ -67,9 +66,10 @@ function frage(rl, text) {
   return new Promise(resolve => rl.question(text, resolve));
 }
 
+// Fahrtart der alten JSON-Dateien ("privat"/"geschäftlich") → Wert in der Datenbank
 function parseFahrtart(raw) {
-  if (!raw) return "privat";
-  return raw.toLowerCase().trim().includes("gesch") ? "geschäftlich" : "privat";
+  if (!raw) return "private";
+  return raw.toLowerCase().trim().includes("gesch") ? "business" : "private";
 }
 
 function parseTimestamp(raw) {
@@ -210,17 +210,17 @@ async function main() {
 
       // Duplikat-Prüfung
       const dup = await client.query(
-        `SELECT id FROM ${TAB.fahrten} WHERE user_id=$1 AND timestamp=$2 AND ${COL.kmstand}=$3`,
+        `SELECT id FROM trips WHERE user_id=$1 AND timestamp=$2 AND odometer_km=$3`,
         [userId, ts, kmstand]
       );
       if (dup.rows.length > 0) { doppelt++; continue; }
 
       try {
         await client.query(
-          `INSERT INTO ${TAB.fahrten} (user_id, vehicle_id, ${COL.kmstand}, ${COL.ziel}, ${COL.fahrtart}, timestamp)
+          `INSERT INTO trips (user_id, vehicle_id, odometer_km, destination, trip_type, timestamp)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [userId, opts.vehicleId || null, kmstand,
-           (f.ziel || "").trim() || "–", fahrtartZuDb(parseFahrtart(f.fahrtart)), ts]
+           (f.ziel || "").trim() || "–", parseFahrtart(f.fahrtart), ts]
         );
         erfolg++;
       } catch (err) {

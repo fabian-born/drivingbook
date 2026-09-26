@@ -8,8 +8,10 @@ import { csvField } from "../lib/csv.js";
 import { renderYearPdf } from "../lib/pdf.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
 import { jahresFahrten } from "../lib/strecken.js";
-import { COL, TAB, auditZeileAusDb, fahrtSpalten } from "../lib/dbschema.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
+
+// CSV ist für Menschen (Excel) – Fahrtart wie bisher deutsch
+const FAHRTART_CSV = { private: "privat", business: "geschäftlich", commute: "arbeitsweg" };
 
 export function exportRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
@@ -17,12 +19,12 @@ export function exportRoutes({ pool, config, requireAuth }) {
 
   // Alle Exporte akzeptieren ?vehicle=CODE; vehicleId === null → alle Fahrzeuge
   const yearTrips = (userId, year, vehicleId) => pool.query(
-    `SELECT ${fahrtSpalten("f")},
+    `SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
             v.name AS vehicle_name,
             TO_CHAR(f.timestamp AT TIME ZONE $3, 'DD.MM.YYYY HH24:MI') AS zeitpunkt,
-            EXISTS (SELECT 1 FROM ${TAB.audit} a
-                    WHERE a.${COL.fahrtId} = f.id AND a.action = 'update') AS edited
-     FROM   ${TAB.fahrten} f
+            EXISTS (SELECT 1 FROM trip_audit a
+                    WHERE a.trip_id = f.id AND a.action = 'update') AS edited
+     FROM   trips f
      LEFT JOIN vehicles v ON v.id = f.vehicle_id
      WHERE  f.user_id = $1
        AND  f.timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
@@ -38,11 +40,11 @@ export function exportRoutes({ pool, config, requireAuth }) {
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
 
     const result = await pool.query(
-      `SELECT ${fahrtSpalten("f")},
+      `SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
               v.name AS vehicle_name,
-              EXISTS (SELECT 1 FROM ${TAB.audit} a
-                      WHERE a.${COL.fahrtId} = f.id AND a.action = 'update') AS edited
-       FROM   ${TAB.fahrten} f
+              EXISTS (SELECT 1 FROM trip_audit a
+                      WHERE a.trip_id = f.id AND a.action = 'update') AS edited
+       FROM   trips f
        LEFT JOIN vehicles v ON v.id = f.vehicle_id
        WHERE  f.user_id = $1
          AND  TO_CHAR(f.timestamp AT TIME ZONE $3, 'YYYY-MM') = $2
@@ -57,10 +59,10 @@ export function exportRoutes({ pool, config, requireAuth }) {
     }
 
     return res.json(result.rows.map(r => ({
-      _id:          r.id,         // wird für PUT/DELETE gebraucht
-      kmstand:      r.kmstand,
-      ziel:         r.ziel,
-      fahrtart:     r.fahrtart,
+      id:           r.id,
+      odometer_km:  r.odometer_km,
+      destination:  r.destination,
+      trip_type:    r.trip_type,
       timestamp:    r.timestamp,
       vehicle_id:   r.vehicle_id,
       vehicle_name: r.vehicle_name,
@@ -77,7 +79,8 @@ export function exportRoutes({ pool, config, requireAuth }) {
     let csv = "KM Stand;Ziel;Fahrtart;Zeitpunkt;Fahrzeug;Nachträglich geändert\n";
     for (const f of result.rows) {
       csv += [
-        f.kmstand, csvField(f.ziel), f.fahrtart, f.zeitpunkt, csvField(f.vehicle_name), f.edited ? "ja" : "nein",
+        f.odometer_km, csvField(f.destination), FAHRTART_CSV[f.trip_type] ?? f.trip_type, f.zeitpunkt,
+        csvField(f.vehicle_name), f.edited ? "ja" : "nein",
       ].join(";") + "\n";
     }
 
@@ -96,8 +99,8 @@ export function exportRoutes({ pool, config, requireAuth }) {
       // Fahrten mit Strecke – dieselbe Berechnung wie Dashboard und Auto-Info
       jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
       pool.query(
-        `SELECT ${COL.fahrtId}, action, old_data, new_data, changed_at
-         FROM   ${TAB.audit}
+        `SELECT trip_id, action, old_data, new_data, changed_at
+         FROM   trip_audit
          WHERE  user_id = $1
            AND  action IN ('update', 'delete')
            AND  $2 IN (
@@ -117,7 +120,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
       year,
       username: user.rows[0]?.username ?? "",
       trips,
-      audit:    audit.rows.map(auditZeileAusDb),
+      audit:    audit.rows,
       timezone: tz,
     });
   }));

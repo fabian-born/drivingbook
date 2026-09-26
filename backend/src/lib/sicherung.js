@@ -1,10 +1,11 @@
 // ============================================================
 // Sicherung und Wiederherstellung
 //
-// Einzelsicherung (Auto-Info):  { format: "drivingbook-fahrzeug", version,
-//                                 erstellt_am, fahrzeug, jahre, fahrten, protokoll }
-// Gesamtsicherung (Konto):      { format: "drivingbook-sicherung", version,
-//                                 erstellt_am, fahrzeuge: [...], ohne_fahrzeug }
+// Einzelsicherung (Auto-Info):  { format: "drivingbook-vehicle", version: 2,
+//                                 created_at, vehicle, years, trips, audit }
+// Gesamtsicherung (Konto):      { format: "drivingbook-backup", version: 2,
+//                                 created_at, vehicles: [...], unassigned }
+// Dateien im alten Format v1 (deutsch) übersetzt lib/altformat.js vorher.
 //
 // Wiederherstellen ergänzt nur: Fahrzeuge werden über ihren Code wieder-
 // erkannt (fehlt eins, wird es neu angelegt, der Code bleibt sofern frei),
@@ -14,21 +15,19 @@
 // übernommen; nur Fahrt- und Fahrzeug-IDs werden auf die neuen IDs umgeschrieben.
 // ============================================================
 
-import { BACKUP_FORMAT, EXPORT_FORMAT, EXPORT_VERSION } from "../schemas.js";
+import { BACKUP_FORMAT, BACKUP_VERSION, VEHICLE_BACKUP_FORMAT } from "../schemas.js";
 import { createVehicle } from "./vehicles.js";
-import { COL, TAB, antriebSql, antriebZuDb, auditAusDb, auditZeileAusDb, auditZuDb, fahrtartSql, fahrtartZuDb } from "./dbschema.js";
+import { AUDIT_FIELDS } from "./fahrten.js";
 
-// Fahrt-Spalten im Sicherungsformat (API-Namen und -Werte)
-const SICHERUNG_FAHRT = `id, ${COL.kmstand} AS kmstand, ${COL.ziel} AS ziel, ${fahrtartSql(COL.fahrtart)} AS fahrtart, timestamp`;
-
-const AUDIT_FIELDS = ["kmstand", "ziel", "fahrtart", "timestamp", "vehicle_id"];
+// Fahrt-Spalten im Sicherungsformat
+const SICHERUNG_FAHRT = "id, odometer_km, destination, trip_type, timestamp";
 
 // ── Sichern ──────────────────────────────────────────────────
 
 async function fahrzeugDaten(db, userId, vehicleId) {
   const [vehicle, jahre, fahrten, protokoll] = await Promise.all([
     db.query(
-      `SELECT id, name, code, license_plate, list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type
+      `SELECT id, name, code, license_plate, list_price::float8 AS list_price, drive_type
        FROM vehicles WHERE id = $1 AND user_id = $2`,
       [vehicleId, userId]
     ),
@@ -40,15 +39,15 @@ async function fahrzeugDaten(db, userId, vehicleId) {
     ),
     db.query(
       `SELECT ${SICHERUNG_FAHRT}
-       FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id = $2 ORDER BY timestamp, id`,
+       FROM trips WHERE user_id = $1 AND vehicle_id = $2 ORDER BY timestamp, id`,
       [userId, vehicleId]
     ),
     // Auch Einträge gelöschter oder umgehängter Fahrten dieses Fahrzeugs
     db.query(
-      `SELECT ${COL.fahrtId}, action, old_data, new_data, source, changed_at
-       FROM   ${TAB.audit}
+      `SELECT trip_id, action, old_data, new_data, source, changed_at
+       FROM   trip_audit
        WHERE  user_id = $1
-         AND  (${COL.fahrtId} IN (SELECT id FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id = $2)
+         AND  (trip_id IN (SELECT id FROM trips WHERE user_id = $1 AND vehicle_id = $2)
                OR (old_data->>'vehicle_id')::int = $2
                OR (new_data->>'vehicle_id')::int = $2)
        ORDER  BY changed_at, id`,
@@ -56,7 +55,7 @@ async function fahrzeugDaten(db, userId, vehicleId) {
     ),
   ]);
   if (vehicle.rows.length === 0) return null;
-  return { fahrzeug: vehicle.rows[0], jahre: jahre.rows, fahrten: fahrten.rows, protokoll: protokoll.rows.map(auditZeileAusDb) };
+  return { vehicle: vehicle.rows[0], years: jahre.rows, trips: fahrten.rows, audit: protokoll.rows };
 }
 
 async function merkeSicherung(db, vehicleIds) {
@@ -67,7 +66,7 @@ export async function sichereFahrzeug(db, userId, vehicleId) {
   const daten = await fahrzeugDaten(db, userId, vehicleId);
   if (!daten) return null;
   await merkeSicherung(db, [vehicleId]);
-  return { format: EXPORT_FORMAT, version: EXPORT_VERSION, erstellt_am: new Date().toISOString(), ...daten };
+  return { format: VEHICLE_BACKUP_FORMAT, version: BACKUP_VERSION, created_at: new Date().toISOString(), ...daten };
 }
 
 export async function sichereAlles(db, userId) {
@@ -78,13 +77,13 @@ export async function sichereAlles(db, userId) {
   const [fahrten, protokoll] = await Promise.all([
     db.query(
       `SELECT ${SICHERUNG_FAHRT}
-       FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id IS NULL ORDER BY timestamp, id`,
+       FROM trips WHERE user_id = $1 AND vehicle_id IS NULL ORDER BY timestamp, id`,
       [userId]
     ),
     db.query(
-      `SELECT ${COL.fahrtId}, action, old_data, new_data, source, changed_at
-       FROM   ${TAB.audit}
-       WHERE  user_id = $1 AND ${COL.fahrtId} IN (SELECT id FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id IS NULL)
+      `SELECT trip_id, action, old_data, new_data, source, changed_at
+       FROM   trip_audit
+       WHERE  user_id = $1 AND trip_id IN (SELECT id FROM trips WHERE user_id = $1 AND vehicle_id IS NULL)
        ORDER  BY changed_at, id`,
       [userId]
     ),
@@ -92,25 +91,25 @@ export async function sichereAlles(db, userId) {
 
   await merkeSicherung(db, vehicles.map(v => v.id));
   return {
-    format: BACKUP_FORMAT, version: EXPORT_VERSION, erstellt_am: new Date().toISOString(),
-    fahrzeuge,
-    ohne_fahrzeug: { fahrten: fahrten.rows, protokoll: protokoll.rows.map(auditZeileAusDb) },
+    format: BACKUP_FORMAT, version: BACKUP_VERSION, created_at: new Date().toISOString(),
+    vehicles:   fahrzeuge,
+    unassigned: { trips: fahrten.rows, audit: protokoll.rows },
   };
 }
 
 // ── Wiederherstellen ─────────────────────────────────────────
 
-// Erkennt denselben Protokolleintrag wieder (Daten im API-Format)
+// Erkennt denselben Protokolleintrag wieder
 function auditSchluessel(action, changedAt, oldData, newData) {
   const d = oldData ?? newData ?? {};
-  return `${action}|${new Date(changedAt).toISOString()}|${d.timestamp ? new Date(d.timestamp).toISOString() : ""}|${d.kmstand ?? ""}`;
+  return `${action}|${new Date(changedAt).toISOString()}|${d.timestamp ? new Date(d.timestamp).toISOString() : ""}|${d.odometer_km ?? ""}`;
 }
 
-// Reserviert n neue Fahrt-IDs aus der Sequenz der Tabelle fahrten
+// Reserviert n neue Fahrt-IDs aus der Sequenz der Tabelle trips
 async function neueFahrtIds(db, n) {
   if (n === 0) return [];
   const result = await db.query(
-    `SELECT nextval('${TAB.seq}')::int AS id FROM generate_series(1, $1)`,
+    `SELECT nextval('trips_id_seq')::int AS id FROM generate_series(1, $1)`,
     [n]
   );
   return result.rows.map(r => r.id);
@@ -127,15 +126,15 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
   const idMap = new Map();
   if (alteIds.length === 0) return idMap;
 
-  const stand = Number((await db.query(`SELECT last_value, is_called FROM ${TAB.seq}`)).rows
+  const stand = Number((await db.query(`SELECT last_value, is_called FROM trips_id_seq`)).rows
     .map(r => (r.is_called ? r.last_value : Number(r.last_value) - 1))[0]);
   const kandidaten = alteIds.filter(id => id > 0 && id <= stand);
 
   const [belegt, audits] = await Promise.all([
-    db.query(`SELECT id FROM ${TAB.fahrten} WHERE id = ANY($1::int[])`, [kandidaten]),
+    db.query(`SELECT id FROM trips WHERE id = ANY($1::int[])`, [kandidaten]),
     db.query(
-      `SELECT ${COL.fahrtId}, user_id, action, changed_at, old_data, new_data
-       FROM ${TAB.audit} WHERE ${COL.fahrtId} = ANY($1::int[])`,
+      `SELECT trip_id, user_id, action, changed_at, old_data, new_data
+       FROM trip_audit WHERE trip_id = ANY($1::int[])`,
       [kandidaten]
     ),
   ]);
@@ -143,14 +142,14 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
 
   const sicherungsSchluessel = new Map();
   for (const e of protokoll) {
-    if (!sicherungsSchluessel.has(e.fahrt_id)) sicherungsSchluessel.set(e.fahrt_id, new Set());
-    sicherungsSchluessel.get(e.fahrt_id).add(auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data));
+    if (!sicherungsSchluessel.has(e.trip_id)) sicherungsSchluessel.set(e.trip_id, new Set());
+    sicherungsSchluessel.get(e.trip_id).add(auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data));
   }
   const fremd = new Set();
-  for (const a of audits.rows.map(auditZeileAusDb)) {
+  for (const a of audits.rows) {
     const passt = a.user_id === userId &&
-      sicherungsSchluessel.get(a.fahrt_id)?.has(auditSchluessel(a.action, a.changed_at, a.old_data, a.new_data));
-    if (!passt) fremd.add(a.fahrt_id);
+      sicherungsSchluessel.get(a.trip_id)?.has(auditSchluessel(a.action, a.changed_at, a.old_data, a.new_data));
+    if (!passt) fremd.add(a.trip_id);
   }
 
   const wiederverwendet = new Set(kandidaten.filter(id => !belegteIds.has(id) && !fremd.has(id)));
@@ -185,7 +184,7 @@ async function zielFahrzeug(db, userId, fahrzeug) {
        RETURNING id`,
       [userId, fahrzeug.code, fahrzeug.license_plate ?? null, fahrzeug.list_price ?? null]
     );
-    if (vorhanden.rows.length > 0) return { id: vorhanden.rows[0].id, neu: false };
+    if (vorhanden.rows.length > 0) return { id: vorhanden.rows[0].id, created: false };
   }
 
   const bestehende = await db.query(`SELECT name, is_default FROM vehicles WHERE user_id = $1`, [userId]);
@@ -206,15 +205,15 @@ async function zielFahrzeug(db, userId, fahrzeug) {
   }
   await db.query(
     `UPDATE vehicles SET license_plate = $2, list_price = $3, drive_type = $4 WHERE id = $1`,
-    [vehicle.id, fahrzeug.license_plate ?? null, fahrzeug.list_price ?? null, antriebZuDb(fahrzeug.drive_type ?? "verbrenner")]
+    [vehicle.id, fahrzeug.license_plate ?? null, fahrzeug.list_price ?? null, fahrzeug.drive_type ?? "combustion"]
   );
-  return { id: vehicle.id, neu: true };
+  return { id: vehicle.id, created: true };
 }
 
 // Spielt Jahreskosten, Fahrten und Protokoll in ein Fahrzeug ein (vehicleId null = ohne Fahrzeug).
 // bekannteAudits: Set der vorhandenen Protokolleinträge des Users (wird fortgeschrieben)
 // alteVehicleId:  ID des Fahrzeugs in der Sicherung (für verwaiste Fahrten)
-async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicleId, vehicleMap, bekannteAudits, alteVehicleId = null) {
+async function spieleEin(db, userId, { years: jahre = [], trips: fahrten, audit: protokoll }, vehicleId, vehicleMap, bekannteAudits, alteVehicleId = null) {
   let jahreNeu = 0;
   if (vehicleId != null) {
     for (const j of jahre) {
@@ -231,16 +230,16 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   // vorhanden → überspringen (auch wenn sie inzwischen zu einem anderen Fahrzeug
   // gehört); ohne Fahrzeug (Fahrzeug wurde gelöscht) → wieder zuordnen
   const vorhanden = await db.query(
-    `SELECT id, timestamp, ${COL.kmstand} AS kmstand, vehicle_id FROM ${TAB.fahrten} WHERE user_id = $1`,
+    `SELECT id, timestamp, odometer_km, vehicle_id FROM trips WHERE user_id = $1`,
     [userId]
   );
-  const bekannt = new Map(vorhanden.rows.map(f => [`${f.timestamp.toISOString()}|${f.kmstand}`, f]));
+  const bekannt = new Map(vorhanden.rows.map(f => [`${f.timestamp.toISOString()}|${f.odometer_km}`, f]));
 
   const neu = [];
   const uebersprungen = new Set();
   const zuordnen = [];
   for (const f of fahrten) {
-    const key = `${f.timestamp}|${f.kmstand}`;
+    const key = `${f.timestamp}|${f.odometer_km}`;
     const treffer = bekannt.get(key);
     if (treffer) {
       uebersprungen.add(f.id);
@@ -255,13 +254,13 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   }
 
   if (zuordnen.length > 0) {
-    await db.query(`UPDATE ${TAB.fahrten} SET vehicle_id = $1 WHERE id = ANY($2::int[])`, [vehicleId, zuordnen]);
+    await db.query(`UPDATE trips SET vehicle_id = $1 WHERE id = ANY($2::int[])`, [vehicleId, zuordnen]);
     // Protokoll dieser Fahrten zeigt wieder auf das (neue) Fahrzeug
     if (alteVehicleId != null && alteVehicleId !== vehicleId) {
       for (const spalte of ["old_data", "new_data"]) {
         await db.query(
-          `UPDATE ${TAB.audit} SET ${spalte} = jsonb_set(${spalte}, '{vehicle_id}', to_jsonb($1::int))
-           WHERE  user_id = $2 AND ${COL.fahrtId} = ANY($3::int[]) AND (${spalte}->>'vehicle_id')::int = $4`,
+          `UPDATE trip_audit SET ${spalte} = jsonb_set(${spalte}, '{vehicle_id}', to_jsonb($1::int))
+           WHERE  user_id = $2 AND trip_id = ANY($3::int[]) AND (${spalte}->>'vehicle_id')::int = $4`,
           [vehicleId, userId, zuordnen, alteVehicleId]
         );
       }
@@ -270,7 +269,7 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
 
   // Protokoll: Einträge übersprungener Fahrten und bereits vorhandene Einträge weglassen
   const eintraege = protokoll.filter(e => {
-    if (uebersprungen.has(e.fahrt_id)) return false;
+    if (uebersprungen.has(e.trip_id)) return false;
     const key = auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data);
     if (bekannteAudits.has(key)) return false;
     bekannteAudits.add(key);
@@ -278,49 +277,49 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   });
 
   // IDs für neue Fahrten und für Protokolleinträge gelöschter Fahrten
-  const alteIds = [...new Set([...neu.map(f => f.id), ...eintraege.map(e => e.fahrt_id)])];
+  const alteIds = [...new Set([...neu.map(f => f.id), ...eintraege.map(e => e.trip_id)])];
   const idMap   = await vergebeFahrtIds(db, userId, alteIds, protokoll);
   const ids     = neu.map(f => idMap.get(f.id));
   if (neu.length > 0) {
     await db.query(
-      `INSERT INTO ${TAB.fahrten} (id, user_id, vehicle_id, ${COL.kmstand}, ${COL.ziel}, ${COL.fahrtart}, timestamp)
+      `INSERT INTO trips (id, user_id, vehicle_id, odometer_km, destination, trip_type, timestamp)
        SELECT * FROM unnest($1::int[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::timestamptz[])`,
-      [ids, neu.map(() => userId), neu.map(() => vehicleId), neu.map(f => f.kmstand),
-       neu.map(f => f.ziel), neu.map(f => fahrtartZuDb(f.fahrtart)), neu.map(f => f.timestamp)]
+      [ids, neu.map(() => userId), neu.map(() => vehicleId), neu.map(f => f.odometer_km),
+       neu.map(f => f.destination), neu.map(f => f.trip_type), neu.map(f => f.timestamp)]
     );
   }
 
   if (eintraege.length > 0) {
     await db.query(
-      `INSERT INTO ${TAB.audit} (${COL.fahrtId}, user_id, action, old_data, new_data, source, changed_at)
+      `INSERT INTO trip_audit (trip_id, user_id, action, old_data, new_data, source, changed_at)
        SELECT * FROM unnest($1::int[], $2::int[], $3::text[], $4::jsonb[], $5::jsonb[], $6::text[], $7::timestamptz[])`,
-      [eintraege.map(e => idMap.get(e.fahrt_id)), eintraege.map(() => userId), eintraege.map(e => e.action),
-       eintraege.map(e => e.old_data && JSON.stringify(auditZuDb(mappeAuditDaten(e.old_data, vehicleMap)))),
-       eintraege.map(e => e.new_data && JSON.stringify(auditZuDb(mappeAuditDaten(e.new_data, vehicleMap)))),
+      [eintraege.map(e => idMap.get(e.trip_id)), eintraege.map(() => userId), eintraege.map(e => e.action),
+       eintraege.map(e => e.old_data && JSON.stringify(mappeAuditDaten(e.old_data, vehicleMap))),
+       eintraege.map(e => e.new_data && JSON.stringify(mappeAuditDaten(e.new_data, vehicleMap))),
        eintraege.map(e => e.source), eintraege.map(e => e.changed_at)]
     );
   }
 
   return {
-    fahrten: neu.length, zugeordnet: zuordnen.length, uebersprungen: uebersprungen.size - zuordnen.length,
-    jahre: jahreNeu, protokoll: eintraege.length,
+    trips: neu.length, reassigned: zuordnen.length, skipped: uebersprungen.size - zuordnen.length,
+    years: jahreNeu, audit: eintraege.length,
   };
 }
 
 async function bekannteAuditSchluessel(db, userId) {
   const result = await db.query(
-    `SELECT action, changed_at, old_data, new_data FROM ${TAB.audit} WHERE user_id = $1`,
+    `SELECT action, changed_at, old_data, new_data FROM trip_audit WHERE user_id = $1`,
     [userId]
   );
-  return new Set(result.rows.map(e => auditSchluessel(e.action, e.changed_at, auditAusDb(e.old_data), auditAusDb(e.new_data))));
+  return new Set(result.rows.map(e => auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data)));
 }
 
-// Einzelsicherung wiederherstellen (db: Client in einer Transaktion)
+// Einzelsicherung (Format v2) wiederherstellen (db: Client in einer Transaktion)
 export async function stelleFahrzeugWiederHer(db, userId, daten) {
-  const ziel = await zielFahrzeug(db, userId, daten.fahrzeug);
-  const vehicleMap = new Map(daten.fahrzeug.id != null ? [[daten.fahrzeug.id, ziel.id]] : []);
-  const ergebnis = await spieleEin(db, userId, daten, ziel.id, vehicleMap, await bekannteAuditSchluessel(db, userId), daten.fahrzeug.id ?? null);
-  return { vehicle_id: ziel.id, neu: ziel.neu, ...ergebnis };
+  const ziel = await zielFahrzeug(db, userId, daten.vehicle);
+  const vehicleMap = new Map(daten.vehicle.id != null ? [[daten.vehicle.id, ziel.id]] : []);
+  const ergebnis = await spieleEin(db, userId, daten, ziel.id, vehicleMap, await bekannteAuditSchluessel(db, userId), daten.vehicle.id ?? null);
+  return { vehicle_id: ziel.id, created: ziel.created, ...ergebnis };
 }
 
 // Gesamtsicherung wiederherstellen (db: Client in einer Transaktion)
@@ -328,21 +327,21 @@ export async function stelleAllesWiederHer(db, userId, sicherung) {
   // Erst alle Fahrzeuge zuordnen, damit Umhängungen im Protokoll korrekt abgebildet werden
   const ziele = [];
   const vehicleMap = new Map();
-  for (const f of sicherung.fahrzeuge) {
-    const ziel = await zielFahrzeug(db, userId, f.fahrzeug);
+  for (const f of sicherung.vehicles) {
+    const ziel = await zielFahrzeug(db, userId, f.vehicle);
     ziele.push(ziel);
-    if (f.fahrzeug.id != null) vehicleMap.set(f.fahrzeug.id, ziel.id);
+    if (f.vehicle.id != null) vehicleMap.set(f.vehicle.id, ziel.id);
   }
 
   const bekannteAudits = await bekannteAuditSchluessel(db, userId);
   const fahrzeuge = [];
-  for (const [i, f] of sicherung.fahrzeuge.entries()) {
-    const ergebnis = await spieleEin(db, userId, f, ziele[i].id, vehicleMap, bekannteAudits, f.fahrzeug.id ?? null);
-    fahrzeuge.push({ vehicle_id: ziele[i].id, name: f.fahrzeug.name, neu: ziele[i].neu, ...ergebnis });
+  for (const [i, f] of sicherung.vehicles.entries()) {
+    const ergebnis = await spieleEin(db, userId, f, ziele[i].id, vehicleMap, bekannteAudits, f.vehicle.id ?? null);
+    fahrzeuge.push({ vehicle_id: ziele[i].id, name: f.vehicle.name, created: ziele[i].created, ...ergebnis });
   }
-  const ohneFahrzeug = await spieleEin(db, userId, sicherung.ohne_fahrzeug, null, vehicleMap, bekannteAudits);
+  const ohneFahrzeug = await spieleEin(db, userId, sicherung.unassigned, null, vehicleMap, bekannteAudits);
 
-  return { fahrzeuge, ohne_fahrzeug: ohneFahrzeug };
+  return { vehicles: fahrzeuge, unassigned: ohneFahrzeug };
 }
 
 // ── Erinnerung ───────────────────────────────────────────────
@@ -355,16 +354,16 @@ export const ERINNERUNG_TAGE = 30;
 export async function sicherungsStatus(db, userId) {
   const result = await db.query(
     `SELECT v.id, v.name, v.code, v.last_backup_at,
-            (SELECT COUNT(*)::int FROM ${TAB.audit} a
+            (SELECT COUNT(*)::int FROM trip_audit a
              WHERE  a.user_id = v.user_id
                AND  a.changed_at > COALESCE(v.last_backup_at, '-infinity')
-               AND  v.id IN ((a.old_data->>'vehicle_id')::int, (a.new_data->>'vehicle_id')::int)) AS aenderungen,
+               AND  v.id IN ((a.old_data->>'vehicle_id')::int, (a.new_data->>'vehicle_id')::int)) AS changes,
             COALESCE(v.last_backup_at, v.created_at) < NOW() - make_interval(days => $2) AS faellig
      FROM   vehicles v
      WHERE  v.user_id = $1
      ORDER  BY v.is_default DESC, v.id`,
     [userId, ERINNERUNG_TAGE]
   );
-  const fahrzeuge = result.rows.map(({ faellig, ...v }) => ({ ...v, erinnern: faellig && v.aenderungen > 0 }));
-  return { erinnerung_tage: ERINNERUNG_TAGE, erinnern: fahrzeuge.some(v => v.erinnern), fahrzeuge };
+  const vehicles = result.rows.map(({ faellig, ...v }) => ({ ...v, remind: faellig && v.changes > 0 }));
+  return { reminder_days: ERINNERUNG_TAGE, remind: vehicles.some(v => v.remind), vehicles };
 }
