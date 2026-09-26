@@ -4,6 +4,7 @@
 // ============================================================
 
 import PDFDocument from "pdfkit";
+import { fasseZusammen } from "./strecken.js";
 
 const FONT      = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
@@ -12,35 +13,26 @@ const ROW_FILL  = "#f2f2f2";
 
 const km = n => (n == null ? "–" : n.toLocaleString("de-DE"));
 
-const FAHRTART_KEY   = { privat: "privat", "geschäftlich": "geschaeftlich", arbeitsweg: "arbeitsweg" };
 const FAHRTART_LABEL = { privat: "Privat", "geschäftlich": "Geschäftlich", arbeitsweg: "Arbeitsweg" };
 
-// Erste Fahrt je Fahrzeug ohne Vorgänger hat keine Strecke (null)
-function computeDistances(trips, startKm) {
-  const lastKm   = new Map(startKm);
-  const vehicles = new Map();
-
-  const rows = trips.map(t => {
-    const key  = t.vehicle_id ?? null;
-    const prev = lastKm.get(key);
-    const diff = prev === undefined ? null : t.kmstand - prev;
-    lastKm.set(key, t.kmstand);
-
-    if (!vehicles.has(key)) {
-      vehicles.set(key, {
-        name: t.vehicle_name || "Ohne Fahrzeug",
-        startKm: prev ?? t.kmstand, endKm: t.kmstand, privat: 0, geschaeftlich: 0, arbeitsweg: 0,
-      });
-    }
-    const v = vehicles.get(key);
-    v.endKm = t.kmstand;
-    if (diff != null) {
-      v[FAHRTART_KEY[t.fahrtart] ?? "geschaeftlich"] += diff;
-    }
-    return { ...t, diff };
+// Übersicht je Fahrzeug aus jahresFahrten() – dieselbe Berechnung wie Dashboard
+// und Auto-Info (Strecke ab dem letzten km-Stand vor dem Jahr, Rückschritte zählen 0)
+export function fahrzeugUebersicht(trips) {
+  const gruppen = new Map();
+  for (const t of trips) {
+    const key = t.vehicle_id ?? null;
+    if (!gruppen.has(key)) gruppen.set(key, []);
+    gruppen.get(key).push(t);
+  }
+  return [...gruppen.values()].map(fahrten => {
+    const erste = fahrten[0], letzte = fahrten.at(-1);
+    return {
+      name:    erste.vehicle_name || "Ohne Fahrzeug",
+      startKm: erste.kmstand - (erste.strecke ?? 0),
+      endKm:   letzte.kmstand,
+      ...fasseZusammen(fahrten).summe,
+    };
   });
-
-  return { rows, vehicles: [...vehicles.values()] };
 }
 
 // Kurzbeschreibung eines Protokolleintrags
@@ -64,7 +56,8 @@ function describeAudit(entry, formatTs) {
   return changes.length ? changes.join("; ") : "Gespeichert ohne inhaltliche Änderung";
 }
 
-export function renderYearPdf(stream, { year, username, trips, startKm, audit, timezone }) {
+// trips: aus jahresFahrten() (mit Strecke je Fahrt)
+export function renderYearPdf(stream, { year, username, trips, audit, timezone }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4", margin: 40, bufferPages: true,
@@ -120,7 +113,8 @@ export function renderYearPdf(stream, { year, username, trips, startKm, audit, t
     doc.fillColor("black");
     y = doc.y + 10;
 
-    const { rows, vehicles } = computeDistances(trips, startKm);
+    const rows     = trips;
+    const vehicles = fahrzeugUebersicht(trips);
 
     if (rows.length === 0) {
       doc.font(FONT).fontSize(11).text(`Keine Fahrten im Jahr ${year} vorhanden.`, left, y);
@@ -134,7 +128,7 @@ export function renderYearPdf(stream, { year, username, trips, startKm, audit, t
       ];
       drawRow(summaryCols, ["Fahrzeug", "Start-km", "End-km", "Gesamt km", "Privat km", "Geschäftlich km", "Arbeitsweg km"], { bold: true, fill: ROW_FILL });
       for (const v of vehicles) {
-        const total = v.privat + v.geschaeftlich + v.arbeitsweg;
+        const total = v.gesamt;
         const pct   = n => (total > 0 ? ` (${((n / total) * 100).toFixed(1)} %)` : "");
         drawRow(summaryCols, [
           v.name, km(v.startKm), km(v.endKm), km(total),
@@ -159,7 +153,8 @@ export function renderYearPdf(stream, { year, username, trips, startKm, audit, t
 
       rows.forEach((t, i) => {
         drawRow(tripCols, [
-          i + 1, t.zeitpunkt, km(t.kmstand), km(t.diff),
+          // Rückschritte bleiben hier als negative Strecke sichtbar
+          i + 1, formatTs(t.timestamp).replace(", ", " "), km(t.kmstand), km(t.strecke),
           FAHRTART_LABEL[t.fahrtart] ?? t.fahrtart,
           ...(multiVehicle ? [t.vehicle_name || "–"] : []),
           t.edited ? `${t.ziel} *` : t.ziel,

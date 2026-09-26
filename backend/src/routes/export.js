@@ -7,6 +7,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { csvField } from "../lib/csv.js";
 import { renderYearPdf } from "../lib/pdf.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
+import { jahresFahrten } from "../lib/strecken.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
 export function exportRoutes({ pool, config, requireAuth }) {
@@ -90,17 +91,9 @@ export function exportRoutes({ pool, config, requireAuth }) {
     const { vehicle } = parse(vehicleQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
 
-    const [trips, before, audit, user] = await Promise.all([
-      yearTrips(req.userId, year, vehicleId),
-      // Letzter km-Stand je Fahrzeug vor Jahresbeginn (Startwert für die Strecke)
-      pool.query(
-        `SELECT DISTINCT ON (vehicle_id) vehicle_id, kmstand
-         FROM   fahrten
-         WHERE  user_id = $1 AND timestamp < make_timestamptz($2, 1, 1, 0, 0, 0, $3)
-           AND  ($4::int IS NULL OR vehicle_id = $4)
-         ORDER  BY vehicle_id, timestamp DESC`,
-        [req.userId, year, tz, vehicleId]
-      ),
+    const [trips, audit, user] = await Promise.all([
+      // Fahrten mit Strecke – dieselbe Berechnung wie Dashboard und Auto-Info
+      jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
       pool.query(
         `SELECT fahrt_id, action, old_data, new_data, changed_at
          FROM   fahrten_audit
@@ -117,15 +110,12 @@ export function exportRoutes({ pool, config, requireAuth }) {
       pool.query(`SELECT username FROM users WHERE id = $1`, [req.userId]),
     ]);
 
-    const startKm = new Map(before.rows.map(r => [r.vehicle_id, r.kmstand]));
-
     res.header("Content-Type", "application/pdf");
     res.attachment(`fahrtenbuch_${year}.pdf`);
     await renderYearPdf(res, {
       year,
       username: user.rows[0]?.username ?? "",
-      trips:    trips.rows,
-      startKm,
+      trips,
       audit:    audit.rows,
       timezone: tz,
     });

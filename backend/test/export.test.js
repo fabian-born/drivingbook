@@ -127,3 +127,40 @@ describe("Jahresfahrten", () => {
     assert.deepEqual((await t.http().get("/api/fahrten?year=2030").set(user)).body.fahrten, []);
   });
 });
+
+describe("PDF rechnet wie Dashboard und Auto-Info", () => {
+  let t, user;
+  const post = body => t.http().post("/api/fahrt").set(user).send({ ziel: "Ziel", fahrtart: "privat", force: true, ...body });
+
+  before(async () => {
+    t = await setup();
+    user = await t.registerUser("pdf-gleich");
+    await post({ kmstand: 900,  timestamp: "2025-12-30T08:00:00Z" });
+    await post({ kmstand: 1000, timestamp: "2026-01-02T08:00:00Z", fahrtart: "geschäftlich" });
+    await post({ kmstand: 950,  timestamp: "2026-01-03T08:00:00Z" });                          // Rückschritt
+    await post({ kmstand: 1200, timestamp: "2026-01-04T08:00:00Z", fahrtart: "arbeitsweg" });
+  });
+  after(() => t.close());
+
+  it("liefert dieselben Summen, Rückschritte zählen 0", async () => {
+    const { jahresFahrten } = await import("../src/lib/strecken.js");
+    const { fahrzeugUebersicht } = await import("../src/lib/pdf.js");
+
+    const api = (await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user)).body;
+    const userId = (await t.pool.query(`SELECT id FROM users WHERE username = 'pdf-gleich'`)).rows[0].id;
+    const fahrten = await jahresFahrten(t.pool, { userId, year: 2026, vehicleId: null, timezone: "Europe/Berlin" });
+    const [uebersicht] = fahrzeugUebersicht(fahrten);
+
+    assert.deepEqual(api.summe, { fahrten: 3, gesamt: 350, privat: 0, geschaeftlich: 100, arbeitsweg: 250 });
+    assert.equal(uebersicht.gesamt, api.summe.gesamt);
+    assert.equal(uebersicht.privat, api.summe.privat);
+    assert.equal(uebersicht.startKm, 900);   // letzter Stand vor dem Jahr
+    assert.equal(uebersicht.endKm, 1200);
+    assert.deepEqual(fahrten.map(f => f.strecke), [100, -50, 250]);   // im PDF sichtbar
+
+    const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${user.vehicle.code}`).set(user)
+      .buffer(true).parse(binary);
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.body.subarray(0, 5).toString(), "%PDF-");
+  });
+});
