@@ -55,7 +55,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
 
     // The frontend detects months without trips by the 404
     if (result.rows.length === 0) {
-      throw new HttpError(404, "Keine Daten für diesen Monat");
+      throw new HttpError(404, "errors.noDataForMonth");
     }
 
     return res.json(result.rows.map(r => ({

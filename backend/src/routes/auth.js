@@ -32,7 +32,7 @@ export function authRoutes({ pool, config }) {
 
     const limitKey = `${req.ip}|${username}`;
     if (loginLimiter.blocked(limitKey)) {
-      throw new HttpError(429, "Zu viele fehlgeschlagene Anmeldeversuche – bitte später erneut versuchen");
+      throw new HttpError(429, "errors.tooManyLogins");
     }
 
     // Old accounts that differ only in letter case ("Max"/"max",
@@ -48,7 +48,7 @@ export function authRoutes({ pool, config }) {
 
     if (!user) {
       loginLimiter.hit(limitKey);
-      throw new HttpError(401, "Ungültige Zugangsdaten");
+      throw new HttpError(401, "errors.invalidCredentials");
     }
 
     loginLimiter.reset(limitKey);
@@ -59,10 +59,10 @@ export function authRoutes({ pool, config }) {
   // Body: { username, password, vehicleName? }  (vehicle_name is accepted as well)
   router.post("/register", asyncHandler(async (req, res) => {
     if (!config.allowRegistration) {
-      throw new HttpError(403, "Registrierung ist deaktiviert");
+      throw new HttpError(403, "errors.registrationDisabled");
     }
     if (registerLimiter.blocked(req.ip)) {
-      throw new HttpError(429, "Zu viele Registrierungen – bitte später erneut versuchen");
+      throw new HttpError(429, "errors.tooManyRegistrations");
     }
     registerLimiter.hit(req.ip);
 
@@ -79,12 +79,12 @@ export function authRoutes({ pool, config }) {
         )).rows[0];
 
         const { token } = await createApiToken(client, user.id, "Default", true);
-        const vehicle = await createVehicle(client, user.id, vehicleName, true);
+        const vehicle = await createVehicle(client, user.id, vehicleName ?? req.t("defaults.vehicleName"), true);
 
         return { user, token, vehicle };
       });
     } catch (err) {
-      if (err.code === "23505") throw new HttpError(409, "Benutzername bereits vergeben");
+      if (err.code === "23505") throw new HttpError(409, "errors.usernameTaken");
       throw err;
     }
 

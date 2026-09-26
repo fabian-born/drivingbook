@@ -60,7 +60,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
   // Without vehicle_code the user's default vehicle is used (if any).
   router.post("/trips", requireAuth, asyncHandler(async (req, res) => {
     const row = await createTrip(req, parse(tripCreate, req.body));
-    return res.json({ message: "Fahrt gespeichert", id: row.id });
+    return res.json({ message: req.t("messages.tripSaved"), id: row.id });
   }));
 
   // PUT /api/trips/:id  →  edit a trip
@@ -77,7 +77,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
 
     const fields = Object.keys(changes);  // only fields from the schema (= column names)
     if (fields.length === 0) {
-      throw new HttpError(400, "Keine Felder zum Aktualisieren angegeben");
+      throw new HttpError(400, "errors.noFields");
     }
 
     if (changes.destination !== undefined) {
@@ -90,7 +90,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
         [id, req.userId]
       )).rows[0];
       if (!old) {
-        throw new HttpError(404, "Fahrt nicht gefunden");
+        throw new HttpError(404, "errors.tripNotFound");
       }
 
       if (["odometer_km", "timestamp", "vehicle_id"].some(f => f in changes)) {
@@ -114,7 +114,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
       return row;
     });
 
-    return res.json({ message: "Fahrt aktualisiert", trip: updated });
+    return res.json({ message: req.t("messages.tripUpdated"), trip: updated });
   }));
 
   // DELETE /api/trips/:id
@@ -127,7 +127,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
         [id, req.userId]
       )).rows[0];
       if (!old) {
-        throw new HttpError(404, "Fahrt nicht gefunden");
+        throw new HttpError(404, "errors.tripNotFound");
       }
 
       await writeAudit(client, {
@@ -136,7 +136,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
       });
     });
 
-    return res.json({ message: "Fahrt gelöscht" });
+    return res.json({ message: req.t("messages.tripDeleted") });
   }));
 
   // GET /api/trips/:id/history  →  all audit log entries of a trip
@@ -150,7 +150,7 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
       [id, req.userId]
     );
     if (result.rows.length === 0) {
-      throw new HttpError(404, "Keine Protokolleinträge für diese Fahrt");
+      throw new HttpError(404, "errors.noAuditEntries");
     }
     return res.json(result.rows);
   }));

@@ -23,7 +23,7 @@ import { AUDIT_FIELDS } from "./trips.js";
 // The backend no longer accepts files in the old v1 format – reject with a hint
 export function rejectLegacyFormat(backupData) {
   if (backupData?.version === 1) {
-    throw new HttpError(400, "Sicherung im alten Format v1 – bitte zuerst mit scripts/convert-backup.js umwandeln");
+    throw new HttpError(400, "errors.backupV1");
   }
   return backupData;
 }

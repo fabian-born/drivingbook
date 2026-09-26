@@ -48,7 +48,7 @@ export async function vehicleIdByCode(db, userId, code) {
     [code, userId]
   );
   if (result.rows.length === 0) {
-    throw new HttpError(404, "Fahrzeug-Code nicht gefunden oder keine Berechtigung");
+    throw new HttpError(404, "errors.vehicleCodeNotFound");
   }
   return result.rows[0].id;
 }

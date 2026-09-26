@@ -38,7 +38,7 @@ export function accountRoutes({ pool, requireAuth }) {
     ]);
 
     if (userRes.rows.length === 0) {
-      throw new HttpError(404, "User nicht gefunden");
+      throw new HttpError(404, "errors.userNotFound");
     }
 
     return res.json({ user: userRes.rows[0], tokens: tokenRes.rows, vehicles: vehicleRes.rows });
@@ -49,7 +49,7 @@ export function accountRoutes({ pool, requireAuth }) {
   router.patch("/profile", requireAuth, asyncHandler(async (req, res) => {
     const { language } = parse(profileUpdateBody, req.body);
     await pool.query(`UPDATE users SET language = $1 WHERE id = $2`, [language, req.userId]);
-    return res.json({ message: "Profil gespeichert", language });
+    return res.json({ message: req.t("messages.profileSaved"), language });
   }));
 
   // POST /api/users/change-password  →  change own password
@@ -59,13 +59,13 @@ export function accountRoutes({ pool, requireAuth }) {
     const result = await pool.query(`SELECT password FROM users WHERE id = $1`, [req.userId]);
     const valid  = result.rows[0] && await bcrypt.compare(currentPassword, result.rows[0].password);
     if (!valid) {
-      throw new HttpError(401, "Aktuelles Passwort falsch");
+      throw new HttpError(401, "errors.wrongCurrentPassword");
     }
 
     const hash = await bcrypt.hash(newPassword, 12);
     await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [hash, req.userId]);
 
-    return res.json({ message: "Passwort erfolgreich geändert" });
+    return res.json({ message: req.t("messages.passwordChanged") });
   }));
 
   // ── Vehicles ───────────────────────────────────────────────
@@ -108,7 +108,7 @@ export function accountRoutes({ pool, requireAuth }) {
         [id, req.userId]
       );
       if (result.rows.length === 0) {
-        throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+        throw new HttpError(404, "errors.vehicleNotFound");
       }
       return result.rows[0];
     });
@@ -129,7 +129,7 @@ export function accountRoutes({ pool, requireAuth }) {
         `SELECT id FROM vehicles WHERE id = $1 AND user_id = $2 FOR UPDATE`, [id, req.userId]
       )).rows[0];
       if (!vehicle) {
-        throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+        throw new HttpError(404, "errors.vehicleNotFound");
       }
 
       const trips = (await client.query(
@@ -140,14 +140,14 @@ export function accountRoutes({ pool, requireAuth }) {
 
       if (trips.length > 0) {
         if (target === undefined) {
-          throw new HttpError(409, `Das Fahrzeug hat ${trips.length} Fahrt(en) – bitte angeben, zu welchem Fahrzeug sie umziehen`,
-            { code: "HAS_TRIPS", count: trips.length });
+          throw new HttpError(409, "errors.vehicleHasTrips",
+            { code: "HAS_TRIPS", count: trips.length }, { count: trips.length });
         }
         const targetOk = target !== id && (await client.query(
           `SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [target, req.userId]
         )).rows.length > 0;
         if (!targetOk) {
-          throw new HttpError(400, "Zielfahrzeug ungültig");
+          throw new HttpError(400, "errors.invalidTargetVehicle");
         }
         for (const old of trips) {
           const newValue = (await client.query(
@@ -166,7 +166,7 @@ export function accountRoutes({ pool, requireAuth }) {
       return trips.length;
     });
 
-    return res.json({ message: "Fahrzeug gelöscht", moved: shifted });
+    return res.json({ message: req.t("messages.vehicleDeleted"), moved: shifted });
   }));
 
   // ── API-Tokens ─────────────────────────────────────────────
@@ -202,9 +202,9 @@ export function accountRoutes({ pool, requireAuth }) {
       [id, req.userId]
     );
     if (result.rows.length === 0) {
-      throw new HttpError(404, "Token nicht gefunden oder keine Berechtigung");
+      throw new HttpError(404, "errors.tokenNotFound");
     }
-    return res.json({ message: "Token gelöscht" });
+    return res.json({ message: req.t("messages.tokenDeleted") });
   }));
 
   return router;

@@ -25,7 +25,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       [id, userId]
     );
     if (result.rows.length === 0) {
-      throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      throw new HttpError(404, "errors.vehicleNotFound");
     }
     return result.rows[0];
   }
@@ -36,7 +36,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     const changes = parse(vehicleUpdateBody, req.body);
     const fields  = Object.keys(changes).filter(f => changes[f] !== undefined);
     if (fields.length === 0) {
-      throw new HttpError(400, "Keine Felder zum Aktualisieren angegeben");
+      throw new HttpError(400, "errors.noFields");
     }
 
     const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
@@ -47,7 +47,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       [...fields.map(f => changes[f]), id, req.userId]
     );
     if (result.rows.length === 0) {
-      throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      throw new HttpError(404, "errors.vehicleNotFound");
     }
     return res.json(result.rows[0]);
   }));
@@ -100,7 +100,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     const { id } = parse(idParam, req.params);
     const backupData = await backupVehicle(pool, req.userId, id);
     if (!backupData) {
-      throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
+      throw new HttpError(404, "errors.vehicleNotFound");
     }
     res.attachment(`fahrzeug_${backupData.vehicle.code}_${backupData.created_at.slice(0, 10)}.json`);
     return res.json(backupData);
@@ -150,7 +150,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
 
     return res.json({
       year,
-      ...checkYear(trips, { ...audit.rows[0], unassigned: unassigned.rows[0].count }),
+      ...checkYear(trips, { ...audit.rows[0], unassigned: unassigned.rows[0].count, language: req.language }),
     });
   }));
 
@@ -169,7 +169,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
            tax_rate    = EXCLUDED.tax_rate,    updated_at   = NOW()`,
       [id, year, k.total_costs, k.depreciation, k.commute_km, k.months, k.tax_rate]
     );
-    return res.json({ message: "Kosten gespeichert" });
+    return res.json({ message: req.t("messages.costsSaved") });
   }));
 
   return router;

@@ -47,7 +47,7 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
       - Gemeinsame Teile übersetzt: Navigation, `config.js`, `offline.js`, `sicherung.js`, Footer, Login, Registrierung.
 - [x] 3a. Seiten: Neue Fahrt, Dashboard (+ `auswertung.js`), Jahreshistorie, Fahrten anzeigen
 - [x] 3b. Seiten: Auto-Info, Konto, Admin
-- [ ] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
+- [x] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
 - [ ] 5. PDF und CSV
 - [ ] 6. Tests für Englisch (Backend + Browser), Doku (README, GitHub-Page), Aufräumen
 

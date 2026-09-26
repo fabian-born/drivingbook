@@ -23,7 +23,7 @@ export function createAuth({ pool, config }) {
     }
 
     if (!rawToken) {
-      throw new HttpError(401, "Kein Token angegeben");
+      throw new HttpError(401, "errors.noToken");
     }
 
     // ── Attempt 1: JWT ─────────────────────────────────────
@@ -47,7 +47,7 @@ export function createAuth({ pool, config }) {
     );
 
     if (result.rows.length === 0) {
-      throw new HttpError(401, "Ungültiger Token");
+      throw new HttpError(401, "errors.invalidToken");
     }
 
     req.userId     = result.rows[0].id;
@@ -58,7 +58,7 @@ export function createAuth({ pool, config }) {
 
   function requireAdmin(req, res, next) {
     if (req.role !== "admin") {
-      return next(new HttpError(403, "Nur für Admins"));
+      return next(new HttpError(403, "errors.adminOnly"));
     }
     return next();
   }

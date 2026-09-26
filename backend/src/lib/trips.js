@@ -54,18 +54,15 @@ export async function checkKmPlausibility(db, userId, trip, force) {
 
   const beforeState  = prev.rows[0];
   const afterState = next.rows[0];
-  const date   = d => new Date(d).toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
+  // Formatted in the language of the response (see errorHandler)
+  const date   = d => locale => new Date(d).toLocaleString(locale, { timeZone: "Europe/Berlin" });
 
   if (beforeState && trip.odometer_km < beforeState.odometer_km) {
-    throw new HttpError(409,
-      `km-Stand ${trip.odometer_km} ist kleiner als bei der vorherigen Fahrt ` +
-      `(${beforeState.odometer_km} km am ${date(beforeState.timestamp)})`,
-      { code: "KM_PLAUSIBILITY" });
+    throw new HttpError(409, "errors.kmBelowPrevious", { code: "KM_PLAUSIBILITY" },
+      { km: trip.odometer_km, otherKm: beforeState.odometer_km, date: date(beforeState.timestamp) });
   }
   if (afterState && trip.odometer_km > afterState.odometer_km) {
-    throw new HttpError(409,
-      `km-Stand ${trip.odometer_km} ist größer als bei der folgenden Fahrt ` +
-      `(${afterState.odometer_km} km am ${date(afterState.timestamp)})`,
-      { code: "KM_PLAUSIBILITY" });
+    throw new HttpError(409, "errors.kmAboveNext", { code: "KM_PLAUSIBILITY" },
+      { km: trip.odometer_km, otherKm: afterState.odometer_km, date: date(afterState.timestamp) });
   }
 }

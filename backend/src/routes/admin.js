@@ -39,7 +39,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
       });
       return res.status(201).json(created);
     } catch (err) {
-      if (err.code === "23505") throw new HttpError(409, "Benutzername bereits vergeben");
+      if (err.code === "23505") throw new HttpError(409, "errors.usernameTaken");
       throw err;
     }
   }));
@@ -51,7 +51,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
 
     const userCheck = await pool.query(`SELECT id FROM users WHERE id = $1`, [id]);
     if (userCheck.rows.length === 0) {
-      throw new HttpError(404, "User nicht gefunden");
+      throw new HttpError(404, "errors.userNotFound");
     }
 
     const created = await withTransaction(pool, async client => {
@@ -89,7 +89,7 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
     if (backupData.action === "assign") {
       const vehicle = await pool.query(`SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [backupData.vehicle_id, backupData.user_id]);
       if (vehicle.rows.length === 0) {
-        throw new HttpError(400, "Fahrzeug gehört nicht zu diesem Benutzer");
+        throw new HttpError(400, "errors.vehicleNotOwnedByUser");
       }
     }
     const outcome = await withTransaction(pool, client => handleUnassigned(client, backupData));

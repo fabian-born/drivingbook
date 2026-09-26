@@ -6,6 +6,7 @@ import fs      from "fs";
 import express from "express";
 import cors    from "cors";
 import { asyncHandler, errorHandler, HttpError } from "./http.js";
+import { i18nMiddleware } from "./i18n.js";
 import { createAuth } from "./middleware/auth.js";
 import { createGeocoder } from "./lib/geocode.js";
 import { authRoutes } from "./routes/auth.js";
@@ -36,6 +37,8 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   const LARGE_UPLOADS = new Set(["/api/vehicles/import", "/api/backup/restore"]);
   const smallJson = express.json({ limit: "100kb" });
   app.use((req, res, next) => (LARGE_UPLOADS.has(req.path) ? next() : smallJson(req, res, next)));
+  // req.language / req.t() for translated messages (Accept-Language, default German)
+  app.use(i18nMiddleware);
 
   // Without CORS_ORIGIN no CORS headers → browsers only allow same-origin calls
   if (config.corsOrigins.length > 0) {
@@ -59,7 +62,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   app.use("/api", vehicleRoutes(deps));
   app.use("/api", backupRoutes(deps));
 
-  app.use("/api", (req, res, next) => next(new HttpError(404, "Endpunkt nicht gefunden")));
+  app.use("/api", (req, res, next) => next(new HttpError(404, "errors.endpointNotFound")));
   app.use(errorHandler);
 
   return app;
