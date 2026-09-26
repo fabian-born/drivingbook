@@ -39,9 +39,9 @@ function fuelleJahre() {
 let jahresFahrten = [];
 
 async function ladeJahr() {
-  const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${jahrSelect.value}`));
+  const res = await apiFetch(mitFahrzeug(`/api/trips?year=${jahrSelect.value}`));
   if (!res.ok) throw new Error(await apiError(res));
-  jahresFahrten = (await res.json()).fahrten;
+  jahresFahrten = (await res.json()).trips;
 }
 
 // ----------------- Monate füllen & aktuellen Monat vorauswählen -----------------
@@ -58,7 +58,7 @@ async function fuelleMonateMitCheck() {
     return;
   }
 
-  const monateMitDaten = new Set(jahresFahrten.map(f => f.monat.slice(5)));
+  const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
   const monatsname = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString("de-DE", { month: "short" });
   monatSelect.innerHTML = `<option value="alle">Alle</option>` +
     Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))
@@ -85,7 +85,7 @@ function zeigeAuswahl() {
   jahresansicht   = monat === "alle";
   aktuelleFahrten = jahresansicht
     ? [...jahresFahrten]
-    : jahresFahrten.filter(f => f.monat === `${jahrSelect.value}-${monat}`);
+    : jahresFahrten.filter(f => f.month === `${jahrSelect.value}-${monat}`);
 
   if (aktuelleFahrten.length === 0) {
     setLeer(jahresansicht ? `Keine Daten für ${jahrSelect.value} vorhanden` : "Keine Daten vorhanden");
@@ -104,7 +104,7 @@ async function ladeFahrten() {
     return;
   }
   // Monate mit neuen Fahrten freischalten, Auswahl bleibt
-  const monateMitDaten = new Set(jahresFahrten.map(f => f.monat.slice(5)));
+  const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
   for (const option of monatSelect.options) {
     if (option.value !== "alle") option.disabled = !monateMitDaten.has(option.value);
   }
@@ -132,19 +132,19 @@ function renderTabelle() {
   const filter = fahrtartFilter.value;
 
   aktuelleFahrten.forEach((f, i) => {
-    if (filter !== "alle" && f.fahrtart !== filter) return;
-    const diff = f.strecke ?? 0;
+    if (filter !== "alle" && f.trip_type !== filter) return;
+    const diff = f.distance ?? 0;
 
     const tr = document.createElement("tr");
     tr.dataset.index = i;
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td contenteditable="true" data-field="kmstand">${escapeHtml(f.kmstand)}</td>
+      <td contenteditable="true" data-field="odometer_km">${escapeHtml(f.odometer_km)}</td>
       <td>${diff}</td>
-      <td contenteditable="true" data-field="ziel">${escapeHtml(f.ziel)}</td>
+      <td contenteditable="true" data-field="destination">${escapeHtml(f.destination)}</td>
       <td>
         <select class="form-select form-select-sm fahrtart-select" data-index="${i}">
-          ${fahrtartOptionen(f.fahrtart)}
+          ${fahrtartOptionen(f.trip_type)}
         </select>
       </td>
       <td>
@@ -168,7 +168,7 @@ function renderTabelleJahresansicht() {
   let nr = 0;
 
   aktuelleFahrten.forEach((f, i) => {
-    if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (filter !== "alle" && f.trip_type !== filter) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -183,14 +183,14 @@ function renderTabelleJahresansicht() {
     }
 
     nr++;
-    const diff = f.strecke ?? 0;
+    const diff = f.distance ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${nr}</td>
-      <td>${escapeHtml(f.kmstand)}</td>
+      <td>${escapeHtml(f.odometer_km)}</td>
       <td>${diff >= 0 ? diff : "–"}</td>
-      <td>${escapeHtml(f.ziel)}</td>
-      <td>${fahrtartBadge(f.fahrtart)}</td>
+      <td>${escapeHtml(f.destination)}</td>
+      <td>${fahrtartBadge(f.trip_type)}</td>
       <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
@@ -206,8 +206,8 @@ function renderCards() {
   const filter = fahrtartFilter.value;
 
   aktuelleFahrten.forEach((f, i) => {
-    if (filter !== "alle" && f.fahrtart !== filter) return;
-    const diff = f.strecke ?? 0;
+    if (filter !== "alle" && f.trip_type !== filter) return;
+    const diff = f.distance ?? 0;
     cardList.appendChild(buildCard(f, i, diff, false));
   });
 }
@@ -219,7 +219,7 @@ function renderCardsJahresansicht() {
   let nr = 0;
 
   aktuelleFahrten.forEach((f, i) => {
-    if (filter !== "alle" && f.fahrtart !== filter) return;
+    if (filter !== "alle" && f.trip_type !== filter) return;
     const monat = monthKeyFromISO(f.timestamp);
 
     if (monat !== laufenderMonat) {
@@ -232,31 +232,31 @@ function renderCardsJahresansicht() {
     }
 
     nr++;
-    const diff = f.strecke ?? 0;
+    const diff = f.distance ?? 0;
     cardList.appendChild(buildCard(f, i, diff, true, nr));
   });
 }
 
 function buildCard(f, i, diff, readonly, nr) {
   const zeitpunkt = new Date(f.timestamp).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
-  const strecke   = f.strecke == null ? "" : `+${zahl(Math.max(diff, 0))} km`;
+  const strecke   = f.distance == null ? "" : `+${zahl(Math.max(diff, 0))} km`;
 
   const div = document.createElement("div");
   div.className = "fahrt-card";
   div.dataset.index = i;
-  div.style.setProperty("--fahrtart-farbe", fahrtartInfo(f.fahrtart).chart);
+  div.style.setProperty("--fahrtart-farbe", fahrtartInfo(f.trip_type).chart);
 
   if (readonly) {
     div.innerHTML = `
       <div class="d-flex justify-content-between align-items-center gap-2">
         <span class="card-meta">${escapeHtml(zeitpunkt)}</span>
-        ${fahrtartBadge(f.fahrtart)}
+        ${fahrtartBadge(f.trip_type)}
       </div>
       <div class="d-flex align-items-baseline gap-2 mt-1">
-        <span class="card-km">${zahl(f.kmstand)} km</span>
+        <span class="card-km">${zahl(f.odometer_km)} km</span>
         <span class="strecke">${strecke}</span>
       </div>
-      <div class="card-ziel">${escapeHtml(f.ziel)}</div>
+      <div class="card-ziel">${escapeHtml(f.destination)}</div>
       <div class="d-flex justify-content-between align-items-center mt-1">
         <span class="card-meta">#${nr ?? i + 1}</span>${historyButton(f)}
       </div>`;
@@ -273,18 +273,18 @@ function buildCard(f, i, diff, readonly, nr) {
       <div class="d-flex align-items-center gap-2 mb-2">
         <div class="input-group km-feld">
           <input type="number" inputmode="numeric" class="form-control card-field-km" aria-label="km-Stand"
-            data-index="${i}" data-field="kmstand" value="${escapeHtml(f.kmstand)}">
+            data-index="${i}" data-field="odometer_km" value="${escapeHtml(f.odometer_km)}">
           <span class="input-group-text">km</span>
         </div>
         <span class="strecke">${strecke}</span>
       </div>
 
       <input type="text" class="form-control mb-2 card-field-ziel" aria-label="Ziel / Kunde"
-        data-index="${i}" data-field="ziel" value="${escapeHtml(f.ziel)}">
+        data-index="${i}" data-field="destination" value="${escapeHtml(f.destination)}">
 
       <div class="d-flex align-items-center gap-2">
         <select class="form-select card-fahrtart" data-index="${i}" aria-label="Fahrtart">
-          ${fahrtartOptionen(f.fahrtart)}
+          ${fahrtartOptionen(f.trip_type)}
         </select>
         <span class="card-meta">#${i + 1}</span>${historyButton(f)}
       </div>`;
@@ -297,12 +297,12 @@ function buildCard(f, i, diff, readonly, nr) {
 function renderSumme() {
   const box = document.getElementById("auswahlSumme");
   const filter = fahrtartFilter.value;
-  const fahrten = aktuelleFahrten.filter(f => filter === "alle" || f.fahrtart === filter);
+  const fahrten = aktuelleFahrten.filter(f => filter === "alle" || f.trip_type === filter);
   box.classList.toggle("d-none", fahrten.length === 0);
   if (fahrten.length === 0) return;
 
   const summe = Object.fromEntries(FAHRTARTEN.map(a => [a.key, 0]));
-  for (const f of fahrten) summe[fahrtartInfo(f.fahrtart).key] += Math.max(f.strecke ?? 0, 0);
+  for (const f of fahrten) summe[fahrtartInfo(f.trip_type).key] += Math.max(f.distance ?? 0, 0);
   const gesamt = FAHRTARTEN.reduce((n, a) => n + summe[a.key], 0);
 
   document.getElementById("auswahlTitel").textContent = jahresansicht
@@ -325,7 +325,7 @@ cardList.addEventListener("change", async e => {
   // Fahrtart-Dropdown
   if (e.target.classList.contains("card-fahrtart")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].fahrtart = e.target.value;
+    aktuelleFahrten[i].trip_type = e.target.value;
     e.target.closest(".fahrt-card").style.setProperty("--fahrtart-farbe", fahrtartInfo(e.target.value).chart);
     if (await speichereFahrt(i)) renderSumme();
   }
@@ -344,13 +344,13 @@ cardList.addEventListener("blur", async e => {
 
   if (e.target.classList.contains("card-field-km")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].kmstand = Number(e.target.value);
+    aktuelleFahrten[i].odometer_km = Number(e.target.value);
     await speichereFahrt(i);
   }
 
   if (e.target.classList.contains("card-field-ziel")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].ziel = e.target.value;
+    aktuelleFahrten[i].destination = e.target.value;
     await speichereFahrt(i);
   }
 }, true);
@@ -379,7 +379,7 @@ tbody.addEventListener("blur", async e => {
   const index = tr.dataset.index;
   const field = e.target.dataset.field;
   aktuelleFahrten[index][field] =
-    field === "kmstand" ? Number(e.target.innerText) : e.target.innerText;
+    field === "odometer_km" ? Number(e.target.innerText) : e.target.innerText;
   await speichereFahrt(index);
 }, true);
 
@@ -388,7 +388,7 @@ tbody.addEventListener("change", async e => {
 
   if (e.target.classList.contains("fahrtart-select")) {
     const i = e.target.dataset.index;
-    aktuelleFahrten[i].fahrtart = e.target.value;
+    aktuelleFahrten[i].trip_type = e.target.value;
     if (await speichereFahrt(i)) renderSumme();
   }
 
@@ -432,19 +432,19 @@ async function handleTimestampChange(index, localVal) {
 async function speichereFahrt(index, aenderungen) {
   const fahrt = aktuelleFahrten[index];
   const body  = aenderungen ?? {
-    kmstand:  fahrt.kmstand,
-    ziel:     fahrt.ziel,
-    fahrtart: fahrt.fahrtart,
+    odometer_km: fahrt.odometer_km,
+    destination: fahrt.destination,
+    trip_type:   fahrt.trip_type,
   };
 
   try {
-    let res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "PUT", body });
+    let res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body });
 
     // km-Stand passt nicht zu den Nachbarfahrten → nachfragen und ggf. erzwingen
     if (res.status === 409) {
       const err = await res.json().catch(() => ({}));
       if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\nTrotzdem speichern?`)) {
-        res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "PUT", body: { ...body, force: true } });
+        res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body: { ...body, force: true } });
       } else {
         zeigeHinweis(`Nicht gespeichert: ${err.error || res.status}`, "warning");
         ladeFahrten();  // Anzeige auf gespeicherten Stand zurücksetzen
@@ -470,7 +470,7 @@ function zeigeLoeschModal(index) {
   const zeitpunkt = new Date(fahrt.timestamp).toLocaleString("de-DE");
 
   document.getElementById("confirmDeleteInfo").textContent =
-    `#${parseInt(index) + 1} · ${fahrt.kmstand} km · ${fahrt.ziel} · ${fahrt.fahrtart} · ${zeitpunkt}`;
+    `#${parseInt(index) + 1} · ${fahrt.odometer_km} km · ${fahrt.destination} · ${fahrt.trip_type} · ${zeitpunkt}`;
   document.getElementById("confirmDeleteIndex").value = index;
 
   new bootstrap.Modal(document.getElementById("deleteModal")).show();
@@ -481,7 +481,7 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
   const fahrt = aktuelleFahrten[index];
 
   try {
-    const res = await apiFetch(`/api/fahrt/${fahrt._id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "DELETE" });
     if (res.ok) {
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
       await ladeFahrten();  // Strecke der Folgefahrt ändert sich mit
@@ -584,13 +584,13 @@ monatSelect.addEventListener("change", zeigeAuswahl);
 
 function historyButton(f) {
   if (!f.edited) return "";
-  return `<button class="btn btn-sm btn-outline-secondary history-btn" data-id="${escapeHtml(f._id)}"
+  return `<button class="btn btn-sm btn-outline-secondary history-btn" data-id="${escapeHtml(f.id)}"
             title="Nachträglich geändert – Verlauf anzeigen">
             <span class="mdi mdi-history"></span>
           </button>`;
 }
 
-const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
+const FELD_LABELS = { odometer_km: "km-Stand", destination: "Ziel", trip_type: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
 const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
 const QUELLEN     = { web: "Web", api_token: "API-Token", admin: "Admin" };
 const quelleText  = quelle => QUELLEN[quelle] || quelle;
@@ -598,7 +598,8 @@ const quelleText  = quelle => QUELLEN[quelle] || quelle;
 function formatWert(feld, wert) {
   if (wert == null) return "–";
   if (feld === "timestamp")   return new Date(wert).toLocaleString("de-DE");
-  if (feld === "kmstand")     return `${wert} km`;
+  if (feld === "odometer_km") return `${wert} km`;
+  if (feld === "trip_type")   return fahrtartInfo(wert).label;
   if (feld === "vehicle_id")  return vehicleById.get(wert)?.name ?? `Fahrzeug #${wert}`;
   return String(wert);
 }
@@ -613,7 +614,7 @@ function beschreibeEintrag(e) {
     return zeilen.length ? zeilen.join("<br>") : "Gespeichert ohne inhaltliche Änderung";
   }
   const d = e.action === "delete" ? e.old_data : e.new_data;
-  return escapeHtml(`${formatWert("timestamp", d.timestamp)} · ${formatWert("kmstand", d.kmstand)} · ${d.fahrtart} · ${d.ziel}`);
+  return escapeHtml(`${formatWert("timestamp", d.timestamp)} · ${formatWert("odometer_km", d.odometer_km)} · ${formatWert("trip_type", d.trip_type)} · ${d.destination}`);
 }
 
 function zeigeProtokoll(titel, eintraege, leerText) {
@@ -624,7 +625,7 @@ function zeigeProtokoll(titel, eintraege, leerText) {
         <li class="list-group-item px-0">
           <div class="d-flex justify-content-between small text-muted mb-1">
             <span>${escapeHtml(new Date(e.changed_at).toLocaleString("de-DE"))} · ${escapeHtml(quelleText(e.source))}</span>
-            <span>${e.fahrt_id ? `Fahrt-ID ${escapeHtml(e.fahrt_id)} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
+            <span>${e.trip_id ? `Fahrt-ID ${escapeHtml(e.trip_id)} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
           </div>
           <div class="small">${beschreibeEintrag(e)}</div>
         </li>`).join("")}</ul>`;
@@ -632,7 +633,7 @@ function zeigeProtokoll(titel, eintraege, leerText) {
 }
 
 async function zeigeVerlauf(id) {
-  const res = await apiFetch(`/api/fahrt/${id}/history`);
+  const res = await apiFetch(`/api/trips/${id}/history`);
   if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
   zeigeProtokoll("Änderungsverlauf der Fahrt", await res.json(), "Keine Einträge.");
 }

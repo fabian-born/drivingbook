@@ -16,14 +16,14 @@ test("Dashboard lädt neu nach Rückkehr in die App und alle 5 Minuten", async (
   await page.clock.install();
   const user = await neuerUser();
   const jetzt = Date.now();
-  await fahrt(user, { kmstand: 1000, timestamp: new Date(jetzt - 3600e3).toISOString() });
-  await fahrt(user, { kmstand: 1100, timestamp: new Date(jetzt - 1800e3).toISOString() });
+  await fahrt(user, { odometer_km: 1000, timestamp: new Date(jetzt - 3600e3).toISOString() });
+  await fahrt(user, { odometer_km: 1100, timestamp: new Date(jetzt - 1800e3).toISOString() });
 
   await loginImBrowser(page, user);
   await expect(monatsKm(page)).toHaveText("100 km");
 
   // Home Assistant trägt im Hintergrund eine Fahrt ein
-  await fahrt(user, { kmstand: 1150, timestamp: new Date(jetzt - 600e3).toISOString() });
+  await fahrt(user, { odometer_km: 1150, timestamp: new Date(jetzt - 600e3).toISOString() });
 
   // kurz weg (< 30 s) → kein Neuladen
   await setzeSichtbar(page, false);
@@ -40,7 +40,7 @@ test("Dashboard lädt neu nach Rückkehr in die App und alle 5 Minuten", async (
   await expect(monatsKm(page)).toHaveText("150 km");
 
   // ohne Wechsel: spätestens nach 5 Minuten
-  await fahrt(user, { kmstand: 1180, timestamp: new Date(jetzt - 300e3).toISOString() });
+  await fahrt(user, { odometer_km: 1180, timestamp: new Date(jetzt - 300e3).toISOString() });
   await page.clock.fastForward("05:01");
   await expect(monatsKm(page)).toHaveText("180 km");
 });
@@ -48,13 +48,13 @@ test("Dashboard lädt neu nach Rückkehr in die App und alle 5 Minuten", async (
 test("keine Aktualisierung mitten in einer Eingabe", async ({ page }) => {
   await page.clock.install();
   const user = await neuerUser();
-  await fahrt(user, { kmstand: 5000, timestamp: new Date(Date.now() - 86400e3).toISOString() });
+  await fahrt(user, { odometer_km: 5000, timestamp: new Date(Date.now() - 86400e3).toISOString() });
 
   await loginImBrowser(page, user);
   await page.goto("/driving.html");
   await expect(page.locator("#letzterStand")).toContainText("5.000 km");
 
-  await fahrt(user, { kmstand: 5080, timestamp: new Date(Date.now() - 3600e3).toISOString() });
+  await fahrt(user, { odometer_km: 5080, timestamp: new Date(Date.now() - 3600e3).toISOString() });
   await page.fill("#kmstand", "51");                 // Nutzer tippt gerade
   await page.clock.fastForward("05:01");
   await expect(page.locator("#letzterStand")).toContainText("5.000 km");

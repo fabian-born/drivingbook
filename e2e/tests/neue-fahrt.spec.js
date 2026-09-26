@@ -7,7 +7,7 @@ test.use(iphoneSE);
 
 test("Neue Fahrt ist auf dem Smartphone gut bedienbar", async ({ page }) => {
   const user = await neuerUser(["VW Golf Variant"]);
-  await fahrt(user, { kmstand: 13500, timestamp: new Date(Date.now() - 2 * 86400e3).toISOString(), fahrtart: "geschäftlich" });
+  await fahrt(user, { odometer_km: 13500, timestamp: new Date(Date.now() - 2 * 86400e3).toISOString(), trip_type: "business" });
 
   await loginImBrowser(page, user);
   await page.goto("/driving.html");

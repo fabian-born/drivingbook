@@ -176,13 +176,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function zeigeSicherungsStatus() {
     const status = await ladeSicherungsStatus();
     if (!status) return;
-    document.getElementById("sicherungTabelle").innerHTML = status.fahrzeuge.length === 0
+    document.getElementById("sicherungTabelle").innerHTML = status.vehicles.length === 0
       ? `<tr><td colspan="3" class="text-muted">Keine Fahrzeuge vorhanden.</td></tr>`
-      : status.fahrzeuge.map(v => `
-        <tr class="${v.erinnern ? "table-warning" : ""}">
+      : status.vehicles.map(v => `
+        <tr class="${v.remind ? "table-warning" : ""}">
           <td>${escapeHtml(v.name)}</td>
-          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.erinnern ? ' <span class="badge text-bg-warning">fällig</span>' : ""}</td>
-          <td class="text-end">${v.aenderungen}</td>
+          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.remind ? ' <span class="badge text-bg-warning">fällig</span>' : ""}</td>
+          <td class="text-end">${v.changes}</td>
         </tr>`).join("");
   }
 

@@ -19,8 +19,8 @@ test("offline erfasste Fahrt wird nachgereicht, sobald wieder Netz da ist", asyn
   await expect(page.locator("#statusMeldung")).toContainText("nachträglich gespeichert");
 
   const jahr = new Date().getFullYear();
-  const daten = await api(`/api/fahrten?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token });
-  expect(daten.fahrten.map(f => f.ziel)).toEqual(["Offline-Ziel"]);
+  const daten = await api(`/api/trips?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token });
+  expect(daten.trips.map(f => f.destination)).toEqual(["Offline-Ziel"]);
 });
 
 test("wartende Fahrten gehen nach Benutzerwechsel nicht an das falsche Konto", async ({ page, context }) => {
@@ -40,12 +40,12 @@ test("wartende Fahrten gehen nach Benutzerwechsel nicht an das falsche Konto", a
   await loginImBrowser(page, zweiter);
   await expect(page.locator("#warteschlangeNav")).toBeHidden();
   const jahr = new Date().getFullYear();
-  expect((await api(`/api/fahrten?year=${jahr}`, { token: zweiter.token })).fahrten).toEqual([]);
+  expect((await api(`/api/trips?year=${jahr}`, { token: zweiter.token })).trips).toEqual([]);
 
   await page.click("#logoutBtn");
   await loginImBrowser(page, erster);
   await expect.poll(async () =>
-    (await api(`/api/fahrten?year=${jahr}`, { token: erster.token })).fahrten.map(f => f.ziel)
+    (await api(`/api/trips?year=${jahr}`, { token: erster.token })).trips.map(f => f.destination)
   ).toEqual(["Gehört dem Ersten"]);
 });
 
@@ -79,7 +79,7 @@ test("eine fehlerhafte Offline-Fahrt blockiert die übrigen nicht und lässt sic
   // die zweite ist trotzdem angekommen
   const jahr = new Date().getFullYear();
   await expect.poll(async () =>
-    (await api(`/api/fahrten?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token })).fahrten.map(f => f.ziel)
+    (await api(`/api/trips?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token })).trips.map(f => f.destination)
   ).toEqual(["Zweite"]);
 
   page.on("dialog", d => d.accept());

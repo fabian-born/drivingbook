@@ -58,9 +58,9 @@ function tokenPayload() {
 // Palette-Validator geprüfte Stufen); im Hellmodus hat Arbeitsweg < 3:1 Kontrast
 // → immer mit Legende/Beschriftung und Tabelle.
 const FAHRTARTEN = [
-  { wert: "geschäftlich", key: "geschaeftlich", label: "Geschäftlich", farbe: "primary", chart: "var(--fa-geschaeftlich)" },
-  { wert: "privat",       key: "privat",        label: "Privat",       farbe: "success", chart: "var(--fa-privat)" },
-  { wert: "arbeitsweg",   key: "arbeitsweg",    label: "Arbeitsweg",   farbe: "warning", chart: "var(--fa-arbeitsweg)" },
+  { wert: "business", key: "business", label: "Geschäftlich", farbe: "primary", chart: "var(--fa-business)" },
+  { wert: "private",  key: "private",  label: "Privat",       farbe: "success", chart: "var(--fa-private)" },
+  { wert: "commute",  key: "commute",  label: "Arbeitsweg",   farbe: "warning", chart: "var(--fa-commute)" },
 ];
 
 // Aufgelöste Farbe (für Canvas-Diagramme, die keine CSS-Variablen kennen)

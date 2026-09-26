@@ -12,14 +12,14 @@ async function lade(page, testInfo, klick) {
 test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async ({ page }, testInfo) => {
   const user = await neuerUser(["Passat", "Polo"]);
   const [passat] = user.vehicles;
-  const r = await fahrt(user, { kmstand: 500, ziel: "Kunde X", fahrtart: "geschäftlich", timestamp: `${jahr}-02-01T08:00:00Z`, vehicle_code: passat.code });
-  await fahrt(user, { kmstand: 560, ziel: "Heim", timestamp: `${jahr}-02-02T08:00:00Z`, vehicle_code: passat.code });
-  await api(`/api/fahrt/${r.id}`, { method: "PUT", token: user.token, body: { ziel: "Kunde X GmbH" } });
+  const r = await fahrt(user, { odometer_km: 500, destination: "Kunde X", trip_type: "business", timestamp: `${jahr}-02-01T08:00:00Z`, vehicle_code: passat.code });
+  await fahrt(user, { odometer_km: 560, destination: "Heim", timestamp: `${jahr}-02-02T08:00:00Z`, vehicle_code: passat.code });
+  await api(`/api/trips/${r.id}`, { method: "PUT", token: user.token, body: { destination: "Kunde X GmbH" } });
 
   await loginImBrowser(page, user);   // Passat aktiv
   await page.goto("/auto.html");
   const datei = await lade(page, testInfo, () => page.click("#exportBtn"));
-  expect(JSON.parse(fs.readFileSync(datei, "utf8")).fahrten).toHaveLength(2);
+  expect(JSON.parse(fs.readFileSync(datei, "utf8")).trips).toHaveLength(2);
 
   // Fahrzeug löschen: die Fahrten ziehen in den Polo um (Dialog), Polo wird aktiv
   page.on("dialog", d => d.accept());
@@ -43,7 +43,7 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
   await page.goto("/view.html");
   await page.selectOption("#jahrSelect", String(jahr));
   await page.selectOption("#monatSelect", "02");
-  await expect(page.locator("#fahrtenTabelle [data-field=ziel]")).toHaveText(["Kunde X GmbH", "Heim"]);
+  await expect(page.locator("#fahrtenTabelle [data-field=destination]")).toHaveText(["Kunde X GmbH", "Heim"]);
   await page.locator("#fahrtenTabelle .history-btn").first().click();
   await expect(page.locator("#auditModalBody li")).toHaveCount(3);   // angelegt, geändert, umgezogen
 
@@ -58,8 +58,8 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
 
 test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, testInfo) => {
   const user = await neuerUser(["Golf", "Tesla"]);
-  await fahrt(user, { kmstand: 100, timestamp: `${jahr}-01-10T08:00:00Z`, vehicle_code: user.vehicles[0].code });
-  await fahrt(user, { kmstand: 50,  timestamp: `${jahr}-01-11T08:00:00Z`, vehicle_code: user.vehicles[1].code });
+  await fahrt(user, { odometer_km: 100, timestamp: `${jahr}-01-10T08:00:00Z`, vehicle_code: user.vehicles[0].code });
+  await fahrt(user, { odometer_km: 50,  timestamp: `${jahr}-01-11T08:00:00Z`, vehicle_code: user.vehicles[1].code });
 
   // Neue Fahrzeuge: noch nicht fällig
   await loginImBrowser(page, user);
@@ -70,7 +70,7 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
   await page.route("**/api/backup/status", async route => {
     const res  = await route.fetch();
     const json = await res.json();
-    json.fahrzeuge = json.fahrzeuge.map(v => ({ ...v, erinnern: v.aenderungen > 0 }));
+    json.vehicles = json.vehicles.map(v => ({ ...v, remind: v.changes > 0 }));
     await route.fulfill({ response: res, json });
   });
   await page.reload();
@@ -81,8 +81,8 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
   await expect(page.locator("#sicherungTabelle tr")).toHaveText([/Golf\s+noch nie/, /Tesla\s+noch nie/]);
   const datei = await lade(page, testInfo, () => page.click("#sichernBtn"));
   const sicherung = JSON.parse(fs.readFileSync(datei, "utf8"));
-  expect(sicherung.format).toBe("drivingbook-sicherung");
-  expect(sicherung.fahrzeuge.map(f => f.fahrzeug.name)).toEqual(["Golf", "Tesla"]);
+  expect(sicherung.format).toBe("drivingbook-backup");
+  expect(sicherung.vehicles.map(f => f.vehicle.name)).toEqual(["Golf", "Tesla"]);
   await expect(page.locator("#sicherungTabelle tr").first()).not.toContainText("noch nie");
 
   await page.goto("/index.html");

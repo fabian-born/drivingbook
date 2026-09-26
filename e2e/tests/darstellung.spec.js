@@ -10,8 +10,8 @@ test.describe("Hell-/Dunkelmodus", () => {
 
   test("folgt dem System, lässt sich umstellen und merkt sich die Wahl", async ({ page }) => {
     const user = await neuerUser();
-    await fahrt(user, { kmstand: 100, timestamp: `${jahr}-01-05T08:00:00Z` });
-    await fahrt(user, { kmstand: 150, timestamp: `${jahr}-01-06T08:00:00Z`, fahrtart: "arbeitsweg" });
+    await fahrt(user, { odometer_km: 100, timestamp: `${jahr}-01-05T08:00:00Z` });
+    await fahrt(user, { odometer_km: 150, timestamp: `${jahr}-01-06T08:00:00Z`, trip_type: "commute" });
 
     // schon die Login-Seite ist dunkel (kein helles Aufblitzen)
     await page.goto("/login.html");
@@ -42,8 +42,8 @@ test.describe("Hell-/Dunkelmodus", () => {
 
   test("Drucken erfolgt immer hell", async ({ page }) => {
     const user = await neuerUser();
-    await fahrt(user, { kmstand: 100, timestamp: `${jahr - 1}-03-05T08:00:00Z` });
-    await fahrt(user, { kmstand: 180, timestamp: `${jahr - 1}-03-06T08:00:00Z` });
+    await fahrt(user, { odometer_km: 100, timestamp: `${jahr - 1}-03-05T08:00:00Z` });
+    await fahrt(user, { odometer_km: 180, timestamp: `${jahr - 1}-03-06T08:00:00Z` });
     await loginImBrowser(page, user);
     await page.goto("/history.html");
     await expect(page.locator("canvas")).toBeVisible();

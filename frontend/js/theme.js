@@ -12,10 +12,10 @@
   // Farben der Fahrtarten – je Modus eigene, gegen den Hintergrund geprüfte Stufen
   document.head.insertAdjacentHTML("beforeend", `<style>
     :root {
-      --fa-geschaeftlich: #0d6efd; --fa-privat: #198754; --fa-arbeitsweg: #e08a00;
+      --fa-business: #0d6efd; --fa-private: #198754; --fa-commute: #e08a00;
     }
     [data-bs-theme="dark"] {
-      --fa-geschaeftlich: #3d8bfd; --fa-privat: #20a36a; --fa-arbeitsweg: #cc7e00;
+      --fa-business: #3d8bfd; --fa-private: #20a36a; --fa-commute: #cc7e00;
     }
   </style>`);
 

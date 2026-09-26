@@ -53,9 +53,9 @@ async function zeigeFahrzeug() {
   try {
     const res = await apiFetch(`/api/vehicles/${vehicle.id}/info`);
     if (!res.ok) return;
-    const { gesamt } = await res.json();
-    merkeLetztenStand(vehicle.code, gesamt.km_aktuell != null
-      ? { km: gesamt.km_aktuell, zeit: gesamt.letzte_fahrt }
+    const { overall } = await res.json();
+    merkeLetztenStand(vehicle.code, overall.odometer_current != null
+      ? { km: overall.odometer_current, zeit: overall.last_trip }
       : null);
   } catch { /* offline → zuletzt bekannter Stand */ }
 }
@@ -144,7 +144,7 @@ function aktualisiereOfflineHinweis(anzahl, fehlerhaft = []) {
   $("offlineFehlerListe").innerHTML = fehlerhaft.map((f, i) => `
     <li class="border-top border-danger-subtle pt-2">
       <div class="small"><strong>${escapeHtml(new Date(f.timestamp).toLocaleString("de-DE"))}</strong> ·
-        ${escapeHtml(Number(f.kmstand).toLocaleString("de-DE"))} km · ${escapeHtml(f.ziel)}</div>
+        ${escapeHtml(Number(f.odometer_km).toLocaleString("de-DE"))} km · ${escapeHtml(f.destination)}</div>
       <div class="small text-danger-emphasis mb-1">${escapeHtml(f.fehler)}</div>
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-sm btn-outline-danger" data-erneut="${i}">Erneut senden</button>
@@ -166,7 +166,7 @@ function formularLeeren() {
 
 // Nach dem Speichern (oder Einreihen) gilt der neue Stand als letzter Stand
 function erfasst(fahrt) {
-  if (aktivesFahrzeug) merkeLetztenStand(aktivesFahrzeug.code, { km: Number(fahrt.kmstand), zeit: fahrt.timestamp });
+  if (aktivesFahrzeug) merkeLetztenStand(aktivesFahrzeug.code, { km: Number(fahrt.odometer_km), zeit: fahrt.timestamp });
   formularLeeren();
 }
 
@@ -192,7 +192,7 @@ async function addFahrt() {
   }
 
   // Zeitpunkt wird bei der Erfassung festgehalten, auch wenn erst später gesendet wird
-  const fahrt = { kmstand, ziel, fahrtart, timestamp: new Date().toISOString() };
+  const fahrt = { odometer_km: kmstand, destination: ziel, trip_type: fahrtart, timestamp: new Date().toISOString() };
 
   // Code wird bei der Erfassung festgehalten, auch wenn offline erst später gesendet wird
   const vehicle = await fahrzeugBereit;

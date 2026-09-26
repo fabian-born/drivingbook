@@ -122,13 +122,13 @@ function fahrtZeile(f, status) {
       <td>${status === "behalten" ? '<span class="badge bg-success">behalten</span>' : '<span class="badge bg-danger">entfernen</span>'}</td>
       <td class="small">#${escapeHtml(f.id)}</td>
       <td class="small">${escapeHtml(datumZeit(f.timestamp))}</td>
-      <td class="small">${escapeHtml(f.kmstand)} km</td>
-      <td class="small">${escapeHtml(f.ziel)}</td>
-      <td class="small">${escapeHtml(f.protokoll)} Einträge</td>
+      <td class="small">${escapeHtml(f.odometer_km)} km</td>
+      <td class="small">${escapeHtml(f.destination)}</td>
+      <td class="small">${escapeHtml(f.audit_entries)} Einträge</td>
     </tr>`;
 }
 
-function zeigeDuplikate({ gruppen, zu_entfernen }, sekunden) {
+function zeigeDuplikate({ groups: gruppen, to_remove: zu_entfernen }, sekunden) {
   document.getElementById("duplikatAnzahl").textContent = zu_entfernen;
   document.getElementById("duplikatRegel").textContent =
     `Gleicher Benutzer, gleiches Fahrzeug, gleicher km-Stand, gleiches Ziel und gleiche Fahrtart, höchstens ` +
@@ -141,55 +141,55 @@ function zeigeDuplikate({ gruppen, zu_entfernen }, sekunden) {
       <div class="border rounded p-2 mb-2">
         <div class="form-check mb-1">
           <input class="form-check-input duplikat-gruppe" type="checkbox" id="dup${i}" checked
-            data-ids="${g.entfernen.map(f => f.id).join(",")}">
+            data-ids="${g.remove.map(f => f.id).join(",")}">
           <label class="form-check-label small fw-semibold" for="dup${i}">
-            ${escapeHtml(g.username)} · ${escapeHtml(g.vehicle_name ?? "ohne Fahrzeug")} · ${escapeHtml(fahrtartInfo(g.behalten.fahrtart).label)}
+            ${escapeHtml(g.username)} · ${escapeHtml(g.vehicle_name ?? "ohne Fahrzeug")} · ${escapeHtml(fahrtartInfo(g.keep.trip_type).label)}
           </label>
         </div>
         <div class="table-responsive">
           <table class="table table-sm mb-0">
-            <tbody>${fahrtZeile(g.behalten, "behalten")}${g.entfernen.map(f => fahrtZeile(f, "entfernen")).join("")}</tbody>
+            <tbody>${fahrtZeile(g.keep, "behalten")}${g.remove.map(f => fahrtZeile(f, "entfernen")).join("")}</tbody>
           </table>
         </div>
       </div>`).join("");
 }
 
 function zeigeOhneFahrzeug(liste) {
-  document.getElementById("ohneAnzahl").textContent = liste.reduce((n, o) => n + o.anzahl, 0);
+  document.getElementById("ohneAnzahl").textContent = liste.reduce((n, o) => n + o.count, 0);
   document.getElementById("ohneListe").innerHTML = liste.length === 0
     ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>Alle Fahrten sind einem Fahrzeug zugeordnet.</p>`
     : `<div class="list-group">${liste.map(o => `
         <div class="list-group-item ohne-eintrag" data-user="${o.user_id}">
           <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
             <strong>${escapeHtml(o.username)}</strong>
-            <span class="small text-muted">${escapeHtml(o.anzahl)} Fahrt(en) · ${escapeHtml(formatDatum(o.erste))} – ${escapeHtml(formatDatum(o.letzte))}</span>
+            <span class="small text-muted">${escapeHtml(o.count)} Fahrt(en) · ${escapeHtml(formatDatum(o.first))} – ${escapeHtml(formatDatum(o.last))}</span>
           </div>
           <div class="d-flex flex-column flex-sm-row gap-2">
             <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" aria-label="Fahrzeug von ${escapeHtml(o.username)}"
-              ${o.fahrzeuge.length ? "" : "disabled"}>
-              ${o.fahrzeuge.length
-                ? o.fahrzeuge.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
+              ${o.vehicles.length ? "" : "disabled"}>
+              ${o.vehicles.length
+                ? o.vehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
                 : "<option>kein Fahrzeug vorhanden</option>"}
             </select>
             <div class="d-flex gap-2">
               <button class="btn btn-sm btn-outline-primary flex-grow-1 text-nowrap ohne-zuordnen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.anzahl}" ${o.fahrzeuge.length ? "" : "disabled"}>Zuordnen</button>
+                data-anzahl="${o.count}" ${o.vehicles.length ? "" : "disabled"}>Zuordnen</button>
               <button class="btn btn-sm btn-outline-danger ohne-loeschen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.anzahl}" title="Fahrten löschen" aria-label="Fahrten löschen"><span class="mdi mdi-delete"></span></button>
+                data-anzahl="${o.count}" title="Fahrten löschen" aria-label="Fahrten löschen"><span class="mdi mdi-delete"></span></button>
             </div>
           </div>
         </div>`).join("")}</div>`;
 }
 
 async function pruefeDatenbank() {
-  const res = await apiFetch("/api/admin/aufraeumen");
+  const res = await apiFetch("/api/admin/cleanup");
   if (!res.ok) return aufraeumenMeldung(await apiError(res), "danger");
   const bericht = await res.json();
 
   document.getElementById("aufraeumenStart").classList.add("d-none");
   document.getElementById("aufraeumenErgebnis").classList.remove("d-none");
-  zeigeDuplikate(bericht.duplikate, bericht.duplikat_sekunden);
-  zeigeOhneFahrzeug(bericht.ohne_fahrzeug);
+  zeigeDuplikate(bericht.duplicates, bericht.duplicate_seconds);
+  zeigeOhneFahrzeug(bericht.unassigned);
 }
 
 document.getElementById("btnPruefen").addEventListener("click", () => {
@@ -203,9 +203,9 @@ document.getElementById("btnDuplikateLoeschen").addEventListener("click", async 
   if (ids.length === 0) return aufraeumenMeldung("Keine Gruppe ausgewählt.", "warning");
   if (!confirm(`${ids.length} doppelte Fahrt(en) löschen? Die Löschung wird im Änderungsprotokoll festgehalten.`)) return;
 
-  const res = await apiFetch("/api/admin/aufraeumen/duplikate", { method: "POST", body: { ids } });
+  const res = await apiFetch("/api/admin/cleanup/duplicates", { method: "POST", body: { ids } });
   if (!res.ok) return aufraeumenMeldung(await apiError(res), "danger");
-  const { entfernt, abgelehnt } = await res.json();
+  const { removed: entfernt, rejected: abgelehnt } = await res.json();
   aufraeumenMeldung(`✅ ${entfernt} doppelte Fahrt(en) gelöscht` +
     (abgelehnt.length ? ` – ${abgelehnt.length} nicht mehr doppelt, übersprungen.` : "."), "success");
   pruefeDatenbank();
@@ -223,16 +223,16 @@ document.getElementById("ohneListe").addEventListener("click", async e => {
     const select = document.querySelector(`.ohne-ziel[data-user="${user_id}"]`);
     const name   = select.selectedOptions[0].textContent;
     if (!confirm(`${btn.dataset.anzahl} Fahrt(en) von „${btn.dataset.name}“ dem Fahrzeug ${name} zuordnen?`)) return;
-    body = { user_id, aktion: "zuordnen", vehicle_id: Number(select.value) };
+    body = { user_id, action: "assign", vehicle_id: Number(select.value) };
   } else {
     if (!confirm(`${btn.dataset.anzahl} Fahrt(en) ohne Fahrzeug von „${btn.dataset.name}“ endgültig löschen?\n` +
                  "Die Löschung wird im Änderungsprotokoll festgehalten.")) return;
-    body = { user_id, aktion: "loeschen" };
+    body = { user_id, action: "delete" };
   }
 
-  const res = await apiFetch("/api/admin/aufraeumen/ohne-fahrzeug", { method: "POST", body });
+  const res = await apiFetch("/api/admin/cleanup/unassigned", { method: "POST", body });
   if (!res.ok) return aufraeumenMeldung(await apiError(res), "danger");
-  const { anzahl } = await res.json();
+  const { count: anzahl } = await res.json();
   aufraeumenMeldung(`✅ ${anzahl} Fahrt(en) ${zuordnen ? "zugeordnet" : "gelöscht"}.`, "success");
   pruefeDatenbank();
 });

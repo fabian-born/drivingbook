@@ -8,9 +8,9 @@ async function ladeHistoryDashboard(jahr) {
   document.getElementById("printHeadline").textContent = `Fahrtenbuch – Jahreshistorie ${jahr}`;
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
 
-  let daten = { monate: [], summe: { gesamt: 0, fahrten: 0 } };
+  let daten = { months: [], totals: { total: 0, trips: 0 } };
   try {
-    const res = await apiFetch(mitFahrzeug(`/api/fahrten?year=${jahr}`));
+    const res = await apiFetch(mitFahrzeug(`/api/trips?year=${jahr}`));
     if (!res.ok) throw new Error(await apiError(res));
     daten = await res.json();
   } catch (err) {
@@ -18,12 +18,12 @@ async function ladeHistoryDashboard(jahr) {
     return;
   }
 
-  const { monate, summe } = daten;
+  const { months: monate, totals: summe } = daten;
   chartInstanzHistory = zeigeJahresauswertung(ziel, {
     jahr, monate, summe, alterChart: chartInstanzHistory,
     kacheln: [
-      { label: `Gesamt ${jahr}`, wert: kmText(summe.gesamt), hinweis: `${zahl(summe.fahrten)} Fahrten` },
-      { label: "Ø pro Monat", wert: kmText(monate.length ? Math.round(summe.gesamt / monate.length) : 0) },
+      { label: `Gesamt ${jahr}`, wert: kmText(summe.total), hinweis: `${zahl(summe.trips)} Fahrten` },
+      { label: "Ø pro Monat", wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0) },
       { label: "Aktive Monate", wert: `${monate.length} / 12` },
     ],
   });

@@ -59,12 +59,12 @@ function monatsTabelle(monate) {
   const kopf = FAHRTARTEN.map(a => `<th class="text-end">${a.label}</th>`).join("");
   const zeilen = monate.map(m => `
     <tr>
-      <td>${escapeHtml(monatLang(m.monat))}</td>
+      <td>${escapeHtml(monatLang(m.month))}</td>
       <td class="text-end">${zahl(m.start_km)}</td>
       <td class="text-end">${zahl(m.end_km)}</td>
-      <td class="text-end fw-semibold">${zahl(m.gesamt)}</td>
-      ${FAHRTARTEN.map(a => `<td class="text-end">${zahl(m[a.key])} <span class="text-muted small">(${anteil(m[a.key], m.gesamt)})</span></td>`).join("")}
-      <td class="text-end">${zahl(m.fahrten)}</td>
+      <td class="text-end fw-semibold">${zahl(m.total)}</td>
+      ${FAHRTARTEN.map(a => `<td class="text-end">${zahl(m[a.key])} <span class="text-muted small">(${anteil(m[a.key], m.total)})</span></td>`).join("")}
+      <td class="text-end">${zahl(m.trips)}</td>
     </tr>`).join("");
   return `
     <div class="table-responsive">
@@ -82,14 +82,14 @@ function monatsKarten(monate) {
   return `<div class="list-group list-group-flush">${monate.map(m => `
     <div class="list-group-item px-3 py-3">
       <div class="d-flex justify-content-between align-items-baseline">
-        <strong>${escapeHtml(monatLang(m.monat))}</strong>
-        <span class="fw-semibold">${kmText(m.gesamt)}</span>
+        <strong>${escapeHtml(monatLang(m.month))}</strong>
+        <span class="fw-semibold">${kmText(m.total)}</span>
       </div>
       <div class="my-2">${aufteilungsBalken(m, { hoehe: 8 })}</div>
       <div class="d-flex flex-wrap column-gap-3 row-gap-1 small">
         ${FAHRTARTEN.map(a => `<span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(m[a.key])}</span>`).join("")}
       </div>
-      <div class="small text-muted mt-1">${zahl(m.start_km)} → ${zahl(m.end_km)} km · ${zahl(m.fahrten)} Fahrt${m.fahrten === 1 ? "" : "en"}</div>
+      <div class="small text-muted mt-1">${zahl(m.start_km)} → ${zahl(m.end_km)} km · ${zahl(m.trips)} Fahrt${m.trips === 1 ? "" : "en"}</div>
     </div>`).join("")}</div>`;
 }
 
@@ -128,7 +128,7 @@ function zeichneVerlauf(canvas, monate) {
   const chart = new Chart(canvas, {
     type: "bar",
     data: {
-      labels: monate.map(m => monatKurz(m.monat)),
+      labels: monate.map(m => monatKurz(m.month)),
       datasets: FAHRTARTEN.map((a, i) => ({
         label: a.label,
         data: monate.map(m => m[a.key]),

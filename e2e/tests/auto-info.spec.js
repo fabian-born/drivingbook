@@ -3,11 +3,11 @@ import { fahrt, jahr, loginImBrowser, neuerUser } from "./helpers.js";
 
 test("Steuervergleich 1-%-Regel ↔ Fahrtenbuch mit Arbeitsweg", async ({ page }) => {
   const user = await neuerUser();
-  await fahrt(user, { kmstand: 10000, timestamp: `${jahr}-01-10T08:00:00Z` });
-  await fahrt(user, { kmstand: 10800, timestamp: `${jahr}-02-10T08:00:00Z`, fahrtart: "geschäftlich" });
-  await fahrt(user, { kmstand: 11000, timestamp: `${jahr}-03-10T08:00:00Z` });                            // 200 privat
-  await fahrt(user, { kmstand: 11100, timestamp: `${jahr}-03-11T08:00:00Z`, fahrtart: "arbeitsweg" });    // 100 Arbeitsweg
-  await fahrt(user, { kmstand: 13500, timestamp: `${jahr}-03-20T08:00:00Z`, fahrtart: "geschäftlich" });
+  await fahrt(user, { odometer_km: 10000, timestamp: `${jahr}-01-10T08:00:00Z` });
+  await fahrt(user, { odometer_km: 10800, timestamp: `${jahr}-02-10T08:00:00Z`, trip_type: "business" });
+  await fahrt(user, { odometer_km: 11000, timestamp: `${jahr}-03-10T08:00:00Z` });                            // 200 privat
+  await fahrt(user, { odometer_km: 11100, timestamp: `${jahr}-03-11T08:00:00Z`, trip_type: "commute" });    // 100 Arbeitsweg
+  await fahrt(user, { odometer_km: 13500, timestamp: `${jahr}-03-20T08:00:00Z`, trip_type: "business" });
 
   await loginImBrowser(page, user);
   await page.goto("/auto.html");
@@ -34,9 +34,9 @@ test("Steuervergleich 1-%-Regel ↔ Fahrtenbuch mit Arbeitsweg", async ({ page }
 
 test("Prüfung zeigt Auffälligkeiten als Ampel", async ({ page }) => {
   const user = await neuerUser();
-  await fahrt(user, { kmstand: 1000, timestamp: `${jahr}-01-05T08:00:00Z` });
-  await fahrt(user, { kmstand: 1040, timestamp: `${jahr}-01-06T08:00:00Z`, ziel: "52.52, 13.40" });
-  await fahrt(user, { kmstand: 2600, timestamp: `${jahr}-01-08T08:00:00Z` });
+  await fahrt(user, { odometer_km: 1000, timestamp: `${jahr}-01-05T08:00:00Z` });
+  await fahrt(user, { odometer_km: 1040, timestamp: `${jahr}-01-06T08:00:00Z`, destination: "52.52, 13.40" });
+  await fahrt(user, { odometer_km: 2600, timestamp: `${jahr}-01-08T08:00:00Z` });
 
   await loginImBrowser(page, user);
   await page.goto("/auto.html");

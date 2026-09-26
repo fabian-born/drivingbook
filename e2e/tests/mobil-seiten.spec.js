@@ -7,13 +7,13 @@ test.use(iphoneSE);
 
 async function mitDaten() {
   const user = await neuerUser(["VW Golf Variant"]);
-  const arten = ["geschäftlich", "privat", "arbeitsweg"];
+  const arten = ["business", "private", "commute"];
   let km = 10000;
   for (const j of [jahr - 1, jahr]) {
     for (const m of [1, 2, 3]) {
       for (const d of [5, 15]) {
         km += 80;
-        await fahrt(user, { kmstand: km, ziel: "Kunde Müller GmbH, Augsburg", fahrtart: arten[(m + d) % 3],
+        await fahrt(user, { odometer_km: km, destination: "Kunde Müller GmbH, Augsburg", trip_type: arten[(m + d) % 3],
                             timestamp: new Date(Date.UTC(j, m - 1, d, 8)).toISOString() });
       }
     }
@@ -78,7 +78,7 @@ test("Fahrten anzeigen auf dem Smartphone", async ({ page }) => {
 
   // Fahrtart ändern: Randfarbe und Summe folgen
   const karte = page.locator(".fahrt-card").first();
-  await karte.locator(".card-fahrtart").selectOption("arbeitsweg");
+  await karte.locator(".card-fahrtart").selectOption("commute");
   await expect(karte).toHaveCSS("border-left-color", "rgb(224, 138, 0)");
   await expect(page.locator("#auswahlLegende")).toContainText("Arbeitsweg");
 
@@ -99,7 +99,7 @@ async function gutAntippbar(page) {
 
 test("Konto, Auto-Info und Admin auf dem Smartphone", async ({ page }) => {
   const user = await neuerUser(["VW Golf Variant", "Tesla Model 3 Long Range"]);
-  await fahrt(user, { kmstand: 100, timestamp: `${jahr}-01-05T08:00:00Z`, vehicle_code: null });
+  await fahrt(user, { odometer_km: 100, timestamp: `${jahr}-01-05T08:00:00Z`, vehicle_code: null });
   await loginImBrowser(page, user);
 
   for (const seite of ["/profile.html", "/auto.html"]) {

@@ -38,7 +38,7 @@ export async function neuerUser(fahrzeuge = ["Golf"], { prefix = "user" } = {}) 
 }
 
 export async function fahrt(user, daten) {
-  return api("/api/fahrt", { method: "POST", token: user.token, body: { ziel: "Ziel", fahrtart: "privat", ...daten } });
+  return api("/api/trips", { method: "POST", token: user.token, body: { destination: "Ziel", trip_type: "private", ...daten } });
 }
 
 // Anmeldung im Browser; bei mehreren Fahrzeugen das erste wählen

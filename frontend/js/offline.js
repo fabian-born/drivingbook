@@ -12,9 +12,18 @@ function angemeldeterUser() {
   return tokenPayload()?.userId ?? null;
 }
 
+// Einträge aus App-Versionen vor der englischen API (kmstand/ziel/fahrtart)
+// ins aktuelle Format umschreiben – sie liegen evtl. noch auf dem Gerät
+const ALTE_FAHRTARTEN = { privat: "private", "geschäftlich": "business", arbeitsweg: "commute" };
+function neuesFormat(f) {
+  if (!("kmstand" in f) && !("ziel" in f) && !("fahrtart" in f)) return f;
+  const { kmstand, ziel, fahrtart, ...rest } = f;
+  return { ...rest, odometer_km: kmstand, destination: ziel, trip_type: ALTE_FAHRTARTEN[fahrtart] ?? fahrtart };
+}
+
 function ladeWarteschlange() {
   try {
-    return JSON.parse(localStorage.getItem(WARTESCHLANGE_KEY)) || [];
+    return (JSON.parse(localStorage.getItem(WARTESCHLANGE_KEY)) || []).map(neuesFormat);
   } catch {
     return [];
   }
@@ -115,13 +124,13 @@ function aktualisiereWarteschlangeAnzeige() {
 // Ergebnis: "ok" | "abgelehnt" (Nutzer hat abgebrochen) | "fehler" (Validierung o. ä.)
 // Netzwerkfehler werden als Exception weitergereicht.
 async function sendeFahrt(fahrt, hinweis = "") {
-  let res = await apiFetch("/api/fahrt", { method: "POST", body: fahrt });
+  let res = await apiFetch("/api/trips", { method: "POST", body: fahrt });
 
   if (res.status === 409) {
     const err = await res.json().catch(() => ({}));
     if (err.code !== "KM_PLAUSIBILITY") return { status: "fehler", meldung: err.error };
     if (!confirm(`${hinweis}${err.error}\n\nTrotzdem speichern?`)) return { status: "abgelehnt" };
-    res = await apiFetch("/api/fahrt", { method: "POST", body: { ...fahrt, force: true } });
+    res = await apiFetch("/api/trips", { method: "POST", body: { ...fahrt, force: true } });
   }
 
   if (!res.ok) return { status: "fehler", meldung: await apiError(res, "Fehler beim Speichern") };

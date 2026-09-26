@@ -41,28 +41,28 @@ async function ladeInfo() {
 
   zeigeFahrzeug(info.vehicle);
   zeigeKennzahlen(info);
-  zeigeKosten(info.kosten);
+  zeigeKosten(info.costs);
   zeigeVergleich(info);
 }
 
 // ── Prüfung ──────────────────────────────────────────────────
 
 const AMPEL  = {
-  gruen: { text: "Alles in Ordnung", farbe: "success" },
-  gelb:  { text: "Bitte prüfen",     farbe: "warning" },
-  rot:   { text: "Fehler gefunden",  farbe: "danger" },
+  green:  { text: "Alles in Ordnung", farbe: "success" },
+  yellow: { text: "Bitte prüfen",     farbe: "warning" },
+  red:    { text: "Fehler gefunden",  farbe: "danger" },
 };
 const STUFE = {
-  fehler:  { icon: "mdi-close-circle",       farbe: "text-danger" },
-  warnung: { icon: "mdi-alert",              farbe: "text-warning" },
-  hinweis: { icon: "mdi-information-outline", farbe: "text-secondary" },
+  error:   { icon: "mdi-close-circle",        farbe: "text-danger" },
+  warning: { icon: "mdi-alert",               farbe: "text-warning" },
+  info:    { icon: "mdi-information-outline", farbe: "text-secondary" },
 };
 
 async function ladePruefung() {
   if (!aktivesFahrzeug) return;
-  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/pruefung?year=${$("jahrSelect").value}`);
+  const res = await apiFetch(`/api/vehicles/${aktivesFahrzeug.id}/check?year=${$("jahrSelect").value}`);
   if (!res.ok) return;
-  const { ampel, befunde } = await res.json();
+  const { status: ampel, findings: befunde } = await res.json();
 
   $("pruefAmpel").className   = `badge text-bg-${AMPEL[ampel].farbe}`;
   $("pruefAmpel").textContent = AMPEL[ampel].text;
@@ -71,9 +71,9 @@ async function ladePruefung() {
     ? `<li class="list-group-item text-success"><span class="mdi mdi-check-circle me-2"></span>Keine Auffälligkeiten gefunden.</li>`
     : befunde.map(b => `
         <li class="list-group-item d-flex gap-2">
-          <span class="mdi ${STUFE[b.stufe].icon} ${STUFE[b.stufe].farbe}"></span>
+          <span class="mdi ${STUFE[b.level].icon} ${STUFE[b.level].farbe}"></span>
           <div>
-            ${b.timestamp ? `<div class="small text-muted">${escapeHtml(new Date(b.timestamp).toLocaleString("de-DE"))} · ${escapeHtml(km(b.kmstand))}</div>` : ""}
+            ${b.timestamp ? `<div class="small text-muted">${escapeHtml(new Date(b.timestamp).toLocaleString("de-DE"))} · ${escapeHtml(km(b.odometer_km))}</div>` : ""}
             ${escapeHtml(b.text)}
           </div>
         </li>`).join("");
@@ -91,16 +91,16 @@ function zeigeFahrzeug(v) {
   $("fdAntrieb").value     = v.drive_type;
 }
 
-function zeigeKennzahlen({ gesamt, jahr, year }) {
-  $("kzKmAktuell").textContent = gesamt.km_aktuell != null ? km(gesamt.km_aktuell) : "–";
-  $("kzKmJahr").textContent    = km(jahr.gesamt);
-  const privat = jahr.privat + jahr.arbeitsweg;
-  $("kzPrivat").textContent    = jahr.gesamt > 0
-    ? `${km(privat)} (${prozent(privat / jahr.gesamt)})`
+function zeigeKennzahlen({ overall: gesamt, year_totals: jahr, year }) {
+  $("kzKmAktuell").textContent = gesamt.odometer_current != null ? km(gesamt.odometer_current) : "–";
+  $("kzKmJahr").textContent    = km(jahr.total);
+  const privat = jahr.private + jahr.commute;
+  $("kzPrivat").textContent    = jahr.total > 0
+    ? `${km(privat)} (${prozent(privat / jahr.total)})`
     : "–";
-  $("kzFahrten").textContent   = jahr.fahrten.toLocaleString("de-DE");
-  $("kzZeitraum").textContent  = gesamt.fahrten > 0
-    ? `Insgesamt ${gesamt.fahrten.toLocaleString("de-DE")} Fahrten vom ${datum(gesamt.erste_fahrt)} bis ${datum(gesamt.letzte_fahrt)}.`
+  $("kzFahrten").textContent   = jahr.trips.toLocaleString("de-DE");
+  $("kzZeitraum").textContent  = gesamt.trips > 0
+    ? `Insgesamt ${gesamt.trips.toLocaleString("de-DE")} Fahrten vom ${datum(gesamt.first_trip)} bis ${datum(gesamt.last_trip)}.`
     : "Für dieses Fahrzeug sind noch keine Fahrten erfasst.";
   $("vgJahr").textContent = year;
 }
@@ -113,7 +113,7 @@ function zeigeKosten(k) {
   $("kSteuersatz").value = k?.tax_rate ?? "";
 }
 
-function zeigeVergleich({ vehicle, kosten, jahr, vergleich: vg }) {
+function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison: vg }) {
   const hinweis = $("vgHinweis");
   $("vgErgebnis").classList.toggle("d-none", !vg);
 
@@ -127,49 +127,49 @@ function zeigeVergleich({ vehicle, kosten, jahr, vergleich: vg }) {
   hinweis.classList.add("d-none");
 
   // 1-%-Regel
-  const satz = `${vg.satz.toLocaleString("de-DE")} %`;
-  $("vgPauschalSumme").textContent = euro(vg.pauschal.summe);
+  const satz = `${vg.rate.toLocaleString("de-DE")} %`;
+  $("vgPauschalSumme").textContent = euro(vg.flat_rate.total);
   $("vgPauschalDetail").innerHTML = [
-    `${satz} × ${euro(vg.listenpreis)} × ${kosten.months} Monate = ${euro(vg.pauschal.privatnutzung)}`,
-    vg.pauschal.arbeitsweg > 0 ? `+ Arbeitsweg ${kosten.commute_km.toLocaleString("de-DE")} km = ${euro(vg.pauschal.arbeitsweg)}` : "",
-    vg.pauschal.gedeckelt ? `<strong>gedeckelt auf die Kosten von ${euro(vg.kosten_gesamt)}</strong>` : "",
+    `${satz} × ${euro(vg.list_price)} × ${kosten.months} Monate = ${euro(vg.flat_rate.private_use)}`,
+    vg.flat_rate.commute > 0 ? `+ Arbeitsweg ${kosten.commute_km.toLocaleString("de-DE")} km = ${euro(vg.flat_rate.commute)}` : "",
+    vg.flat_rate.capped ? `<strong>gedeckelt auf die Kosten von ${euro(vg.total_costs)}</strong>` : "",
   ].filter(Boolean).join("<br>");
 
   // Fahrtenbuch
-  const fb = vg.fahrtenbuch;
-  $("vgFahrtenbuchSumme").textContent = fb ? euro(fb.summe) : "–";
+  const fb = vg.logbook;
+  $("vgFahrtenbuchSumme").textContent = fb ? euro(fb.total) : "–";
   $("vgFahrtenbuchDetail").textContent = fb
-    ? `${prozent(fb.privat_anteil)} privat inkl. Arbeitsweg (${km(jahr.privat + jahr.arbeitsweg)} von ${km(jahr.gesamt)}) × Kosten ${euro(vg.kosten_gesamt)}`
+    ? `${prozent(fb.private_share)} privat inkl. Arbeitsweg (${km(jahr.private + jahr.commute)} von ${km(jahr.total)}) × Kosten ${euro(vg.total_costs)}`
     : "Noch keine gefahrenen Kilometer in diesem Jahr.";
 
-  $("vgPauschal").classList.toggle("gewinner", vg.empfehlung === "pauschal");
-  $("vgFahrtenbuch").classList.toggle("gewinner", vg.empfehlung === "fahrtenbuch");
+  $("vgPauschal").classList.toggle("gewinner", vg.recommendation === "flat_rate");
+  $("vgFahrtenbuch").classList.toggle("gewinner", vg.recommendation === "logbook");
 
   // Empfehlung
   const empfehlung = $("vgEmpfehlung");
-  empfehlung.classList.toggle("d-none", !vg.empfehlung);
-  if (vg.empfehlung) {
-    const ersparnis = vg.steuer_ersparnis != null ? ` – geschätzt ${euro(vg.steuer_ersparnis)} weniger Steuern` : "";
-    empfehlung.className = `alert mt-3 mb-3 alert-${vg.empfehlung === "fahrtenbuch" ? "success" : "warning"}`;
-    empfehlung.innerHTML = vg.empfehlung === "fahrtenbuch"
-      ? `<strong>Das Fahrtenbuch lohnt sich:</strong> ${euro(vg.differenz)} weniger zu versteuern als mit der 1-%-Regel${ersparnis}.`
-      : `<strong>Die 1-%-Regel ist günstiger:</strong> ${euro(-vg.differenz)} weniger zu versteuern als mit dem Fahrtenbuch${ersparnis}.`;
+  empfehlung.classList.toggle("d-none", !vg.recommendation);
+  if (vg.recommendation) {
+    const ersparnis = vg.tax_savings != null ? ` – geschätzt ${euro(vg.tax_savings)} weniger Steuern` : "";
+    empfehlung.className = `alert mt-3 mb-3 alert-${vg.recommendation === "logbook" ? "success" : "warning"}`;
+    empfehlung.innerHTML = vg.recommendation === "logbook"
+      ? `<strong>Das Fahrtenbuch lohnt sich:</strong> ${euro(vg.difference)} weniger zu versteuern als mit der 1-%-Regel${ersparnis}.`
+      : `<strong>Die 1-%-Regel ist günstiger:</strong> ${euro(-vg.difference)} weniger zu versteuern als mit dem Fahrtenbuch${ersparnis}.`;
   }
 
   // Grenze: bis zu welchem Privatanteil lohnt sich das Fahrtenbuch?
-  const grenze = vg.break_even_anteil;
+  const grenze = vg.break_even_share;
   $("vgBreakEvenBox").classList.toggle("d-none", grenze == null);
   if (grenze != null) {
     $("vgBreakEvenText").innerHTML = grenze >= 1
       ? "Das Fahrtenbuch ist bei jedem Privatanteil mindestens gleichauf."
       : `Das Fahrtenbuch lohnt sich bis zu einem Privatanteil von <strong>${prozent(grenze)}</strong>` +
-        (fb ? ` – dein Anteil ${jahr.gesamt ? `liegt bei <strong>${prozent(fb.privat_anteil)}</strong>` : "ist noch offen"}.` : ".");
+        (fb ? ` – dein Anteil ${jahr.total ? `liegt bei <strong>${prozent(fb.private_share)}</strong>` : "ist noch offen"}.` : ".");
     $("vgBreakEvenZone").style.width = `${Math.min(grenze, 1) * 100}%`;
     const marker = $("vgPrivatMarker");
     marker.classList.toggle("d-none", !fb);
-    if (fb) marker.style.left = `calc(${fb.privat_anteil * 100}% - 1px)`;
+    if (fb) marker.style.left = `calc(${fb.private_share * 100}% - 1px)`;
     $("vgBreakEvenBalken").setAttribute("aria-label",
-      `Fahrtenbuch günstiger bis ${prozent(grenze)} Privatanteil` + (fb ? `, aktuell ${prozent(fb.privat_anteil)}` : ""));
+      `Fahrtenbuch günstiger bis ${prozent(grenze)} Privatanteil` + (fb ? `, aktuell ${prozent(fb.private_share)}` : ""));
   }
 }
 
@@ -329,18 +329,18 @@ async function loescheFahrzeug(id) {
   if (res.ok) return location.reload();   // Navigation und aktives Fahrzeug neu bestimmen
 
   const fehler = await res.json().catch(() => ({}));
-  if (fehler.code !== "HAT_FAHRTEN") return alert(fehler.error || "Fehler beim Löschen");
+  if (fehler.code !== "HAS_TRIPS") return alert(fehler.error || "Fehler beim Löschen");
 
   const andere = alleFahrzeuge.filter(v => v.id !== id);
   if (andere.length === 0) {
-    return alert(`„${name}“ hat ${fehler.anzahl} Fahrt(en). Lege zuerst ein weiteres Fahrzeug an, das sie übernimmt.`);
+    return alert(`„${name}“ hat ${fehler.count} Fahrt(en). Lege zuerst ein weiteres Fahrzeug an, das sie übernimmt.`);
   }
 
-  $("loeschenText").textContent = `„${name}“ hat ${fehler.anzahl} Fahrt(en). Damit sie im Fahrtenbuch bleiben, ziehen sie in ein anderes Fahrzeug um.`;
+  $("loeschenText").textContent = `„${name}“ hat ${fehler.count} Fahrt(en). Damit sie im Fahrtenbuch bleiben, ziehen sie in ein anderes Fahrzeug um.`;
   $("loeschenZiel").innerHTML = andere.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join("");
   const modal = bootstrap.Modal.getOrCreateInstance($("loeschenModal"));
   $("loeschenBestaetigen").onclick = async () => {
-    const r = await apiFetch(`/api/vehicles/${id}?ziel=${$("loeschenZiel").value}`, { method: "DELETE" });
+    const r = await apiFetch(`/api/vehicles/${id}?target=${$("loeschenZiel").value}`, { method: "DELETE" });
     if (!r.ok) return alert(await apiError(r, "Fehler beim Löschen"));
     modal.hide();
     location.reload();

@@ -4,9 +4,9 @@ import { ADMIN_PASSWORD } from "../konstanten.js";
 
 test("Admin räumt doppelte Fahrten und Fahrten ohne Fahrzeug auf", async ({ page }) => {
   const user = await neuerUser(["Golf"], { prefix: "putz" });
-  await fahrt(user, { kmstand: 100, timestamp: `${jahr}-03-01T08:00:00.000Z` });
-  await fahrt(user, { kmstand: 100, timestamp: `${jahr}-03-01T08:00:00.300Z`, force: true });   // Doppelklick
-  await fahrt(user, { kmstand: 150, timestamp: `${jahr}-03-02T08:00:00Z`, vehicle_code: null });
+  await fahrt(user, { odometer_km: 100, timestamp: `${jahr}-03-01T08:00:00.000Z` });
+  await fahrt(user, { odometer_km: 100, timestamp: `${jahr}-03-01T08:00:00.300Z`, force: true });   // Doppelklick
+  await fahrt(user, { odometer_km: 150, timestamp: `${jahr}-03-02T08:00:00Z`, vehicle_code: null });
 
   page.on("dialog", d => d.accept());
   await loginImBrowser(page, { username: "admin", password: ADMIN_PASSWORD, vehicles: [{}] });

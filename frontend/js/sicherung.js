@@ -19,12 +19,12 @@ async function ladeSicherungsStatus() {
 }
 
 function zeileErgebnis(name, e) {
-  const teile = [`${e.fahrten} Fahrt(en) ergänzt`];
-  if (e.zugeordnet)    teile.push(`${e.zugeordnet} wieder zugeordnet`);
-  if (e.uebersprungen) teile.push(`${e.uebersprungen} bereits vorhanden`);
-  if (e.jahre)         teile.push(`${e.jahre} Jahr(e) Kosten`);
-  if (e.protokoll)     teile.push(`${e.protokoll} Protokolleinträge`);
-  return `${name}${e.neu ? " (neu angelegt)" : ""}: ${teile.join(", ")}`;
+  const teile = [`${e.trips} Fahrt(en) ergänzt`];
+  if (e.reassigned) teile.push(`${e.reassigned} wieder zugeordnet`);
+  if (e.skipped)    teile.push(`${e.skipped} bereits vorhanden`);
+  if (e.years)      teile.push(`${e.years} Jahr(e) Kosten`);
+  if (e.audit)      teile.push(`${e.audit} Protokolleinträge`);
+  return `${name}${e.created ? " (neu angelegt)" : ""}: ${teile.join(", ")}`;
 }
 
 // Liest eine Sicherungsdatei (Gesamt- oder Fahrzeug-Sicherung), fragt nach und
@@ -37,13 +37,16 @@ async function stelleSicherungWiederHer(datei) {
     throw new Error("Die Datei ist kein gültiges JSON.");
   }
 
-  const gesamt = daten.format === "drivingbook-sicherung";
-  if (!gesamt && daten.format !== "drivingbook-fahrzeug") {
+  // Aktuelles Format (v2) und altes Format (v1, deutsche Felder) – das Backend übersetzt v1
+  const gesamt = ["drivingbook-backup", "drivingbook-sicherung"].includes(daten.format);
+  if (!gesamt && !["drivingbook-vehicle", "drivingbook-fahrzeug"].includes(daten.format)) {
     throw new Error("Die Datei ist keine Fahrtenbuch-Sicherung.");
   }
 
-  const inhalt = gesamt ? `${daten.fahrzeuge?.length ?? 0} Fahrzeug(en)` : `dem Fahrzeug „${daten.fahrzeug?.name}“`;
-  const erstellt = daten.erstellt_am ?? daten.exportiert_am;
+  const inhalt = gesamt
+    ? `${(daten.vehicles ?? daten.fahrzeuge)?.length ?? 0} Fahrzeug(en)`
+    : `dem Fahrzeug „${(daten.vehicle ?? daten.fahrzeug)?.name}“`;
+  const erstellt = daten.created_at ?? daten.erstellt_am ?? daten.exportiert_am;
   if (!confirm(`Sicherung vom ${datumKurz(erstellt)} mit ${inhalt} wiederherstellen?\n\n` +
                "Vorhandene Daten bleiben unverändert – nur Fehlendes wird ergänzt.")) {
     return null;
@@ -54,9 +57,9 @@ async function stelleSicherungWiederHer(datei) {
   const e = await res.json();
 
   if (!gesamt) {
-    return { text: zeileErgebnis(e.vehicle.name, { ...e.importiert, neu: e.neu }), vehicle: e.vehicle };
+    return { text: zeileErgebnis(e.vehicle.name, { ...e.imported, created: e.created }), vehicle: e.vehicle };
   }
-  const zeilen = e.fahrzeuge.map(f => zeileErgebnis(f.name, f));
-  if (e.ohne_fahrzeug.fahrten || e.ohne_fahrzeug.protokoll) zeilen.push(zeileErgebnis("Ohne Fahrzeug", e.ohne_fahrzeug));
+  const zeilen = e.vehicles.map(f => zeileErgebnis(f.name, f));
+  if (e.unassigned.trips || e.unassigned.audit) zeilen.push(zeileErgebnis("Ohne Fahrzeug", e.unassigned));
   return { text: zeilen.join("\n"), vehicle: null };
 }
