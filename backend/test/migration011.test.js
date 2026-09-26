@@ -84,26 +84,23 @@ describe("Migration 011: bestehende deutsche Daten auf Englisch umstellen", () =
     assert.equal(eintraege[1].new_data.trip_type, "business");
   });
 
-  it("liefert über die API unverändert deutsche Namen und Werte", async () => {
+  it("liefert die umgestellten Daten über die (englische) API", async () => {
     const auth = { Authorization: `Bearer ${token}` };
-    const jahr = await http().get("/api/fahrten?year=2026&vehicle=ALT123").set(auth);
-    assert.deepEqual(jahr.body.fahrten.map(f => [f.kmstand, f.ziel, f.fahrtart]), [[1000, "Kunde", "geschäftlich"], [1050, "Büro", "arbeitsweg"]]);
-    assert.deepEqual(jahr.body.summe, { fahrten: 2, gesamt: 50, privat: 0, geschaeftlich: 0, arbeitsweg: 50 });
+    const jahr = await http().get("/api/trips?year=2026&vehicle=ALT123").set(auth);
+    assert.deepEqual(jahr.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[1000, "Kunde", "business"], [1050, "Büro", "commute"]]);
+    assert.deepEqual(jahr.body.totals, { trips: 2, total: 50, business: 0, private: 0, commute: 50 });
 
-    const verlauf = await http().get(`/api/fahrt/${fahrtId}/history`).set(auth);
+    const verlauf = await http().get(`/api/trips/${fahrtId}/history`).set(auth);
     assert.deepEqual(verlauf.body[1].old_data, {
-      kmstand: 1000, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId,
+      odometer_km: 1000, destination: "Kunde", trip_type: "private", timestamp: "2026-03-01T08:00:00.000Z", vehicle_id: vehicleId,
     });
 
     const fahrzeuge = await http().get("/api/vehicles").set(auth);
-    assert.equal(fahrzeuge.body[0].drive_type, "elektro_teuer");
+    assert.equal(fahrzeuge.body[0].drive_type, "electric_high_price");
 
-    // neue Fahrt mit deutschen Werten anlegen
-    const neu = await http().post("/api/fahrt").set(auth)
-      .send({ kmstand: 1100, ziel: "Heim", fahrtart: "privat", timestamp: "2026-03-03T08:00:00Z" });
+    const neu = await http().post("/api/trips").set(auth)
+      .send({ odometer_km: 1100, destination: "Heim", trip_type: "private", timestamp: "2026-03-03T08:00:00Z" });
     assert.equal(neu.status, 200);
-    const gespeichert = (await pool.query(`SELECT trip_type FROM trips WHERE id = $1`, [neu.body.id])).rows[0];
-    assert.equal(gespeichert.trip_type, "private");
   });
 
   it("läuft nur einmal", async () => {

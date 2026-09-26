@@ -11,15 +11,15 @@ const binary = (res, callback) => {
 
 describe("Export", () => {
   let t, user;
-  const post = body => t.http().post("/api/fahrt").set(user).send(body);
+  const post = body => t.http().post("/api/trips").set(user).send(body);
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("export");
-    await post({ kmstand: 100, ziel: "Start", fahrtart: "privat", timestamp: "2025-12-20T08:00:00Z" });
-    await post({ kmstand: 150, ziel: '=HYPERLINK("http://x") "Zitat"', fahrtart: "geschäftlich", timestamp: "2026-01-10T08:00:00Z" });
-    const id = (await post({ kmstand: 200, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-02-10T08:00:00Z" })).body.id;
-    await t.http().put(`/api/fahrt/${id}`).set(user).send({ ziel: "Kunde GmbH" });
+    await post({ odometer_km: 100, destination: "Start", trip_type: "private", timestamp: "2025-12-20T08:00:00Z" });
+    await post({ odometer_km: 150, destination: '=HYPERLINK("http://x") "Zitat"', trip_type: "business", timestamp: "2026-01-10T08:00:00Z" });
+    const id = (await post({ odometer_km: 200, destination: "Kunde", trip_type: "private", timestamp: "2026-02-10T08:00:00Z" })).body.id;
+    await t.http().put(`/api/trips/${id}`).set(user).send({ destination: "Kunde GmbH" });
   });
   after(() => t.close());
 
@@ -54,15 +54,15 @@ describe("Export", () => {
 
   it("schränkt Exporte auf ein Fahrzeug ein", async () => {
     const zweites = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await post({ kmstand: 10, ziel: "Zweitwagen", fahrtart: "privat", timestamp: "2026-01-15T08:00:00Z", vehicle_code: zweites.code });
+    await post({ odometer_km: 10, destination: "Zweitwagen", trip_type: "private", timestamp: "2026-01-15T08:00:00Z", vehicle_code: zweites.code });
 
     const alle  = await t.http().get("/api/export/json?month=2026-01").set(user);
     const nur2  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${zweites.code.toLowerCase()}`).set(user);
     const nur1  = await t.http().get(`/api/export/json?month=2026-01&vehicle=${user.vehicle.code}`).set(user);
     assert.equal(alle.body.length, 2);
-    assert.deepEqual(nur2.body.map(f => f.ziel), ["Zweitwagen"]);
+    assert.deepEqual(nur2.body.map(f => f.destination), ["Zweitwagen"]);
     assert.equal(nur1.body.length, 1);
-    assert.notEqual(nur1.body[0].ziel, "Zweitwagen");
+    assert.notEqual(nur1.body[0].destination, "Zweitwagen");
 
     const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${zweites.code}`).set(user);
     assert.equal(csv.text.replace(/^\uFEFF/, "").trim().split("\n").length, 2);  // Kopf + 1 Fahrt
@@ -88,57 +88,57 @@ describe("Export", () => {
 
 describe("Jahresfahrten", () => {
   let t, user;
-  const post = body => t.http().post("/api/fahrt").set(user).send({ ziel: "Ziel", fahrtart: "privat", ...body });
+  const post = body => t.http().post("/api/trips").set(user).send({ destination: "Ziel", trip_type: "private", ...body });
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("jahr");
-    await post({ kmstand: 900,  timestamp: "2025-11-01T08:00:00Z" });
-    await post({ kmstand: 1000, timestamp: "2025-12-31T20:00:00Z" });
-    await post({ kmstand: 1100, timestamp: "2026-01-02T08:00:00Z", fahrtart: "geschäftlich" });
-    await post({ kmstand: 1150, timestamp: "2026-01-20T08:00:00Z" });
-    await post({ kmstand: 1400, timestamp: "2026-03-05T08:00:00Z", fahrtart: "geschäftlich" });
+    await post({ odometer_km: 900,  timestamp: "2025-11-01T08:00:00Z" });
+    await post({ odometer_km: 1000, timestamp: "2025-12-31T20:00:00Z" });
+    await post({ odometer_km: 1100, timestamp: "2026-01-02T08:00:00Z", trip_type: "business" });
+    await post({ odometer_km: 1150, timestamp: "2026-01-20T08:00:00Z" });
+    await post({ odometer_km: 1400, timestamp: "2026-03-05T08:00:00Z", trip_type: "business" });
     const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await post({ kmstand: 50, timestamp: "2026-01-10T08:00:00Z", vehicle_code: zweit.code });
+    await post({ odometer_km: 50, timestamp: "2026-01-10T08:00:00Z", vehicle_code: zweit.code });
   });
   after(() => t.close());
 
   it("liefert Strecken, Monate und Summe über den Jahreswechsel hinweg", async () => {
-    const res = await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    const res = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.fahrten.map(f => f.strecke), [100, 50, 250]);
-    assert.deepEqual(res.body.monate, [
-      { monat: "2026-01", start_km: 1000, end_km: 1150, fahrten: 2, gesamt: 150, privat: 50, geschaeftlich: 100, arbeitsweg: 0 },
-      { monat: "2026-03", start_km: 1150, end_km: 1400, fahrten: 1, gesamt: 250, privat: 0, geschaeftlich: 250, arbeitsweg: 0 },
+    assert.deepEqual(res.body.trips.map(f => f.distance), [100, 50, 250]);
+    assert.deepEqual(res.body.months, [
+      { month: "2026-01", start_km: 1000, end_km: 1150, trips: 2, total: 150, business: 100, private: 50, commute: 0 },
+      { month: "2026-03", start_km: 1150, end_km: 1400, trips: 1, total: 250, business: 250, private: 0, commute: 0 },
     ]);
-    assert.deepEqual(res.body.summe, { fahrten: 3, gesamt: 400, privat: 50, geschaeftlich: 350, arbeitsweg: 0 });
-    assert.ok(res.body.fahrten[0]._id);
+    assert.deepEqual(res.body.totals, { trips: 3, total: 400, business: 350, private: 50, commute: 0 });
+    assert.ok(res.body.trips[0].id);
   });
 
   it("rechnet ohne Fahrzeugfilter je Fahrzeug getrennt", async () => {
-    const res = await t.http().get("/api/fahrten?year=2026").set(user);
-    assert.equal(res.body.fahrten.length, 4);
-    assert.equal(res.body.fahrten.find(f => f.kmstand === 50).strecke, null);  // erste Fahrt des Zweitwagens
-    assert.equal(res.body.summe.gesamt, 400);
+    const res = await t.http().get("/api/trips?year=2026").set(user);
+    assert.equal(res.body.trips.length, 4);
+    assert.equal(res.body.trips.find(f => f.odometer_km === 50).distance, null);  // erste Fahrt des Zweitwagens
+    assert.equal(res.body.totals.total, 400);
   });
 
   it("validiert das Jahr", async () => {
-    assert.equal((await t.http().get("/api/fahrten").set(user)).status, 400);
-    assert.deepEqual((await t.http().get("/api/fahrten?year=2030").set(user)).body.fahrten, []);
+    assert.equal((await t.http().get("/api/trips").set(user)).status, 400);
+    assert.deepEqual((await t.http().get("/api/trips?year=2030").set(user)).body.trips, []);
   });
 });
 
 describe("PDF rechnet wie Dashboard und Auto-Info", () => {
   let t, user;
-  const post = body => t.http().post("/api/fahrt").set(user).send({ ziel: "Ziel", fahrtart: "privat", force: true, ...body });
+  const post = body => t.http().post("/api/trips").set(user).send({ destination: "Ziel", trip_type: "private", force: true, ...body });
 
   before(async () => {
     t = await setup();
     user = await t.registerUser("pdf-gleich");
-    await post({ kmstand: 900,  timestamp: "2025-12-30T08:00:00Z" });
-    await post({ kmstand: 1000, timestamp: "2026-01-02T08:00:00Z", fahrtart: "geschäftlich" });
-    await post({ kmstand: 950,  timestamp: "2026-01-03T08:00:00Z" });                          // Rückschritt
-    await post({ kmstand: 1200, timestamp: "2026-01-04T08:00:00Z", fahrtart: "arbeitsweg" });
+    await post({ odometer_km: 900,  timestamp: "2025-12-30T08:00:00Z" });
+    await post({ odometer_km: 1000, timestamp: "2026-01-02T08:00:00Z", trip_type: "business" });
+    await post({ odometer_km: 950,  timestamp: "2026-01-03T08:00:00Z" });                          // Rückschritt
+    await post({ odometer_km: 1200, timestamp: "2026-01-04T08:00:00Z", trip_type: "commute" });
   });
   after(() => t.close());
 
@@ -146,17 +146,17 @@ describe("PDF rechnet wie Dashboard und Auto-Info", () => {
     const { jahresFahrten } = await import("../src/lib/strecken.js");
     const { fahrzeugUebersicht } = await import("../src/lib/pdf.js");
 
-    const api = (await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user)).body;
+    const api = (await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user)).body;
     const userId = (await t.pool.query(`SELECT id FROM users WHERE username = 'pdf-gleich'`)).rows[0].id;
     const fahrten = await jahresFahrten(t.pool, { userId, year: 2026, vehicleId: null, timezone: "Europe/Berlin" });
     const [uebersicht] = fahrzeugUebersicht(fahrten);
 
-    assert.deepEqual(api.summe, { fahrten: 3, gesamt: 350, privat: 0, geschaeftlich: 100, arbeitsweg: 250 });
-    assert.equal(uebersicht.gesamt, api.summe.gesamt);
-    assert.equal(uebersicht.privat, api.summe.privat);
+    assert.deepEqual(api.totals, { trips: 3, total: 350, business: 100, private: 0, commute: 250 });
+    assert.equal(uebersicht.total, api.totals.total);
+    assert.equal(uebersicht.private, api.totals.private);
     assert.equal(uebersicht.startKm, 900);   // letzter Stand vor dem Jahr
     assert.equal(uebersicht.endKm, 1200);
-    assert.deepEqual(fahrten.map(f => f.strecke), [100, -50, 250]);   // im PDF sichtbar
+    assert.deepEqual(fahrten.map(f => f.distance), [100, -50, 250]);   // im PDF sichtbar
 
     const pdf = await t.http().get(`/api/export/pdf/year/2026?vehicle=${user.vehicle.code}`).set(user)
       .buffer(true).parse(binary);

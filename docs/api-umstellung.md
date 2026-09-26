@@ -12,7 +12,7 @@ Ziel: API-Pfade, Feldnamen und Werte englisch – wie die Datenbank seit Migrati
 - [x] 2a. Backend-Code: Routen, Eingaben, Antworten englisch; `lib/dbschema.js` entfernt
       (API = DB-Namen); Übergangsadresse `POST /api/fahrt` (deutsch, für Home Assistant);
       Sicherungsformat v2 (englisch) + Import von v1 (`lib/altformat.js`)
-- [ ] 2b. Backend-Tests auf die neue API umstellen (+ Tests für `POST /api/fahrt` und v1-Import); grün
+- [x] 2b. Backend-Tests auf die neue API umstellen (+ Tests für `POST /api/fahrt` und v1-Import); grün
 - [ ] 3. Frontend auf die neue API; Browser-Tests grün
 - [ ] 4. Offline-Warteschlange: alte Einträge beim Start umschreiben; README/HA-Doku; Aufräumen
 

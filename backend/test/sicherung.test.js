@@ -4,14 +4,14 @@ import { setup } from "./helpers.js";
 
 // Legt Fahrzeugdaten, Kosten und Fahrten inkl. Änderung und Löschung an
 async function testdaten(t, user) {
-  const post = body => t.http().post("/api/fahrt").set(user).send({ fahrtart: "privat", ziel: "Kunde", ...body });
+  const post = body => t.http().post("/api/trips").set(user).send({ trip_type: "private", destination: "Kunde", ...body });
   await t.http().patch(`/api/vehicles/${user.vehicle.id}`).set(user).send({ license_plate: "B-EX 1", list_price: 40000, drive_type: "hybrid" });
   await t.http().put(`/api/vehicles/${user.vehicle.id}/years/2026`).set(user).send({ total_costs: 7000, depreciation: 3000 });
-  await post({ kmstand: 100, timestamp: "2026-01-01T08:00:00Z" });
-  const id2 = (await post({ kmstand: 200, timestamp: "2026-01-02T08:00:00Z", fahrtart: "arbeitsweg" })).body.id;
-  const id3 = (await post({ kmstand: 300, timestamp: "2026-01-03T08:00:00Z" })).body.id;
-  await t.http().put(`/api/fahrt/${id2}`).set(user).send({ ziel: "Büro" });
-  await t.http().delete(`/api/fahrt/${id3}`).set(user);
+  await post({ odometer_km: 100, timestamp: "2026-01-01T08:00:00Z" });
+  const id2 = (await post({ odometer_km: 200, timestamp: "2026-01-02T08:00:00Z", trip_type: "commute" })).body.id;
+  const id3 = (await post({ odometer_km: 300, timestamp: "2026-01-03T08:00:00Z" })).body.id;
+  await t.http().put(`/api/trips/${id2}`).set(user).send({ destination: "Büro" });
+  await t.http().delete(`/api/trips/${id3}`).set(user);
 }
 
 describe("Fahrzeug-Sicherung", () => {
@@ -23,7 +23,7 @@ describe("Fahrzeug-Sicherung", () => {
     await testdaten(t, user);
     // Fahrt eines anderen Fahrzeugs darf nicht in der Sicherung landen
     const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
-    await t.http().post("/api/fahrt").set(user).send({ kmstand: 5, ziel: "x", fahrtart: "privat", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
+    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "x", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
   });
   after(() => t.close());
 
@@ -32,30 +32,31 @@ describe("Fahrzeug-Sicherung", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-disposition"], /attachment; filename="fahrzeug_[A-Z0-9]{6}_\d{4}-\d{2}-\d{2}\.json"/);
     datei = res.body;
-    assert.equal(datei.format, "drivingbook-fahrzeug");
-    assert.equal(datei.fahrzeug.license_plate, "B-EX 1");
-    assert.equal(datei.jahre[0].total_costs, 7000);
-    assert.deepEqual(datei.fahrten.map(f => f.kmstand), [100, 200]);
-    assert.deepEqual(datei.protokoll.map(e => e.action), ["create", "create", "create", "update", "delete"]);
+    assert.equal(datei.format, "drivingbook-vehicle");
+    assert.equal(datei.version, 2);
+    assert.equal(datei.vehicle.license_plate, "B-EX 1");
+    assert.equal(datei.years[0].total_costs, 7000);
+    assert.deepEqual(datei.trips.map(f => f.odometer_km), [100, 200]);
+    assert.deepEqual(datei.audit.map(e => e.action), ["create", "create", "create", "update", "delete"]);
   });
 
   it("ergänzt beim Wiederherstellen nur, was fehlt", async () => {
     // eine Fahrt „verloren“, Protokoll bleibt
-    const jahr = await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user);
-    await t.pool.query(`DELETE FROM trips WHERE id = $1`, [jahr.body.fahrten[1]._id]);
+    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    await t.pool.query(`DELETE FROM trips WHERE id = $1`, [jahr.body.trips[1].id]);
 
     const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
     assert.equal(res.status, 200);
-    assert.equal(res.body.neu, false);
+    assert.equal(res.body.created, false);
     assert.equal(res.body.vehicle.code, user.vehicle.code);
-    assert.deepEqual(res.body.importiert, { fahrten: 1, zugeordnet: 0, uebersprungen: 1, jahre: 0, protokoll: 0 });
+    assert.deepEqual(res.body.imported, { trips: 1, reassigned: 0, skipped: 1, years: 0, audit: 0 });
 
-    const nachher = await t.http().get(`/api/fahrten?year=2026&vehicle=${user.vehicle.code}`).set(user);
-    assert.deepEqual(nachher.body.fahrten.map(f => f.ziel), ["Kunde", "Büro"]);
+    const nachher = await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user);
+    assert.deepEqual(nachher.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
 
     // zweites Mal: nichts mehr zu tun
     const nochmal = await t.http().post("/api/vehicles/import").set(user).send(datei);
-    assert.deepEqual(nochmal.body.importiert, { fahrten: 0, zugeordnet: 0, uebersprungen: 2, jahre: 0, protokoll: 0 });
+    assert.deepEqual(nochmal.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 0, audit: 0 });
   });
 
   it("legt ein gelöschtes Fahrzeug mit gleichem Code neu an und ordnet seine Fahrten wieder zu", async () => {
@@ -64,27 +65,27 @@ describe("Fahrzeug-Sicherung", () => {
 
     const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
     assert.equal(res.status, 201);
-    assert.equal(res.body.neu, true);
-    assert.equal(res.body.vehicle.code, datei.fahrzeug.code);
+    assert.equal(res.body.created, true);
+    assert.equal(res.body.vehicle.code, datei.vehicle.code);
     assert.equal(res.body.vehicle.drive_type, "hybrid");
-    assert.deepEqual(res.body.importiert, { fahrten: 0, zugeordnet: 2, uebersprungen: 0, jahre: 1, protokoll: 0 });
+    assert.deepEqual(res.body.imported, { trips: 0, reassigned: 2, skipped: 0, years: 1, audit: 0 });
 
-    const jahr = await t.http().get(`/api/fahrten?year=2026&vehicle=${res.body.vehicle.code}`).set(user);
-    assert.deepEqual(jahr.body.fahrten.map(f => f.ziel), ["Kunde", "Büro"]);
-    const buero = jahr.body.fahrten.find(f => f.ziel === "Büro");
-    const verlauf = await t.http().get(`/api/fahrt/${buero._id}/history`).set(user);
+    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(user);
+    assert.deepEqual(jahr.body.trips.map(f => f.destination), ["Kunde", "Büro"]);
+    const buero = jahr.body.trips.find(f => f.destination === "Büro");
+    const verlauf = await t.http().get(`/api/trips/${buero.id}/history`).set(user);
     assert.deepEqual(verlauf.body.map(e => [e.action, e.source]), [["create", "web"], ["update", "web"]]);
     assert.equal(verlauf.body[1].new_data.vehicle_id, res.body.vehicle.id);
   });
 
   it("stellt nach komplettem Verlust alles mit unverändertem Protokoll wieder her", async () => {
-    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.fahrzeug.code);
+    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.vehicle.code);
     await t.pool.query(`DELETE FROM trips WHERE vehicle_id = $1`, [vehicle.id]);
     await t.pool.query(`DELETE FROM vehicles WHERE id = $1`, [vehicle.id]);
     await t.pool.query(`DELETE FROM trip_audit`);
 
     const res = await t.http().post("/api/vehicles/import").set(user).send(datei);
-    assert.deepEqual(res.body.importiert, { fahrten: 2, zugeordnet: 0, uebersprungen: 0, jahre: 1, protokoll: 5 });
+    assert.deepEqual(res.body.imported, { trips: 2, reassigned: 0, skipped: 0, years: 1, audit: 5 });
 
     // gelöschte Fahrt bleibt im Jahresprotokoll sichtbar, Quellen unverändert
     const audit = await t.http().get(`/api/audit?year=2026&vehicle=${res.body.vehicle.code}`).set(user);
@@ -92,20 +93,20 @@ describe("Fahrzeug-Sicherung", () => {
   });
 
   it("legt Fahrten, die inzwischen zu einem anderen Fahrzeug gehören, nicht doppelt an", async () => {
-    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.fahrzeug.code);
+    const vehicle = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.code === datei.vehicle.code);
     const zweit   = (await t.http().get("/api/vehicles").set(user)).body.find(v => v.name === "Zweitwagen");
-    const res = await t.http().delete(`/api/vehicles/${vehicle.id}?ziel=${zweit.id}`).set(user);
-    assert.equal(res.body.verschoben, 2);
+    const res = await t.http().delete(`/api/vehicles/${vehicle.id}?target=${zweit.id}`).set(user);
+    assert.equal(res.body.moved, 2);
 
     const wieder = await t.http().post("/api/vehicles/import").set(user).send(datei);
-    assert.equal(wieder.body.neu, true);
-    assert.deepEqual(wieder.body.importiert, { fahrten: 0, zugeordnet: 0, uebersprungen: 2, jahre: 1, protokoll: 0 });
+    assert.equal(wieder.body.created, true);
+    assert.deepEqual(wieder.body.imported, { trips: 0, reassigned: 0, skipped: 2, years: 1, audit: 0 });
   });
 
   it("verwendet keine fremden oder zu großen Fahrt-IDs und verstellt die ID-Folge nicht", async () => {
     const vorher = (await t.pool.query(`SELECT last_value FROM trips_id_seq`)).rows[0].last_value;
-    const fremd = { ...datei, fahrzeug: { ...datei.fahrzeug, code: null, name: "Präpariert" }, protokoll: [],
-      fahrten: [{ id: 2147483000, kmstand: 99999, ziel: "x", fahrtart: "privat", timestamp: "2030-01-01T00:00:00Z" }] };
+    const fremd = { ...datei, vehicle: { ...datei.vehicle, code: null, name: "Präpariert" }, audit: [],
+      trips: [{ id: 2147483000, odometer_km: 99999, destination: "x", trip_type: "private", timestamp: "2030-01-01T00:00:00Z" }] };
     const res = await t.http().post("/api/vehicles/import").set(user).send(fremd);
     assert.equal(res.status, 201);
     const neu = (await t.pool.query(`SELECT id FROM trips WHERE odometer_km = 99999`)).rows[0].id;
@@ -114,21 +115,54 @@ describe("Fahrzeug-Sicherung", () => {
     assert.ok(Number(nachher) - Number(vorher) <= 1);
 
     // neue Fahrten funktionieren weiter
-    const ok = await t.http().post("/api/fahrt").set(user)
-      .send({ kmstand: 100000, ziel: "danach", fahrtart: "privat", timestamp: "2030-02-01T00:00:00Z", force: true });
+    const ok = await t.http().post("/api/trips").set(user)
+      .send({ odometer_km: 100000, destination: "danach", trip_type: "private", timestamp: "2030-02-01T00:00:00Z", force: true });
     assert.equal(ok.status, 200);
   });
 
   it("lehnt ungültige Protokolldaten ab", async () => {
-    const kaputt = { ...datei, protokoll: [{ fahrt_id: 1, action: "update", old_data: { timestamp: "kaputt" }, changed_at: "2026-01-01T00:00:00Z" }] };
+    const kaputt = { ...datei, audit: [{ trip_id: 1, action: "update", old_data: { timestamp: "kaputt" }, changed_at: "2026-01-01T00:00:00Z" }] };
     assert.equal((await t.http().post("/api/vehicles/import").set(user).send(kaputt)).status, 400);
+  });
+
+  it("spielt Sicherungen im alten Format v1 (deutsche Felder) weiterhin ein", async () => {
+    const ziel = await t.registerUser("sicherung-v1");
+    const v1 = {
+      format: "drivingbook-fahrzeug", version: 1, exportiert_am: "2026-09-25T10:00:00Z",
+      fahrzeug: { id: 77, name: "Altwagen", code: null, license_plate: "B-AL 1", list_price: 30000, drive_type: "elektro" },
+      jahre: [{ year: 2026, total_costs: 5000, depreciation: 1000 }],
+      fahrten: [
+        { id: 501, kmstand: 100, ziel: "Kunde", fahrtart: "geschäftlich", timestamp: "2026-04-01T08:00:00Z" },
+        { id: 502, kmstand: 160, ziel: "Büro",  fahrtart: "arbeitsweg",   timestamp: "2026-04-02T08:00:00Z" },
+      ],
+      protokoll: [
+        { fahrt_id: 501, action: "create", old_data: null,
+          new_data: { kmstand: 100, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-04-01T08:00:00Z", vehicle_id: 77 },
+          source: "web", changed_at: "2026-04-01T08:00:01Z" },
+        { fahrt_id: 501, action: "update",
+          old_data: { kmstand: 100, ziel: "Kunde", fahrtart: "privat", timestamp: "2026-04-01T08:00:00Z", vehicle_id: 77 },
+          new_data: { kmstand: 100, ziel: "Kunde", fahrtart: "geschäftlich", timestamp: "2026-04-01T08:00:00Z", vehicle_id: 77 },
+          source: "web", changed_at: "2026-04-01T09:00:00Z" },
+      ],
+    };
+    const res = await t.http().post("/api/vehicles/import").set(ziel).send(v1);
+    assert.equal(res.status, 201);
+    assert.equal(res.body.vehicle.drive_type, "electric");
+    assert.deepEqual(res.body.imported, { trips: 2, reassigned: 0, skipped: 0, years: 1, audit: 2 });
+
+    const jahr = await t.http().get(`/api/trips?year=2026&vehicle=${res.body.vehicle.code}`).set(ziel);
+    assert.deepEqual(jahr.body.trips.map(f => [f.odometer_km, f.destination, f.trip_type]), [[100, "Kunde", "business"], [160, "Büro", "commute"]]);
+    const verlauf = await t.http().get(`/api/trips/${jahr.body.trips[0].id}/history`).set(ziel);
+    assert.deepEqual(verlauf.body[1].old_data, {
+      odometer_km: 100, destination: "Kunde", trip_type: "private", timestamp: "2026-04-01T08:00:00.000Z", vehicle_id: res.body.vehicle.id,
+    });
   });
 
   it("lehnt ungültige Dateien ab", async () => {
     assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ foo: 1 })).status, 400);
-    assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ ...datei, version: 2 })).status, 400);
+    assert.equal((await t.http().post("/api/vehicles/import").set(user).send({ ...datei, version: 3 })).status, 400);
     assert.equal((await t.http().post("/api/vehicles/import").set(user)
-      .send({ ...datei, fahrten: [{ id: 1, kmstand: -1, ziel: "x", fahrtart: "privat", timestamp: "2026-01-01" }] })).status, 400);
+      .send({ ...datei, trips: [{ id: 1, odometer_km: -1, destination: "x", trip_type: "private", timestamp: "2026-01-01" }] })).status, 400);
     const fremd = await t.registerUser("sicherung-fremd");
     assert.equal((await t.http().get(`/api/vehicles/${fremd.vehicle.id}/export`).set(user)).status, 404);
   });
@@ -143,17 +177,17 @@ describe("Gesamtsicherung", () => {
     await testdaten(t, user);
     const zweit = (await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" })).body;
     zweitCode = zweit.code;
-    await t.http().post("/api/fahrt").set(user).send({ kmstand: 5, ziel: "Zweit", fahrtart: "privat", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
-    await t.http().post("/api/fahrt").set(user).send({ kmstand: 7, ziel: "Ohne", fahrtart: "privat", timestamp: "2026-01-05T08:00:00Z", vehicle_code: null });
+    await t.http().post("/api/trips").set(user).send({ odometer_km: 5, destination: "Zweit", trip_type: "private", timestamp: "2026-01-04T08:00:00Z", vehicle_code: zweit.code });
+    await t.http().post("/api/trips").set(user).send({ odometer_km: 7, destination: "Ohne", trip_type: "private", timestamp: "2026-01-05T08:00:00Z", vehicle_code: null });
   });
   after(() => t.close());
 
   it("erinnert an eine Sicherung, wenn sie älter als 30 Tage ist und es Änderungen gibt", async () => {
     await t.pool.query(`UPDATE vehicles SET created_at = NOW() - INTERVAL '40 days'`);
     const vorher = await t.http().get("/api/backup/status").set(user);
-    assert.equal(vorher.body.erinnern, true);
-    assert.equal(vorher.body.fahrzeuge[0].last_backup_at, null);
-    assert.ok(vorher.body.fahrzeuge[0].aenderungen > 0);
+    assert.equal(vorher.body.remind, true);
+    assert.equal(vorher.body.vehicles[0].last_backup_at, null);
+    assert.ok(vorher.body.vehicles[0].changes > 0);
   });
 
   it("sichert alle Fahrzeuge und Fahrten ohne Fahrzeug", async () => {
@@ -161,13 +195,13 @@ describe("Gesamtsicherung", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-disposition"], /fahrtenbuch_sicherung_\d{4}-\d{2}-\d{2}\.json/);
     sicherung = res.body;
-    assert.equal(sicherung.format, "drivingbook-sicherung");
-    assert.deepEqual(sicherung.fahrzeuge.map(f => f.fahrten.length), [2, 1]);
-    assert.deepEqual(sicherung.ohne_fahrzeug.fahrten.map(f => f.ziel), ["Ohne"]);
+    assert.equal(sicherung.format, "drivingbook-backup");
+    assert.deepEqual(sicherung.vehicles.map(f => f.trips.length), [2, 1]);
+    assert.deepEqual(sicherung.unassigned.trips.map(f => f.destination), ["Ohne"]);
 
     const status = await t.http().get("/api/backup/status").set(user);
-    assert.equal(status.body.erinnern, false);
-    assert.ok(status.body.fahrzeuge.every(f => f.last_backup_at && f.aenderungen === 0));
+    assert.equal(status.body.remind, false);
+    assert.ok(status.body.vehicles.every(f => f.last_backup_at && f.changes === 0));
   });
 
   it("stellt nach Datenverlust alles wieder her, ohne Doppelte", async () => {
@@ -176,39 +210,39 @@ describe("Gesamtsicherung", () => {
 
     const res = await t.http().post("/api/backup/restore").set(user).send(sicherung);
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.fahrzeuge.map(f => [f.name, f.neu, f.fahrten, f.uebersprungen]),
+    assert.deepEqual(res.body.vehicles.map(f => [f.name, f.created, f.trips, f.skipped]),
       [["Fahrzeug 1", false, 0, 2], ["Zweitwagen", true, 1, 0]]);
-    assert.equal(res.body.ohne_fahrzeug.fahrten, 1);
+    assert.equal(res.body.unassigned.trips, 1);
 
     const vehicles = (await t.http().get("/api/vehicles").set(user)).body;
     assert.ok(vehicles.some(v => v.code === zweitCode));
 
     const nochmal = await t.http().post("/api/backup/restore").set(user).send(sicherung);
-    assert.ok(nochmal.body.fahrzeuge.every(f => f.fahrten === 0 && f.protokoll === 0));
-    assert.equal(nochmal.body.ohne_fahrzeug.fahrten, 0);
+    assert.ok(nochmal.body.vehicles.every(f => f.trips === 0 && f.audit === 0));
+    assert.equal(nochmal.body.unassigned.trips, 0);
   });
 
   it("lehnt eine Fahrzeug-Sicherung am Gesamt-Endpunkt ab", async () => {
-    const res = await t.http().post("/api/backup/restore").set(user).send({ format: "drivingbook-fahrzeug", version: 1 });
+    const res = await t.http().post("/api/backup/restore").set(user).send({ format: "drivingbook-vehicle", version: 2 });
     assert.equal(res.status, 400);
   });
 
   it("akzeptiert große Sicherungen, andere Endpunkte bleiben begrenzt", async () => {
     const viele = Array.from({ length: 3000 }, (_, i) => ({
-      id: i + 1, kmstand: 10000 + i, ziel: "Langer Zielname ".repeat(5), fahrtart: "privat",
+      id: i + 1, odometer_km: 10000 + i, destination: "Langer Zielname ".repeat(5), trip_type: "private",
       timestamp: new Date(Date.UTC(2020, 0, 1) + i * 3600e3).toISOString(),
     }));
-    const gross = { ...sicherung, fahrzeuge: [{ ...sicherung.fahrzeuge[0], fahrten: viele, protokoll: [] }] };
+    const gross = { ...sicherung, vehicles: [{ ...sicherung.vehicles[0], trips: viele, audit: [] }] };
     const res = await t.http().post("/api/backup/restore").set(user).send(gross);
     assert.equal(res.status, 200);
-    assert.equal(res.body.fahrzeuge[0].fahrten, 3000);
+    assert.equal(res.body.vehicles[0].trips, 3000);
 
     // Sequenz steht hinter den wiederverwendeten IDs → neue Fahrten funktionieren
-    const neu = await t.http().post("/api/fahrt").set(user)
-      .send({ kmstand: 99999, ziel: "Danach", fahrtart: "privat", timestamp: "2030-01-01T08:00:00Z", force: true });
+    const neu = await t.http().post("/api/trips").set(user)
+      .send({ odometer_km: 99999, destination: "Danach", trip_type: "private", timestamp: "2030-01-01T08:00:00Z", force: true });
     assert.equal(neu.status, 200);
 
-    const zuGross = await t.http().post("/api/fahrt").set(user).send({ ziel: "x".repeat(200_000) });
+    const zuGross = await t.http().post("/api/trips").set(user).send({ destination: "x".repeat(200_000) });
     assert.equal(zuGross.status, 413);
   });
 });

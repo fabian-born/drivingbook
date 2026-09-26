@@ -2,12 +2,12 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
 
-const fahrt = (kmstand, timestamp, extra = {}) =>
-  ({ kmstand, ziel: `Ziel ${kmstand}`, fahrtart: "privat", timestamp, ...extra });
+const fahrt = (odometer_km, timestamp, extra = {}) =>
+  ({ odometer_km, destination: `Ziel ${odometer_km}`, trip_type: "private", timestamp, ...extra });
 
 describe("Fahrten", () => {
   let t, user, other;
-  const post = body => t.http().post("/api/fahrt").set(user).send(body);
+  const post = body => t.http().post("/api/trips").set(user).send(body);
   const month = m => t.http().get(`/api/export/json?month=${m}`).set(user);
 
   before(async () => {
@@ -19,11 +19,11 @@ describe("Fahrten", () => {
 
   it("validiert neue Fahrten", async () => {
     const cases = [
-      [fahrt("abc", "2026-01-01T08:00:00Z"), /kmstand/],
-      [fahrt(-5, "2026-01-01T08:00:00Z"), /kmstand/],
-      [fahrt(100, "2026-01-01T08:00:00Z", { ziel: "  " }), /ziel/],
-      [fahrt(100, "2026-01-01T08:00:00Z", { fahrtart: "dienstlich" }), /fahrtart/],
-      [fahrt(100, "gestern"), /Timestamp/],
+      [fahrt("abc", "2026-01-01T08:00:00Z"), /km-Stand/],
+      [fahrt(-5, "2026-01-01T08:00:00Z"), /km-Stand/],
+      [fahrt(100, "2026-01-01T08:00:00Z", { destination: "  " }), /Ziel/],
+      [fahrt(100, "2026-01-01T08:00:00Z", { trip_type: "dienstlich" }), /Fahrtart/],
+      [fahrt(100, "gestern"), /Zeitpunkt/],
     ];
     for (const [body, msg] of cases) {
       const res = await post(body);
@@ -32,7 +32,7 @@ describe("Fahrten", () => {
     }
   });
 
-  it("akzeptiert kmstand als String (Formular) und fremde Fahrzeuge nicht", async () => {
+  it("akzeptiert odometer_km als String (Formular) und fremde Fahrzeuge nicht", async () => {
     const ok = await post(fahrt("1000", "2026-01-05T08:00:00Z"));
     assert.equal(ok.status, 200);
 
@@ -45,34 +45,34 @@ describe("Fahrten", () => {
     // nachträglich eine frühere Fahrt einfügen → Positionen verschieben sich
     await post(fahrt(900, "2026-01-02T08:00:00Z"));
 
-    const res = await t.http().put(`/api/fahrt/${b}`).set(user).send({ ziel: "Geändert" });
+    const res = await t.http().put(`/api/trips/${b}`).set(user).send({ destination: "Geändert" });
     assert.equal(res.status, 200);
 
     const list = (await month("2026-01")).body;
-    assert.equal(list.find(f => f._id === b).ziel, "Geändert");
-    assert.equal(list.filter(f => f.ziel === "Geändert").length, 1);
+    assert.equal(list.find(f => f.id === b).destination, "Geändert");
+    assert.equal(list.filter(f => f.destination === "Geändert").length, 1);
   });
 
-  it("erlaubt Teil-Updates mit kmstand 0 und vehicle_id null (mit force)", async () => {
+  it("erlaubt Teil-Updates mit odometer_km 0 und vehicle_id null (mit force)", async () => {
     // Liegt vor allen anderen Fahrten, damit km-Stand 0 die Plausibilität späterer Tests nicht stört
     // (force nötig, da frühere Fahrten ohne vehicle_code jetzt ebenfalls das Default-Fahrzeug nutzen)
     const id = (await post(fahrt(5000, "2020-02-01T08:00:00Z", { vehicle_code: user.vehicle.code, force: true }))).body.id;
-    const res = await t.http().put(`/api/fahrt/${id}`).set(user).send({ kmstand: 0, vehicle_code: null, force: true });
+    const res = await t.http().put(`/api/trips/${id}`).set(user).send({ odometer_km: 0, vehicle_code: null, force: true });
     assert.equal(res.status, 200);
-    assert.equal(res.body.fahrt.kmstand, 0);
-    assert.equal(res.body.fahrt.vehicle_id, null);
+    assert.equal(res.body.trip.odometer_km, 0);
+    assert.equal(res.body.trip.vehicle_id, null);
   });
 
   it("lehnt leere Updates, ungültige IDs und fremde Fahrten ab", async () => {
     const id = (await post(fahrt(1300, "2026-01-15T08:00:00Z"))).body.id;
-    assert.equal((await t.http().put(`/api/fahrt/${id}`).set(user).send({})).status, 400);
-    assert.equal((await t.http().put("/api/fahrt/abc").set(user).send({ ziel: "x" })).status, 400);
-    assert.equal((await t.http().put(`/api/fahrt/${id}`).set(other).send({ ziel: "x" })).status, 404);
-    assert.equal((await t.http().delete(`/api/fahrt/${id}`).set(other)).status, 404);
+    assert.equal((await t.http().put(`/api/trips/${id}`).set(user).send({})).status, 400);
+    assert.equal((await t.http().put("/api/trips/abc").set(user).send({ destination: "x" })).status, 400);
+    assert.equal((await t.http().put(`/api/trips/${id}`).set(other).send({ destination: "x" })).status, 404);
+    assert.equal((await t.http().delete(`/api/trips/${id}`).set(other)).status, 404);
   });
 
   it("hat die alten Index-Routen nicht mehr", async () => {
-    const res = await t.http().put("/api/fahrt/2026-01/0").set(user).send({ ziel: "x" });
+    const res = await t.http().put("/api/trips/2026-01/0").set(user).send({ destination: "x" });
     assert.equal(res.status, 404);
   });
 
@@ -80,23 +80,23 @@ describe("Fahrten", () => {
     // 31.03. 22:30 UTC = 01.04. 00:30 Sommerzeit
     const id = (await post(fahrt(20000, "2026-03-31T22:30:00Z", { vehicle_code: user.vehicle.code }))).body.id;
     const april = (await month("2026-04")).body;
-    assert.ok(april.some(f => f._id === id));
+    assert.ok(april.some(f => f.id === id));
 
     // Verschieben per PUT: neuer Monat steht in der Antwort
-    const moved = await t.http().put(`/api/fahrt/${id}`).set(user).send({ timestamp: "2026-05-10T10:00:00Z" });
-    assert.equal(moved.body.fahrt.month, "2026-05");
+    const moved = await t.http().put(`/api/trips/${id}`).set(user).send({ timestamp: "2026-05-10T10:00:00Z" });
+    assert.equal(moved.body.trip.month, "2026-05");
   });
 
   it("löscht per ID", async () => {
     const id = (await post(fahrt(1400, "2026-01-20T08:00:00Z"))).body.id;
-    assert.equal((await t.http().delete(`/api/fahrt/${id}`).set(user)).status, 200);
-    assert.ok(!(await month("2026-01")).body.some(f => f._id === id));
+    assert.equal((await t.http().delete(`/api/trips/${id}`).set(user)).status, 200);
+    assert.ok(!(await month("2026-01")).body.some(f => f.id === id));
   });
 });
 
 describe("km-Plausibilität", () => {
   let t, user, vcode;
-  const post = body => t.http().post("/api/fahrt").set(user).send({ vehicle_code: vcode, ...body });
+  const post = body => t.http().post("/api/trips").set(user).send({ vehicle_code: vcode, ...body });
 
   before(async () => {
     t = await setup();
@@ -125,7 +125,7 @@ describe("km-Plausibilität", () => {
 
   it("prüft je Fahrzeug getrennt", async () => {
     const zweites = await t.http().post("/api/vehicles").set(user).send({ name: "Zweitwagen" });
-    const res = await t.http().post("/api/fahrt").set(user)
+    const res = await t.http().post("/api/trips").set(user)
       .send({ ...fahrt(50, "2026-06-07T08:00:00Z"), vehicle_code: zweites.body.code });
     assert.equal(res.status, 200);
   });
@@ -137,16 +137,16 @@ describe("Änderungsprotokoll", () => {
   before(async () => {
     t = await setup();
     user = await t.registerUser("audit");
-    id = (await t.http().post("/api/fahrt").set(user).send(fahrt(100, "2026-07-01T08:00:00Z"))).body.id;
-    await t.http().put(`/api/fahrt/${id}`).set(user).send({ ziel: "Neu" });
+    id = (await t.http().post("/api/trips").set(user).send(fahrt(100, "2026-07-01T08:00:00Z"))).body.id;
+    await t.http().put(`/api/trips/${id}`).set(user).send({ destination: "Neu" });
   });
   after(() => t.close());
 
   it("protokolliert Anlage und Änderung mit altem und neuem Wert", async () => {
-    const res = await t.http().get(`/api/fahrt/${id}/history`).set(user);
+    const res = await t.http().get(`/api/trips/${id}/history`).set(user);
     assert.deepEqual(res.body.map(e => e.action), ["create", "update"]);
-    assert.equal(res.body[1].old_data.ziel, "Ziel 100");
-    assert.equal(res.body[1].new_data.ziel, "Neu");
+    assert.equal(res.body[1].old_data.destination, "Ziel 100");
+    assert.equal(res.body[1].new_data.destination, "Neu");
     assert.equal(res.body[1].source, "web");
   });
 
@@ -156,10 +156,10 @@ describe("Änderungsprotokoll", () => {
   });
 
   it("behält Löschungen im Jahresprotokoll und merkt sich die Quelle", async () => {
-    await t.http().delete(`/api/fahrt/${id}`).set("X-API-Token", user.apiToken).expect(200);
+    await t.http().delete(`/api/trips/${id}`).set("X-API-Token", user.apiToken).expect(200);
     const res = await t.http().get("/api/audit?year=2026").set(user);
     assert.deepEqual(res.body.map(e => e.action), ["delete", "update"]);
-    assert.equal(res.body[0].old_data.ziel, "Neu");
+    assert.equal(res.body[0].old_data.destination, "Neu");
     assert.equal(res.body[0].source, "api_token");
   });
 
@@ -173,27 +173,40 @@ describe("Änderungsprotokoll", () => {
 
   it("zeigt fremde Protokolle nicht", async () => {
     const other = await t.registerUser("neugierig");
-    assert.equal((await t.http().get(`/api/fahrt/${id}/history`).set(other)).status, 404);
+    assert.equal((await t.http().get(`/api/trips/${id}/history`).set(other)).status, 404);
     assert.deepEqual((await t.http().get("/api/audit?year=2026").set(other)).body, []);
   });
 });
 
 describe("Fahrtart Arbeitsweg", () => {
   let t, user;
-  const post = body => t.http().post("/api/fahrt").set(user).send(body);
+  const post = body => t.http().post("/api/trips").set(user).send(body);
   before(async () => {
     t = await setup();
     user = await t.registerUser("pendler");
   });
   after(() => t.close());
 
-  it("kennt die Fahrtart Arbeitsweg und zählt sie getrennt", async () => {
-    const res = await post(fahrt(5, "2027-01-02T08:00:00Z", { fahrtart: "arbeitsweg" }));
+  it("nimmt über POST /api/fahrt weiter die früheren deutschen Felder an (Home Assistant)", async () => {
+    const res = await t.http().post("/api/fahrt").set("X-API-Token", user.apiToken)
+      .send({ kmstand: 40, ziel: "Home Assistant", fahrtart: "geschäftlich", timestamp: "2027-02-01T08:00:00Z" });
     assert.equal(res.status, 200);
-    await post(fahrt(25, "2027-01-03T08:00:00Z", { fahrtart: "arbeitsweg" }));
-    const jahr = await t.http().get(`/api/fahrten?year=2027&vehicle=${user.vehicle.code}`).set(user);
-    assert.equal(jahr.body.summe.arbeitsweg, 20);
-    assert.equal((await post(fahrt(30, "2027-01-04T08:00:00Z", { fahrtart: "urlaub" }))).status, 400);
+    const jahr = await t.http().get(`/api/trips?year=2027&vehicle=${user.vehicle.code}`).set(user);
+    const fahrt = jahr.body.trips.find(f => f.id === res.body.id);
+    assert.deepEqual([fahrt.odometer_km, fahrt.destination, fahrt.trip_type], [40, "Home Assistant", "business"]);
+
+    const falsch = await t.http().post("/api/fahrt").set(user)
+      .send({ kmstand: 50, ziel: "x", fahrtart: "business", timestamp: "2027-02-02T08:00:00Z" });
+    assert.equal(falsch.status, 400);   // alte Adresse versteht nur die alten Werte
+  });
+
+  it("kennt die Fahrtart Arbeitsweg und zählt sie getrennt", async () => {
+    const res = await post(fahrt(5, "2027-01-02T08:00:00Z", { trip_type: "commute" }));
+    assert.equal(res.status, 200);
+    await post(fahrt(25, "2027-01-03T08:00:00Z", { trip_type: "commute" }));
+    const jahr = await t.http().get(`/api/trips?year=2027&vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(jahr.body.totals.commute, 20);
+    assert.equal((await post(fahrt(30, "2027-01-04T08:00:00Z", { trip_type: "urlaub" }))).status, 400);
   });
 
 });
