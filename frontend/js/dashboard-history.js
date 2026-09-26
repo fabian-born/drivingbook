@@ -29,11 +29,15 @@ async function ladeHistoryDashboard(jahr) {
   });
 }
 
-// Drucken: Diagramm als Bild einsetzen, damit es im Druck erscheint
-function druckeSeite() {
+// Drucken: Diagramm als Bild einsetzen, damit es im Druck erscheint.
+// "beforeprint" läuft nach theme.js (Umschalten auf Hell) – auch bei Strg+P.
+window.addEventListener("beforeprint", () => {
   const canvas = document.querySelector("#historyContent canvas");
   const bild   = document.querySelector("#historyContent .verlauf-druckbild");
   if (canvas && bild) bild.src = canvas.toDataURL("image/png");
+});
+
+function druckeSeite() {
   window.print();
 }
 

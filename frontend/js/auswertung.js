@@ -93,18 +93,48 @@ function monatsKarten(monate) {
     </div>`).join("")}</div>`;
 }
 
+// Farben des aktuellen Themas (Hell/Dunkel) für Canvas-Diagramme
+function diagrammFarben() {
+  return {
+    ink:     cssFarbe("--bs-secondary-color") || "#6c757d",
+    flaeche: cssFarbe("--bs-body-bg") || "#fff",                 // Kartenhintergrund = Lücke zwischen Segmenten
+    raster:  cssFarbe("--bs-border-color-translucent") || "rgba(0,0,0,.1)",
+    serien:  FAHRTARTEN.map(fahrtartFarbe),
+  };
+}
+
+const diagramme = new Set();
+
+function faerbeEin(chart) {
+  const f = diagrammFarben();
+  chart.data.datasets.forEach((ds, i) => { ds.backgroundColor = f.serien[i]; ds.borderColor = f.flaeche; });
+  chart.options.plugins.legend.labels.color = f.ink;
+  chart.options.scales.x.ticks.color = f.ink;
+  chart.options.scales.y.ticks.color = f.ink;
+  chart.options.scales.y.grid.color  = f.raster;
+}
+
+// Beim Wechsel Hell/Dunkel (auch vor dem Drucken) sofort neu einfärben
+document.addEventListener("themaGeaendert", () => {
+  for (const chart of diagramme) {
+    if (!chart.canvas?.isConnected) { diagramme.delete(chart); continue; }
+    faerbeEin(chart);
+    chart.update("none");
+  }
+});
+
 function zeichneVerlauf(canvas, monate) {
-  const ink = getComputedStyle(document.body).getPropertyValue("--bs-secondary-color").trim() || "#6c757d";
-  return new Chart(canvas, {
+  const f = diagrammFarben();
+  const chart = new Chart(canvas, {
     type: "bar",
     data: {
       labels: monate.map(m => monatKurz(m.monat)),
-      datasets: FAHRTARTEN.map(a => ({
+      datasets: FAHRTARTEN.map((a, i) => ({
         label: a.label,
         data: monate.map(m => m[a.key]),
-        backgroundColor: a.chart,
-        borderColor: "#fff",          // 2px Lücke zwischen den gestapelten Segmenten
-        borderWidth: 1,
+        backgroundColor: f.serien[i],
+        borderColor: f.flaeche,
+        borderWidth: 1,               // in Hintergrundfarbe → 2px Lücke zwischen den Segmenten
         borderSkipped: false,
         borderRadius: 3,
         maxBarThickness: 24,
@@ -116,7 +146,8 @@ function zeichneVerlauf(canvas, monate) {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { position: "top", labels: { usePointStyle: true, pointStyle: "rectRounded", boxWidth: 10, boxHeight: 10, color: ink } },
+        colors: { enabled: false },   // eigene Farben, keine automatische Chart.js-Palette
+        legend: { position: "top", labels: { usePointStyle: true, pointStyle: "rectRounded", boxWidth: 10, boxHeight: 10, color: f.ink } },
         tooltip: {
           callbacks: {
             label:  ctx => ` ${ctx.dataset.label}: ${kmText(ctx.parsed.y)}`,
@@ -125,12 +156,14 @@ function zeichneVerlauf(canvas, monate) {
         },
       },
       scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { color: ink } },
+        x: { stacked: true, grid: { display: false }, ticks: { color: f.ink } },
         y: { stacked: true, beginAtZero: true, border: { display: false },
-             grid: { color: "rgba(0,0,0,.06)" }, ticks: { color: ink, callback: v => zahl(v) } },
+             grid: { color: f.raster }, ticks: { color: f.ink, callback: v => zahl(v) } },
       },
     },
   });
+  diagramme.add(chart);
+  return chart;
 }
 
 // Rendert die komplette Auswertung in `ziel` und liefert die Chart-Instanz.

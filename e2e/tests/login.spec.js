@@ -21,12 +21,12 @@ test("Admin-Eintrag im Profil-Menü nur für Admins", async ({ page }) => {
   const user = await neuerUser();
   await loginImBrowser(page, user);
   await page.getByRole("button", { name: "Profil" }).click();
-  await expect(page.locator(".dropdown-menu .dropdown-item:visible")).toHaveText(["Konto", "Auto-Info"]);
+  await expect(page.locator(".dropdown-menu a.dropdown-item:visible")).toHaveText(["Konto", "Auto-Info"]);
 
   await page.click("#logoutBtn");
   await loginImBrowser(page, { username: "admin", password: ADMIN_PASSWORD, vehicles: [{}] });
   await page.getByRole("button", { name: "Profil" }).click();
-  await expect(page.locator(".dropdown-menu .dropdown-item:visible")).toHaveText(["Konto", "Auto-Info", "Admin"]);
+  await expect(page.locator(".dropdown-menu a.dropdown-item:visible")).toHaveText(["Konto", "Auto-Info", "Admin"]);
 });
 
 test("aktive Seite ist im Menü markiert, auch im Dropdown", async ({ page }) => {

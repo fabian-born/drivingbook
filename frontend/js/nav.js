@@ -20,6 +20,14 @@ document.getElementById("hauptnavigation").innerHTML = `
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="profile.html">Konto</a></li>
             <li><a class="dropdown-item" href="auto.html">Auto-Info</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Darstellung</h6></li>
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="auto">
+              <span aria-hidden="true">◐</span>Automatisch<span class="ms-auto darstellung-haken">✓</span></button></li>
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="hell">
+              <span aria-hidden="true">☀</span>Hell<span class="ms-auto darstellung-haken">✓</span></button></li>
+            <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-darstellung="dunkel">
+              <span aria-hidden="true">☾</span>Dunkel<span class="ms-auto darstellung-haken">✓</span></button></li>
             <li class="nav-admin d-none"><hr class="dropdown-divider"></li>
             <li class="nav-admin d-none"><a class="dropdown-item" href="admin.html">Admin</a></li>
           </ul>

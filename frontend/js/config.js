@@ -37,17 +37,35 @@ function tokenPayload() {
   if (tokenPayload()?.role === "admin") {
     document.querySelectorAll(".nav-admin").forEach(el => el.classList.remove("d-none"));
   }
+
+  // Darstellung: Automatisch / Hell / Dunkel (theme.js)
+  const markiereDarstellung = () => document.querySelectorAll("[data-darstellung]").forEach(btn => {
+    const aktiv = btn.dataset.darstellung === window.darstellung?.modus();
+    btn.setAttribute("aria-checked", aktiv);
+    btn.setAttribute("role", "menuitemradio");
+    btn.querySelector(".darstellung-haken").style.visibility = aktiv ? "visible" : "hidden";
+  });
+  document.querySelectorAll("[data-darstellung]").forEach(btn => btn.addEventListener("click", () => {
+    window.darstellung?.setze(btn.dataset.darstellung);
+    markiereDarstellung();
+  }));
+  markiereDarstellung();
 })();
 
 // Fahrtarten: Wert (wie im Backend), Schlüssel in Summen, Beschriftung,
 // Bootstrap-Farbe (Badges) und Diagrammfarbe. Feste Reihenfolge = Stapelreihenfolge.
-// Diagrammfarben mit dem Palette-Validator geprüft (Farbfehlsichtigkeit ok);
-// Arbeitsweg hat < 3:1 Kontrast → immer mit Legende/Beschriftung und Tabelle.
+// Diagrammfarben sind CSS-Variablen aus theme.js (je Hell/Dunkel eigene, mit dem
+// Palette-Validator geprüfte Stufen); im Hellmodus hat Arbeitsweg < 3:1 Kontrast
+// → immer mit Legende/Beschriftung und Tabelle.
 const FAHRTARTEN = [
-  { wert: "geschäftlich", key: "geschaeftlich", label: "Geschäftlich", farbe: "primary", chart: "#0d6efd" },
-  { wert: "privat",       key: "privat",        label: "Privat",       farbe: "success", chart: "#198754" },
-  { wert: "arbeitsweg",   key: "arbeitsweg",    label: "Arbeitsweg",   farbe: "warning", chart: "#e08a00" },
+  { wert: "geschäftlich", key: "geschaeftlich", label: "Geschäftlich", farbe: "primary", chart: "var(--fa-geschaeftlich)" },
+  { wert: "privat",       key: "privat",        label: "Privat",       farbe: "success", chart: "var(--fa-privat)" },
+  { wert: "arbeitsweg",   key: "arbeitsweg",    label: "Arbeitsweg",   farbe: "warning", chart: "var(--fa-arbeitsweg)" },
 ];
+
+// Aufgelöste Farbe (für Canvas-Diagramme, die keine CSS-Variablen kennen)
+const cssFarbe = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fahrtartFarbe = art => cssFarbe(`--fa-${art.key}`);
 const fahrtartInfo = wert => FAHRTARTEN.find(a => a.wert === wert) ?? { wert, label: wert, farbe: "secondary" };
 
 function fahrtartOptionen(ausgewaehlt) {
