@@ -39,11 +39,14 @@ function tokenPayload() {
   }
 })();
 
-// Fahrtarten: Wert (wie im Backend), Beschriftung, Bootstrap-Farbe
+// Fahrtarten: Wert (wie im Backend), Schlüssel in Summen, Beschriftung,
+// Bootstrap-Farbe (Badges) und Diagrammfarbe. Feste Reihenfolge = Stapelreihenfolge.
+// Diagrammfarben mit dem Palette-Validator geprüft (Farbfehlsichtigkeit ok);
+// Arbeitsweg hat < 3:1 Kontrast → immer mit Legende/Beschriftung und Tabelle.
 const FAHRTARTEN = [
-  { wert: "geschäftlich", label: "Geschäftlich", farbe: "primary" },
-  { wert: "privat",       label: "Privat",       farbe: "success" },
-  { wert: "arbeitsweg",   label: "Arbeitsweg",   farbe: "warning" },
+  { wert: "geschäftlich", key: "geschaeftlich", label: "Geschäftlich", farbe: "primary", chart: "#0d6efd" },
+  { wert: "privat",       key: "privat",        label: "Privat",       farbe: "success", chart: "#198754" },
+  { wert: "arbeitsweg",   key: "arbeitsweg",    label: "Arbeitsweg",   farbe: "warning", chart: "#e08a00" },
 ];
 const fahrtartInfo = wert => FAHRTARTEN.find(a => a.wert === wert) ?? { wert, label: wert, farbe: "secondary" };
 

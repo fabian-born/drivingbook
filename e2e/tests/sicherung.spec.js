@@ -53,7 +53,7 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
 
   // Neue Fahrzeuge: noch nicht fällig
   await loginImBrowser(page, user);
-  await expect(page.locator("#monatsTabelle tr")).toHaveCount(1);
+  await expect(page.locator(".monats-tabelle tbody tr")).toHaveCount(1);
   await expect(page.locator("#sicherungHinweis")).toBeHidden();
 
   // Fahrzeuge „alt“ machen → Erinnerung
@@ -76,7 +76,7 @@ test("Gesamtsicherung im Konto, Erinnerung auf dem Dashboard", async ({ page }, 
   await expect(page.locator("#sicherungTabelle tr").first()).not.toContainText("noch nie");
 
   await page.goto("/index.html");
-  await expect(page.locator("#monatsTabelle tr")).toHaveCount(1);
+  await expect(page.locator(".monats-tabelle tbody tr")).toHaveCount(1);
   await expect(page.locator("#sicherungHinweis")).toBeHidden();
 
   page.on("dialog", d => d.accept());

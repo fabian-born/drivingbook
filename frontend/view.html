@@ -16,95 +16,46 @@
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 
 <style>
-  /* ── Toolbar ── */
-  .filter-bar {
-    background: #fff;
-    border-bottom: 1px solid #dee2e6;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    padding: 0.75rem 1rem;
-  }
-  .filter-bar .row {
-    gap: 0.5rem 0;
-  }
+  /* ── Filterleiste: auf dem Desktop mitlaufend, auf dem Smartphone nicht (spart Platz) ── */
+  .filter-bar { background: #fff; border-bottom: 1px solid #dee2e6; padding: .75rem 1rem; }
+  @media (min-width: 768px) { .filter-bar { position: sticky; top: 0; z-index: 100; } }
 
-  /* ── Desktop: kompakte Tabelle ── */
+  /* ── Desktop: kompakte Tabelle / Smartphone: Karten ── */
   @media (min-width: 768px) {
     .fahrtart-select { min-width: 120px; }
     .timestamp-input { min-width: 165px; }
     .card-list       { display: none; }
-    .table-wrap      { display: block; }
   }
-
-  /* ── Mobile: Tabelle verstecken, Cards zeigen ── */
   @media (max-width: 767px) {
     .table-wrap { display: none; }
-    .card-list  { display: block; }
+    /* gut antippbare Bedienelemente */
+    .filter-bar .form-select, .filter-bar .btn,
+    .fahrt-card .form-control, .fahrt-card .form-select, .fahrt-card .btn { min-height: 44px; }
+    .filter-bar .form-select, .filter-bar .btn { font-size: 1rem; }
   }
 
-  /* ── Fahrt-Card ── */
+  /* ── Fahrt-Karte (Smartphone) ── */
   .fahrt-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.6rem;
-    position: relative;
+    background: #fff; border: 1px solid #dee2e6; border-left: 4px solid var(--fahrtart-farbe, #adb5bd);
+    border-radius: .5rem; padding: .75rem; margin-bottom: .6rem;
   }
-  .fahrt-card .card-badge {
-    font-size: 0.7rem;
-    padding: 0.2em 0.55em;
-  }
-  .fahrt-card .card-meta {
-    font-size: 0.78rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-  }
-  .fahrt-card .card-km {
-    font-size: 1.05rem;
-    font-weight: 600;
-  }
-  .fahrt-card .card-diff {
-    font-size: 0.78rem;
-    color: #6c757d;
-  }
-  .fahrt-card .card-ziel {
-    font-size: 0.92rem;
-    margin-top: 0.1rem;
-  }
-  .fahrt-card .btn-delete-card {
-    position: absolute;
-    top: 0.6rem;
-    right: 0.6rem;
-    padding: 0.2rem 0.45rem;
-    font-size: 0.85rem;
-  }
+  .fahrt-card .card-badge { font-size: .75rem; }
+  .fahrt-card .card-meta  { font-size: .8rem; color: #6c757d; }
+  .fahrt-card .card-km    { font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .fahrt-card .card-ziel  { margin-top: .15rem; }
+  .fahrt-card .strecke    { font-size: .85rem; color: #6c757d; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .fahrt-card .km-feld    { max-width: 10.5rem; }
+  .btn-icon { min-width: 44px; }
 
-  /* Monats-Trennzeile in Cards */
+  /* Monats-Trennzeile in der Jahresansicht */
   .month-divider {
-    background: #343a40;
-    color: #fff;
-    border-radius: 0.4rem;
-    padding: 0.35rem 0.75rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-    margin: 1rem 0 0.5rem;
-    letter-spacing: 0.03em;
-  }
-
-  /* Jahresansicht: readonly indicator */
-  .jahresansicht-hinweis {
-    font-size: 0.78rem;
-    color: #6c757d;
-    margin-bottom: 0.5rem;
+    background: #343a40; color: #fff; border-radius: .4rem; padding: .4rem .75rem;
+    font-size: .85rem; font-weight: 600; margin: 1rem 0 .5rem; letter-spacing: .03em;
   }
 
   /* Tabellen-Felder kompakter */
   .table td { vertical-align: middle; }
-  .table .form-select-sm,
-  .table .form-control-sm { font-size: 0.8rem; }
-
+  .table .form-select-sm, .table .form-control-sm { font-size: .8rem; }
   .delete-btn .mdi { font-size: 1rem; }
 </style>
 </head>
@@ -116,38 +67,34 @@
 
 <!-- Filter-Leiste -->
 <div class="filter-bar">
-  <div class="container-fluid px-0">
-    <div class="row g-2 align-items-end">
-      <div class="col-6 col-md-2">
-        <label class="form-label mb-1 small">Jahr</label>
-        <select id="jahrSelect" class="form-select form-select-sm"></select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label mb-1 small">Monat</label>
-        <select id="monatSelect" class="form-select form-select-sm"></select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label mb-1 small">Fahrtart</label>
-        <select id="fahrtartFilter" class="form-select form-select-sm">
-          <option value="alle">Alle</option>
-          <option value="privat">Privat</option>
-          <option value="geschäftlich">Geschäftlich</option>
-          <option value="arbeitsweg">Arbeitsweg</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <button class="btn btn-outline-secondary btn-sm w-100" id="csvExportYear">
-          <span class="mdi mdi-download me-1"></span>CSV Export
+  <div class="row g-2 align-items-end">
+    <div class="col-4 col-md-2">
+      <label class="form-label mb-1 small" for="jahrSelect">Jahr</label>
+      <select id="jahrSelect" class="form-select form-select-sm"></select>
+    </div>
+    <div class="col-4 col-md-2">
+      <label class="form-label mb-1 small" for="monatSelect">Monat</label>
+      <select id="monatSelect" class="form-select form-select-sm"></select>
+    </div>
+    <div class="col-4 col-md-2">
+      <label class="form-label mb-1 small" for="fahrtartFilter">Fahrtart</label>
+      <select id="fahrtartFilter" class="form-select form-select-sm">
+        <option value="alle">Alle</option>
+        <option value="geschäftlich">Geschäftlich</option>
+        <option value="privat">Privat</option>
+        <option value="arbeitsweg">Arbeitsweg</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="btn-group w-100" role="group" aria-label="Export und Protokoll">
+        <button class="btn btn-outline-secondary btn-sm" id="csvExportYear" title="CSV-Export des Jahres">
+          <span class="mdi mdi-file-delimited-outline me-1"></span>CSV
         </button>
-      </div>
-      <div class="col-6 col-md-2">
-        <button class="btn btn-outline-secondary btn-sm w-100" id="pdfExportYear">
-          <span class="mdi mdi-file-pdf-box me-1"></span>PDF Jahr
+        <button class="btn btn-outline-secondary btn-sm" id="pdfExportYear" title="PDF-Fahrtenbuch des Jahres">
+          <span class="mdi mdi-file-pdf-box me-1"></span>PDF
         </button>
-      </div>
-      <div class="col-12 col-md-2">
-        <button class="btn btn-outline-secondary btn-sm w-100" id="auditYear">
-          <span class="mdi mdi-history me-1"></span>Änderungsprotokoll
+        <button class="btn btn-outline-secondary btn-sm" id="auditYear" title="Änderungsprotokoll des Jahres">
+          <span class="mdi mdi-history me-1"></span>Protokoll
         </button>
       </div>
     </div>
@@ -155,6 +102,18 @@
 </div>
 
 <div class="container-fluid py-3 px-3 flex-fill">
+
+  <!-- Summe der aktuellen Auswahl -->
+  <div id="auswahlSumme" class="card shadow-sm border-0 mb-3 d-none">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2">
+        <strong id="auswahlTitel"></strong>
+        <span><span id="auswahlKm" class="fw-semibold"></span> <span class="text-muted small" id="auswahlFahrten"></span></span>
+      </div>
+      <div class="my-2" id="auswahlBalken"></div>
+      <div class="d-flex flex-wrap column-gap-3 row-gap-1 small" id="auswahlLegende"></div>
+    </div>
+  </div>
 
   <!-- ── DESKTOP: Tabelle ── -->
   <div class="table-wrap">
@@ -228,6 +187,7 @@
 <script src="js/fahrzeug.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<script src="js/auswertung.js"></script>
 <script src="js/view.js"></script>
 
 <footer class="bg-dark text-light mt-5">

@@ -12,6 +12,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+<link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
@@ -21,66 +22,21 @@
 <script src="js/nav.js"></script>
 
 <!-- 🔹 Dashboard Inhalt -->
-<div class="container py-5 flex-fill" >
+<main class="container py-3 py-md-4 flex-fill">
   <div id="sicherungHinweis" class="alert alert-warning d-flex flex-wrap align-items-center gap-2 d-none" role="status">
     <span class="flex-grow-1" id="sicherungHinweisText"></span>
     <button class="btn btn-sm btn-warning" id="sicherungJetztBtn">Jetzt sichern</button>
   </div>
 
-  <h2 class="mb-4">Fahrtenbuch Dashboard</h2>
-
-  <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card text-center shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Gefahrene KM pro Monat</h5>
-          <p id="kmProMonat" class="fs-3 fw-bold">-</p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card text-center shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Privat / Geschäftlich / Arbeitsweg</h5>
-          <p id="splitKm" class="fs-5 fw-bold">-</p>
-          <canvas id="gefahrenKmChart" width="299" height="200" class="chartjs-render-monitor"            style="display: block; width: 299px; height: 200px;"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card text-center shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Gefahrene KM im Jahr</h5>
-          <p id="kmGesamtJahr" class="fs-3 fw-bold">-</p>
-        </div>
-      </div>
-    </div>
+  <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-3">
+    <h1 class="h3 mb-0">Dashboard <span class="text-muted fw-normal" id="dashboardJahr"></span></h1>
+    <a href="driving.html" class="btn btn-success"><span class="mdi mdi-plus me-1"></span>Neue Fahrt</a>
   </div>
 
-  <h4 class="mt-5">Monatsübersicht</h4>
-  <div class="table-responsive shadow-sm card">
-    <table class="table table-bordered table-striped">
-      <thead>
-        <tr>
-          <th>Monat</th>
-          <th>Start KM</th>
-          <th>End KM</th>
-          <th>Gefahrene KM</th>
-          <th>Privat KM</th>
-          <th>Geschäftlich KM</th>
-          <th>Arbeitsweg KM</th>
-          <th>Privat KM %</th>
-          <th>Geschäftlich KM %</th>
-          <th>Arbeitsweg KM %</th>
-        </tr>
-      </thead>
-      <tbody id="monatsTabelle"></tbody>
-    </table>
+  <div id="dashboardInhalt">
+    <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>Lade Daten …</div>
   </div>
-
-  <h4 class="mt-5">Gefahrene KM Diagramm</h4>
-  <canvas id="kmChart" height="100" class="shadow-sm card"></canvas>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="js/auth-check.js"></script>
@@ -88,9 +44,10 @@
 <script src="js/fahrzeug.js"></script>
 <script src="js/offline.js"></script>
 <script src="js/sicherung.js"></script>
+<script src="js/auswertung.js"></script>
 <script src="js/dashboard.js"></script>
 
-<footer class="bg-dark text-light mt-5">
+<footer class="bg-dark text-light mt-4">
   <div class="container py-3 text-center small">
     © <span id="year"></span> Fahrtenbuch · Version <span id="appVersion">-</span>
   </div>

@@ -59,9 +59,10 @@ async function fuelleMonateMitCheck() {
   }
 
   const monateMitDaten = new Set(jahresFahrten.map(f => f.monat.slice(5)));
-  monatSelect.innerHTML = `<option value="alle">Alle Monate</option>` +
+  const monatsname = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString("de-DE", { month: "short" });
+  monatSelect.innerHTML = `<option value="alle">Alle</option>` +
     Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))
-      .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${mm}</option>`)
+      .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${monatsname(mm)}</option>`)
       .join("");
 
   // Aktuelles Jahr → aktuellen Monat bevorzugen, sonst den ersten mit Daten
@@ -107,6 +108,7 @@ async function ladeFahrten() {
 
 // ----------------- Render-Dispatcher -----------------
 function renderAll() {
+  renderSumme();
   if (jahresansicht) {
     renderTabelleJahresansicht();
     renderCardsJahresansicht();
@@ -231,50 +233,81 @@ function renderCardsJahresansicht() {
 }
 
 function buildCard(f, i, diff, readonly, nr) {
-  const badge   = fahrtartBadge(f.fahrtart);
-  const zeitpunkt = new Date(f.timestamp).toLocaleString("de-DE");
-  const num = nr ?? (i + 1);
+  const zeitpunkt = new Date(f.timestamp).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  const strecke   = f.strecke == null ? "" : `+${zahl(Math.max(diff, 0))} km`;
 
   const div = document.createElement("div");
   div.className = "fahrt-card";
   div.dataset.index = i;
+  div.style.setProperty("--fahrtart-farbe", fahrtartInfo(f.fahrtart).chart);
 
   if (readonly) {
     div.innerHTML = `
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <span class="card-km">${escapeHtml(f.kmstand)} km</span>
-          <span class="card-diff ms-2">+${diff >= 0 ? diff : 0} km</span>
-        </div>
-        ${badge}
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <span class="card-meta">${escapeHtml(zeitpunkt)}</span>
+        ${fahrtartBadge(f.fahrtart)}
+      </div>
+      <div class="d-flex align-items-baseline gap-2 mt-1">
+        <span class="card-km">${zahl(f.kmstand)} km</span>
+        <span class="strecke">${strecke}</span>
       </div>
       <div class="card-ziel">${escapeHtml(f.ziel)}</div>
-      <div class="card-meta">#${num} · ${zeitpunkt} ${historyButton(f)}</div>`;
+      <div class="d-flex justify-content-between align-items-center mt-1">
+        <span class="card-meta">#${nr ?? i + 1}</span>${historyButton(f)}
+      </div>`;
   } else {
     div.innerHTML = `
-      <button class="btn btn-sm btn-outline-danger delete-btn btn-delete-card" data-index="${i}" title="Löschen">
-        <span class="mdi mdi-delete"></span>
-      </button>
-
       <div class="d-flex align-items-center gap-2 mb-2">
-        <input type="number" class="form-control form-control-sm card-field-km"
-          data-index="${i}" data-field="kmstand" value="${escapeHtml(f.kmstand)}" style="width:110px">
-        <span class="card-diff text-muted">+${diff >= 0 ? diff : 0} km</span>
-        <select class="form-select form-select-sm ms-auto card-fahrtart" data-index="${i}" style="width:130px">
-          ${fahrtartOptionen(f.fahrtart)}
-        </select>
+        <input type="datetime-local" class="form-control card-timestamp" aria-label="Zeitpunkt"
+          data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
+        <button class="btn btn-outline-danger btn-icon delete-btn" data-index="${i}" title="Fahrt löschen" aria-label="Fahrt löschen">
+          <span class="mdi mdi-delete"></span>
+        </button>
       </div>
 
-      <input type="text" class="form-control form-control-sm mb-2 card-field-ziel"
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="input-group km-feld">
+          <input type="number" inputmode="numeric" class="form-control card-field-km" aria-label="km-Stand"
+            data-index="${i}" data-field="kmstand" value="${escapeHtml(f.kmstand)}">
+          <span class="input-group-text">km</span>
+        </div>
+        <span class="strecke">${strecke}</span>
+      </div>
+
+      <input type="text" class="form-control mb-2 card-field-ziel" aria-label="Ziel / Kunde"
         data-index="${i}" data-field="ziel" value="${escapeHtml(f.ziel)}">
 
-      <input type="datetime-local" class="form-control form-control-sm card-timestamp"
-        data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
-
-      <div class="card-meta mt-1">#${i + 1} ${historyButton(f)}</div>`;
+      <div class="d-flex align-items-center gap-2">
+        <select class="form-select card-fahrtart" data-index="${i}" aria-label="Fahrtart">
+          ${fahrtartOptionen(f.fahrtart)}
+        </select>
+        <span class="card-meta">#${i + 1}</span>${historyButton(f)}
+      </div>`;
   }
 
   return div;
+}
+
+// ----------------- Summe der angezeigten Fahrten -----------------
+function renderSumme() {
+  const box = document.getElementById("auswahlSumme");
+  const filter = fahrtartFilter.value;
+  const fahrten = aktuelleFahrten.filter(f => filter === "alle" || f.fahrtart === filter);
+  box.classList.toggle("d-none", fahrten.length === 0);
+  if (fahrten.length === 0) return;
+
+  const summe = Object.fromEntries(FAHRTARTEN.map(a => [a.key, 0]));
+  for (const f of fahrten) summe[fahrtartInfo(f.fahrtart).key] += Math.max(f.strecke ?? 0, 0);
+  const gesamt = FAHRTARTEN.reduce((n, a) => n + summe[a.key], 0);
+
+  document.getElementById("auswahlTitel").textContent = jahresansicht
+    ? `Jahr ${jahrSelect.value}`
+    : formatMonat(`${jahrSelect.value}-${monatSelect.value}`);
+  document.getElementById("auswahlKm").textContent      = kmText(gesamt);
+  document.getElementById("auswahlFahrten").textContent = `· ${fahrten.length} Fahrt${fahrten.length === 1 ? "" : "en"}`;
+  document.getElementById("auswahlBalken").innerHTML    = aufteilungsBalken(summe, { hoehe: 8 });
+  document.getElementById("auswahlLegende").innerHTML   = FAHRTARTEN.map(a => `
+    <span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(summe[a.key])} km</span>`).join("");
 }
 
 // ═══════════════════════════════════════════════
@@ -288,7 +321,8 @@ cardList.addEventListener("change", async e => {
   if (e.target.classList.contains("card-fahrtart")) {
     const i = e.target.dataset.index;
     aktuelleFahrten[i].fahrtart = e.target.value;
-    await speichereFahrt(i);
+    e.target.closest(".fahrt-card").style.setProperty("--fahrtart-farbe", fahrtartInfo(e.target.value).chart);
+    if (await speichereFahrt(i)) renderSumme();
   }
 
   // Zeitpunkt
@@ -350,7 +384,7 @@ tbody.addEventListener("change", async e => {
   if (e.target.classList.contains("fahrtart-select")) {
     const i = e.target.dataset.index;
     aktuelleFahrten[i].fahrtart = e.target.value;
-    await speichereFahrt(i);
+    if (await speichereFahrt(i)) renderSumme();
   }
 
   if (e.target.classList.contains("timestamp-input")) {
@@ -483,6 +517,7 @@ function setLaden(text = "Lade Daten...") {
 }
 
 function setLeer(text) {
+  document.getElementById("auswahlSumme").classList.add("d-none");
   tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }

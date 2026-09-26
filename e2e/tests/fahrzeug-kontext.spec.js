@@ -9,7 +9,8 @@ test("Fahrtenliste, Dashboard und neue Fahrten folgen dem aktiven Fahrzeug", asy
   await fahrt(user, { kmstand: 50,   ziel: "Tesla 1", timestamp: `${jahr}-01-12T08:00:00Z`, vehicle_code: tesla.code });
 
   await loginImBrowser(page, user);   // wählt Golf
-  await expect(page.locator("#monatsTabelle tr")).toHaveText([/^\s*\d{4}-01\s+1000\s+1100\s+100\s+0\s+100/]);
+  // Januar: Start 1.000, Ende 1.100, 100 km gefahren – alles geschäftlich
+  await expect(page.locator(".monats-tabelle tbody tr")).toHaveText([/Januar\s+1\.000\s+1\.100\s+100\s+100 \(100 %\)/]);
 
   await page.goto("/view.html");
   await page.selectOption("#jahrSelect", String(jahr));
