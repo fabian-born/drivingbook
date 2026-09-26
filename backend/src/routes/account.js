@@ -8,7 +8,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { TRIP_COLUMNS, writeAudit } from "../lib/fahrten.js";
+import { TRIP_COLUMNS, writeAudit } from "../lib/trips.js";
 import { changePasswordBody, idParam, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {

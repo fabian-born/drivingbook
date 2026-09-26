@@ -143,7 +143,7 @@ describe("PDF calculates like dashboard and vehicle info", () => {
   after(() => t.close());
 
   it("returns the same totals, regressions count as 0", async () => {
-    const { loadYearTrips } = await import("../src/lib/strecken.js");
+    const { loadYearTrips } = await import("../src/lib/distances.js");
     const { vehicleSummary } = await import("../src/lib/pdf.js");
 
     const api = (await t.http().get(`/api/trips?year=2026&vehicle=${user.vehicle.code}`).set(user)).body;

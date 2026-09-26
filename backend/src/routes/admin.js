@@ -8,7 +8,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { handleUnassigned, report, removeDuplicates } from "../lib/aufraeumen.js";
+import { handleUnassigned, report, removeDuplicates } from "../lib/cleanup.js";
 import { createUserBody, duplicatesBody, idParam, unassignedBody, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {

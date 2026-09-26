@@ -77,8 +77,10 @@ docker compose logs -f backend
 │   │   ├── app.js             ← Express-App
 │   │   ├── config.js, db.js, http.js, schemas.js, bootstrap.js
 │   │   ├── middleware/auth.js
-│   │   ├── lib/               ← Tokens, Rate-Limit, Geocoding, CSV, PDF, Plausibilität/Audit
-│   │   └── routes/            ← auth, account, admin, fahrten, export
+│   │   ├── lib/               ← trips (Plausibilität/Audit), distances, check, tax, backup,
+│   │   │                        cleanup, pdf, csv, tokens, rateLimit, geocode, vehicles
+│   │   └── routes/            ← auth, account, admin, trips, vehicles, export, backup
+│   ├── scripts/               ← reset-password.js, convert-backup.js
 │   └── test/                  ← API-Tests (node:test + supertest)
 └── frontend/
     ├── *.html, js/, icons/

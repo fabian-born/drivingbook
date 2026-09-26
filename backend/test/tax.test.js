@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { taxComparison } from "../src/lib/steuer.js";
+import { taxComparison } from "../src/lib/tax.js";
 
 const costs = { total_costs: 9000, depreciation: 4000, commute_km: 20, months: 12, tax_rate: 42 };
 const km     = { private: 3000, total: 20000 };

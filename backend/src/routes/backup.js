@@ -6,7 +6,7 @@
 import express from "express";
 import { asyncHandler, parse } from "../http.js";
 import { withTransaction } from "../db.js";
-import { rejectLegacyFormat, backupAll, backupStatus, restoreAll } from "../lib/sicherung.js";
+import { rejectLegacyFormat, backupAll, backupStatus, restoreAll } from "../lib/backup.js";
 import { backupBody } from "../schemas.js";
 
 export function backupRoutes({ pool, requireAuth }) {

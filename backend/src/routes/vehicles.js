@@ -5,10 +5,10 @@
 
 import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
-import { taxComparison } from "../lib/steuer.js";
-import { summarize, loadYearTrips } from "../lib/strecken.js";
-import { checkYear } from "../lib/pruefung.js";
-import { rejectLegacyFormat, backupVehicle, restoreVehicle } from "../lib/sicherung.js";
+import { taxComparison } from "../lib/tax.js";
+import { summarize, loadYearTrips } from "../lib/distances.js";
+import { checkYear } from "../lib/check.js";
+import { rejectLegacyFormat, backupVehicle, restoreVehicle } from "../lib/backup.js";
 import { withTransaction } from "../db.js";
 import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 

@@ -18,7 +18,7 @@
 import { HttpError } from "../http.js";
 import { BACKUP_FORMAT, BACKUP_VERSION, VEHICLE_BACKUP_FORMAT } from "../schemas.js";
 import { createVehicle } from "./vehicles.js";
-import { AUDIT_FIELDS } from "./fahrten.js";
+import { AUDIT_FIELDS } from "./trips.js";
 
 // The backend no longer accepts files in the old v1 format – reject with a hint
 export function rejectLegacyFormat(backupData) {

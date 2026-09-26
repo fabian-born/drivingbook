@@ -4,7 +4,7 @@
 // ============================================================
 
 import PDFDocument from "pdfkit";
-import { summarize } from "./strecken.js";
+import { summarize } from "./distances.js";
 
 const FONT      = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";

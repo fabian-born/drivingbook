@@ -11,7 +11,7 @@ import { createGeocoder } from "./lib/geocode.js";
 import { authRoutes } from "./routes/auth.js";
 import { accountRoutes } from "./routes/account.js";
 import { adminRoutes } from "./routes/admin.js";
-import { tripRoutes } from "./routes/fahrten.js";
+import { tripRoutes } from "./routes/trips.js";
 import { exportRoutes } from "./routes/export.js";
 import { vehicleRoutes } from "./routes/vehicles.js";
 import { backupRoutes } from "./routes/backup.js";

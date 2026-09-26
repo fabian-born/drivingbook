@@ -7,7 +7,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { csvField } from "../lib/csv.js";
 import { renderYearPdf } from "../lib/pdf.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
-import { loadYearTrips } from "../lib/strecken.js";
+import { loadYearTrips } from "../lib/distances.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
 // CSV is for humans (Excel) – trip type stays German as before

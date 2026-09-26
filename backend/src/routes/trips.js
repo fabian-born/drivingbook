@@ -5,8 +5,8 @@
 import express from "express";
 import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
-import { TRIP_COLUMNS, checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
-import { summarize, loadYearTrips } from "../lib/strecken.js";
+import { TRIP_COLUMNS, checkKmPlausibility, writeAudit } from "../lib/trips.js";
+import { summarize, loadYearTrips } from "../lib/distances.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
 import { auditQuery, idParam, tripCreate, tripUpdate, yearQuery } from "../schemas.js";
 

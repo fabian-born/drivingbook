@@ -8,7 +8,7 @@
 // Every action is written to the audit log with source "admin".
 // ============================================================
 
-import { writeAudit } from "./fahrten.js";
+import { writeAudit } from "./trips.js";
 
 export const DUPLICATE_SECONDS = 5 * 60;
 

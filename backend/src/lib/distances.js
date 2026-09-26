@@ -27,7 +27,7 @@ function addUp(sum, trip) {
 //         distance, previous_timestamp, vehicle_name, month (YYYY-MM), edited
 export async function loadYearTrips(db, { userId, year, vehicleId = null, timezone }) {
   const result = await db.query(
-    `WITH strecken AS (
+    `WITH legs AS (
        SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
               f.odometer_km - LAG(f.odometer_km) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS distance,
               LAG(f.timestamp) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS previous_timestamp
@@ -40,7 +40,7 @@ export async function loadYearTrips(db, { userId, year, vehicleId = null, timezo
             TO_CHAR(s.timestamp AT TIME ZONE $3, 'YYYY-MM') AS month,
             EXISTS (SELECT 1 FROM trip_audit a
                     WHERE a.trip_id = s.id AND a.action = 'update') AS edited
-     FROM   strecken s
+     FROM   legs s
      LEFT JOIN vehicles v ON v.id = s.vehicle_id
      WHERE  s.timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
      ORDER  BY s.timestamp ASC, s.id ASC`,

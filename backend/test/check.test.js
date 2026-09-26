@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { checkYear } from "../src/lib/pruefung.js";
+import { checkYear } from "../src/lib/check.js";
 import { setup } from "./helpers.js";
 
 const f = (id, odometer_km, distance, timestamp, previous_timestamp, destination = "Kunde") =>
