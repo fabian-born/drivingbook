@@ -18,3 +18,13 @@ DB_USER=fahrtenbuch DB_PASSWORD=test npx playwright test
 Testbenutzer werden über die Admin-API angelegt (die Registrierung ist ratenbegrenzt).
 In der CI laufen die Tests bei jeder Änderung an `frontend/`, `backend/` oder `e2e/`;
 Images werden nur gebaut, wenn sie bestehen.
+
+## Screenshots für die Projektseite
+
+`screenshots/` ist kein Test, sondern erzeugt mit Demo-Daten (Vorjahr + laufendes Jahr)
+die Bilder für die GitHub-Page in `docs/img/`. Gleiche Umgebung wie oben:
+
+```bash
+DB_HOST=127.0.0.1 DB_PORT=5432 DB_NAME=fahrtenbuch_test \
+DB_USER=fahrtenbuch DB_PASSWORD=test npx playwright test -c screenshots.config.js
+```
