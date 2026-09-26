@@ -22,7 +22,7 @@ Images werden nur gebaut, wenn sie bestehen.
 ## Screenshots für die Projektseite
 
 `screenshots/` ist kein Test, sondern erzeugt mit Demo-Daten (Vorjahr + laufendes Jahr)
-die Bilder für die GitHub-Page in `docs/img/`. Gleiche Umgebung wie oben:
+die Bilder für die GitHub-Page in `docs/img/` (englische Oberfläche). Gleiche Umgebung wie oben:
 
 ```bash
 DB_HOST=127.0.0.1 DB_PORT=5432 DB_NAME=fahrtenbuch_test \

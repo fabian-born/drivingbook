@@ -7,7 +7,7 @@ const $ = id => document.getElementById(id);
 const euro    = n => n.toLocaleString(i18n.locale, { style: "currency", currency: "EUR" });
 const km      = n => `${n.toLocaleString(i18n.locale)} km`;
 const prozent = (anteil, stellen = 1) =>
-  `${(anteil * 100).toLocaleString(i18n.locale, { maximumFractionDigits: stellen })} %`;
+  prozentText(anteil * 100, stellen);
 const datum   = d => new Date(d).toLocaleDateString(i18n.locale);
 
 // Leere Zahlenfelder → null
@@ -128,7 +128,7 @@ function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison:
   hinweis.classList.add("d-none");
 
   // 1-%-Regel
-  const satz = `${vg.rate.toLocaleString(i18n.locale)} %`;
+  const satz = prozentText(vg.rate, 3);
   $("vgPauschalSumme").textContent = euro(vg.flat_rate.total);
   $("vgPauschalDetail").innerHTML = [
     tHtml("auto.compare.flatRateDetail", { count: Number(kosten.months), rate: satz, price: euro(vg.list_price), result: euro(vg.flat_rate.private_use) }),

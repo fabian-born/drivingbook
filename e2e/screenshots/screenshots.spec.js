@@ -1,4 +1,4 @@
-// Erzeugt die Screenshots für docs/ mit Demo-Daten (Vorjahr + laufendes Jahr)
+// Erzeugt die Screenshots für docs/ (GitHub-Page, englisch) mit Demo-Daten (Vorjahr + laufendes Jahr)
 import { test, expect } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,10 +14,11 @@ const zufall = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 const eins   = liste => liste[Math.floor(zufall() * liste.length)];
 
 const KUNDEN = [
-  ["Stadtwerke Augsburg", 72], ["Bechtle AG, Neckarsulm", 238], ["Kunde Muster GmbH, Ingolstadt", 84],
-  ["Messe München", 21], ["Siemens Healthineers, Erlangen", 176], ["Schulung Nürnberg", 168],
+  ["Stadtwerke Augsburg", 72], ["Bechtle AG, Neckarsulm", 238], ["Sample Customer Ltd., Ingolstadt", 84],
+  ["Trade fair Munich", 21], ["Siemens Healthineers, Erlangen", 176], ["Training Nuremberg", 168],
 ];
-const PRIVAT = [["Einkauf", 9], ["Sport", 14], ["Eltern, Landshut", 76], ["Ausflug Tegernsee", 62], ["Baumarkt", 11]];
+const PRIVAT = [["Groceries", 9], ["Gym", 14], ["Parents, Landshut", 76], ["Trip to Tegernsee", 62], ["Hardware store", 11]];
+const BUERO  = "Office Munich";
 
 async function demoFahrten(user, vehicle, bisTag) {
   let km = 31480;
@@ -36,7 +37,7 @@ async function demoFahrten(user, vehicle, bisTag) {
         await post(tag, ziel, "business", Math.round(weg * 2 * (0.95 + zufall() * 0.1)));
       } else if (zufall() < 0.55) {
         tag.setUTCHours(6, 20 + Math.floor(zufall() * 40));
-        await post(tag, "Büro München", "commute", 36 + Math.round(zufall() * 3));
+        await post(tag, BUERO, "commute", 36 + Math.round(zufall() * 3));
       }
     } else if (zufall() < 0.45) {
       const [ziel, weg] = eins(PRIVAT);
@@ -62,7 +63,7 @@ test("Screenshots für die Projektseite", async ({ browser }) => {
   const gestern = new Date(); gestern.setUTCDate(gestern.getUTCDate() - 1);
   await demoFahrten(user, audi, gestern);
   let teslaKm = 12030;
-  for (const [i, [ziel, typ, strecke]] of [["Büro München", "commute", 37], ["Einkauf", "private", 18], ["Kunde Muster GmbH, Ingolstadt", "business", 168]].entries()) {
+  for (const [i, [ziel, typ, strecke]] of [[BUERO, "commute", 37], ["Groceries", "private", 18], ["Sample Customer Ltd., Ingolstadt", "business", 168]].entries()) {
     teslaKm += strecke;
     await api("/api/trips", { method: "POST", token: user.token, body: {
       odometer_km: teslaKm, destination: ziel, trip_type: typ,
@@ -77,7 +78,7 @@ test("Screenshots für die Projektseite", async ({ browser }) => {
   // ── Browser ────────────────────────────────────────────────
   async function seite({ mobil = false, dunkel = false } = {}) {
     const ctx = await browser.newContext({
-      baseURL: "http://localhost:8099", locale: "de-DE", timezoneId: "Europe/Berlin",
+      baseURL: "http://localhost:8099", locale: "en-GB", timezoneId: "Europe/Berlin",
       colorScheme: dunkel ? "dark" : "light",
       ...(mobil ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
                 : { viewport: { width: 1280, height: 800 } }),
@@ -96,18 +97,17 @@ test("Screenshots für die Projektseite", async ({ browser }) => {
 
   const desktop = await seite();
   await foto(desktop, "/index.html",   "dashboard.png");
-  await foto(desktop, "/view.html",    "fahrten.png");
-  await foto(desktop, "/history.html", "jahreshistorie.png", { ganz: true });
-  await foto(desktop, "/auto.html",    "auto-info.png", { ganz: true });
-  await foto(desktop, "/profile.html", "konto.png");
+  await foto(desktop, "/view.html",    "trips.png");
+  await foto(desktop, "/history.html", "yearly-history.png", { ganz: true });
+  await foto(desktop, "/auto.html",    "vehicle-info.png", { ganz: true });
+  await foto(desktop, "/profile.html", "account.png");
 
   const dunkel = await seite({ dunkel: true });
-  await foto(dunkel, "/index.html", "dashboard-dunkel.png");
+  await foto(dunkel, "/index.html", "dashboard-dark.png");
 
   const mobil = await seite({ mobil: true });
-  await foto(mobil, "/driving.html", "neue-fahrt-mobil.png");
-  await foto(mobil, "/index.html",   "dashboard-mobil.png");
-  await foto(mobil, "/view.html",    "fahrten-mobil.png");
+  await foto(mobil, "/driving.html", "new-trip-mobile.png");
+  await foto(mobil, "/index.html",   "dashboard-mobile.png");
 
   expect(true).toBe(true);
 });

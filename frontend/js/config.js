@@ -81,6 +81,10 @@ function fahrtartBadge(wert) {
   return `<span class="badge text-bg-${a.farbe} card-badge">${escapeHtml(a.label)}</span>`;
 }
 
+// Prozentangabe in der Schreibweise der Sprache ("12,3 %" bzw. "12.3%")
+const prozentText = (zahl, stellen = 1) =>
+  t("common.percent", { value: zahl.toLocaleString(i18n.locale, { maximumFractionDigits: stellen }) });
+
 // Füllt ein <select> mit "Automatisch" + allen Sprachen (in ihrer eigenen Schreibweise);
 // `beiAenderung` bekommt den Code oder null (= automatisch)
 function sprachAuswahl(select, beiAenderung, gewaehlt = i18n.gewaehlt()) {

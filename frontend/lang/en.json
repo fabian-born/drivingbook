@@ -4,7 +4,8 @@
     "saveError": "Error while saving",
     "exportFailed": "Export failed",
     "exportFailedDot": "Export failed.",
-    "never": "never"
+    "never": "never",
+    "percent": "{{value}}%"
   },
   "offline": {
     "queueTitle": "Trips recorded offline",
@@ -399,7 +400,8 @@
       "barLabel": "Logbook cheaper up to {{share}} private share",
       "barCurrent": ", currently {{share}}",
       "needTotal": "Please enter the total costs.",
-      "saved": "✅ Costs saved."
+      "saved": "✅ Costs saved.",
+      "scaleEnd": "100%"
     },
     "backup": {
       "title": "Backup of this vehicle",

@@ -4,7 +4,8 @@
     "saveError": "Fehler beim Speichern",
     "exportFailed": "Export fehlgeschlagen",
     "exportFailedDot": "Export fehlgeschlagen.",
-    "never": "noch nie"
+    "never": "noch nie",
+    "percent": "{{value}} %"
   },
   "offline": {
     "queueTitle": "Offline erfasste Fahrten",
@@ -399,7 +400,8 @@
       "barLabel": "Fahrtenbuch günstiger bis {{share}} Privatanteil",
       "barCurrent": ", aktuell {{share}}",
       "needTotal": "Bitte die Gesamtkosten eintragen.",
-      "saved": "✅ Kosten gespeichert."
+      "saved": "✅ Kosten gespeichert.",
+      "scaleEnd": "100 %"
     },
     "backup": {
       "title": "Sicherung dieses Fahrzeugs",

@@ -13,6 +13,6 @@ export default defineConfig({
   testDir: "./screenshots",
   reporter: "list",
   projects: [{ name: "screenshots", use: { browserName: "chromium", launchOptions: {
-    args: ["--lang=de-DE"], env: { ...process.env, LANGUAGE: "de_DE", LANG: "de_DE.UTF-8" },
+    args: ["--lang=en-GB"], env: { ...process.env, LANGUAGE: "en_GB", LANG: "en_GB.UTF-8" },
   }  } }],
 });

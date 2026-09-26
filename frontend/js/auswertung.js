@@ -16,7 +16,7 @@ const kmText   = n => `${(n ?? 0).toLocaleString(i18n.locale)} km`;
 const zahl     = n => (n ?? 0).toLocaleString(i18n.locale);
 // „3 Fahrten“ (Zahl formatiert, Einzahl/Mehrzahl über i18n)
 const fahrtenText = n => t("analysis.trips", { count: n ?? 0, n: zahl(n) });
-const anteil   = (teil, ganz) => (ganz > 0 ? `${((teil / ganz) * 100).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })} %` : "–");
+const anteil   = (teil, ganz) => (ganz > 0 ? prozentText((teil / ganz) * 100) : "–");
 const monatsFormat = art => new Intl.DateTimeFormat(i18n.locale, { month: art });
 const monatLang = monat => monatsFormat("long").format(new Date(`${monat}-01T12:00:00`));
 const monatKurz = monat => monatsFormat("short").format(new Date(`${monat}-01T12:00:00`));
