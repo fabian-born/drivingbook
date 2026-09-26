@@ -115,7 +115,27 @@ chartInstanz = new Chart(document.getElementById("kmChart"), {
 
 }
 
+// Erinnerung: letzte Sicherung älter als 30 Tage und seitdem Änderungen
+async function pruefeSicherung() {
+    const status = await ladeSicherungsStatus().catch(() => null);
+    const faellig = status?.fahrzeuge.filter(v => v.erinnern) ?? [];
+    const box = document.getElementById("sicherungHinweis");
+    box.classList.toggle("d-none", faellig.length === 0);
+    if (faellig.length === 0) return;
+
+    const nie = faellig.every(v => !v.last_backup_at);
+    document.getElementById("sicherungHinweisText").textContent = nie
+        ? "Deine Fahrten wurden noch nie gesichert."
+        : `Deine letzte Sicherung ist über ${status.erinnerung_tage} Tage her und es gibt seitdem Änderungen.`;
+}
+
+document.getElementById("sicherungJetztBtn").addEventListener("click", async () => {
+    await sichereAlles();
+    pruefeSicherung();
+});
+
 Promise.all([fahrzeugBereit, ersteSynchronisierung]).then(() => {
     ladeDashboard();
+    pruefeSicherung();
     document.addEventListener("fahrtenNachgereicht", ladeDashboard);
 });

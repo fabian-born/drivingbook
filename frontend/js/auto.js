@@ -210,49 +210,26 @@ async function speichereKosten() {
 
 function initExportImport() {
   $("exportBtn").disabled = !aktivesFahrzeug;
-  $("importZusammen").disabled = !aktivesFahrzeug;
-  $("importZielName").textContent = aktivesFahrzeug ? `„${aktivesFahrzeug.name}“` : "";
-
-  $("exportBtn").addEventListener("click", () => {
-    const datum = new Date().toISOString().slice(0, 10);
-    downloadDatei(`/api/vehicles/${aktivesFahrzeug.id}/export`, `fahrzeug_${aktivesFahrzeug.code}_${datum}.json`);
-  });
+  $("exportBtn").addEventListener("click", () => sichereFahrzeugDatei(aktivesFahrzeug));
 
   $("importBtn").addEventListener("click", async () => {
     const datei = $("importDatei").files[0];
-    if (!datei) return zeigeAlert("importAlert", "Bitte eine Exportdatei auswählen.", "warning");
-
-    let daten;
-    try {
-      daten = JSON.parse(await datei.text());
-    } catch {
-      return zeigeAlert("importAlert", "Die Datei ist kein gültiges JSON.", "danger");
-    }
-
-    const zusammen = $("importZusammen").checked;
-    const ziel = zusammen ? `„${aktivesFahrzeug.name}“` : "ein neues Fahrzeug";
-    if (!confirm(`${daten.fahrten?.length ?? 0} Fahrten aus „${daten.fahrzeug?.name ?? "?"}“ in ${ziel} importieren?`)) return;
+    if (!datei) return zeigeAlert("importAlert", "Bitte eine Sicherungsdatei auswählen.", "warning");
 
     $("importBtn").disabled = true;
     try {
-      const pfad = zusammen ? `/api/vehicles/import?vehicle=${encodeURIComponent(aktivesFahrzeug.code)}` : "/api/vehicles/import";
-      const res  = await apiFetch(pfad, { method: "POST", body: daten });
-      if (!res.ok) return zeigeAlert("importAlert", await apiError(res, "Import fehlgeschlagen"), "danger");
-
-      const { vehicle, importiert } = await res.json();
-      const text = `✅ ${importiert.fahrten} Fahrten importiert` +
-        (importiert.uebersprungen ? `, ${importiert.uebersprungen} bereits vorhanden` : "") +
-        `, ${importiert.jahre} Jahr(e) Kosten, ${importiert.protokoll} Protokolleinträge.`;
-
-      if (zusammen) {
-        zeigeAlert("importAlert", text, "info");
-        await Promise.all([ladeInfo(), ladePruefung()]);
-      } else {
-        // Neues Fahrzeug direkt auswählen
-        alert(`${text}\n\nDas Fahrzeug „${vehicle.name}“ wird jetzt ausgewählt.`);
-        waehleFahrzeug(vehicle.code);
-        location.reload();
+      const ergebnis = await stelleSicherungWiederHer(datei);
+      if (!ergebnis) return;
+      if (ergebnis.vehicle && ergebnis.vehicle.code !== aktivesFahrzeug?.code) {
+        // anderes (ggf. neu angelegtes) Fahrzeug → auswählen
+        alert(`✅ Wiederhergestellt\n${ergebnis.text}\n\nDas Fahrzeug „${ergebnis.vehicle.name}“ wird jetzt ausgewählt.`);
+        waehleFahrzeug(ergebnis.vehicle.code);
+        return location.reload();
       }
+      zeigeAlert("importAlert", `✅ Wiederhergestellt\n${ergebnis.text}`, "info");
+      await Promise.all([ladeInfo(), ladePruefung(), ladeFahrzeugliste()]);
+    } catch (err) {
+      zeigeAlert("importAlert", err.message, "danger");
     } finally {
       $("importBtn").disabled = false;
     }

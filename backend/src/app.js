@@ -14,6 +14,7 @@ import { adminRoutes } from "./routes/admin.js";
 import { fahrtenRoutes } from "./routes/fahrten.js";
 import { exportRoutes } from "./routes/export.js";
 import { vehicleRoutes } from "./routes/vehicles.js";
+import { backupRoutes } from "./routes/backup.js";
 
 // Version aus release.ver (wird beim Commit automatisch hochgezählt)
 export const VERSION = (() => {
@@ -31,9 +32,10 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
     app.set("trust proxy", config.trustProxy);
   }
   app.disable("x-powered-by");
-  // Import-Dateien können groß sein; alle anderen Requests bleiben klein
+  // Sicherungen können groß sein (eigene Limits in den Routen); alle anderen Requests bleiben klein
+  const GROSSE_UPLOADS = new Set(["/api/vehicles/import", "/api/backup/restore"]);
   const jsonKlein = express.json({ limit: "100kb" });
-  app.use((req, res, next) => (req.path === "/api/vehicles/import" ? next() : jsonKlein(req, res, next)));
+  app.use((req, res, next) => (GROSSE_UPLOADS.has(req.path) ? next() : jsonKlein(req, res, next)));
 
   // Ohne CORS_ORIGIN keine CORS-Header → Browser erlauben nur Aufrufe von der gleichen Origin
   if (config.corsOrigins.length > 0) {
@@ -55,6 +57,7 @@ export function createApp({ pool, config, geocode = createGeocoder(config.geocod
   app.use("/api", fahrtenRoutes(deps));
   app.use("/api", exportRoutes(deps));
   app.use("/api", vehicleRoutes(deps));
+  app.use("/api", backupRoutes(deps));
 
   app.use("/api", (req, res, next) => next(new HttpError(404, "Endpunkt nicht gefunden")));
   app.use(errorHandler);

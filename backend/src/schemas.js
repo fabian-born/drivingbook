@@ -180,18 +180,33 @@ export const vehicleYearBody = z.object({
     .transform(v => v ?? null),
 }).refine(d => d.depreciation <= d.total_costs, { error: "AfA/Leasing darf die Gesamtkosten nicht übersteigen" });
 
-// ── Export / Import eines Fahrzeugs ─────────────────────────
-export const EXPORT_FORMAT  = "drivingbook-fahrzeug";
+// ── Sicherung: einzelnes Fahrzeug oder ganzes Konto ─────────
+export const EXPORT_FORMAT  = "drivingbook-fahrzeug";     // Einzelsicherung (Auto-Info)
+export const BACKUP_FORMAT  = "drivingbook-sicherung";    // Gesamtsicherung (Konto)
 export const EXPORT_VERSION = 1;
 const MAX_IMPORT_FAHRTEN    = 100_000;
 
 const auditDaten = z.record(z.string(), z.unknown()).nullable().optional().transform(v => v ?? null);
 
-export const importQuery = z.object({ vehicle: vehicleFilter });
+const importFahrten = z.array(z.object({
+  id:        z.number().int(),
+  kmstand:   fahrtFields.kmstand,
+  ziel:      fahrtFields.ziel,
+  fahrtart:  fahrtFields.fahrtart,
+  timestamp: fahrtFields.timestamp,
+}), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_FAHRTEN, { error: `Höchstens ${MAX_IMPORT_FAHRTEN} Fahrten pro Fahrzeug` });
 
-export const importBody = z.object({
-  format:  z.literal(EXPORT_FORMAT, { error: "Keine Fahrtenbuch-Exportdatei" }),
-  version: z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
+const importProtokoll = z.array(z.object({
+  fahrt_id:   z.number().int(),
+  action:     z.enum(["create", "update", "delete"]),
+  old_data:   auditDaten,
+  new_data:   auditDaten,
+  source:     z.string().max(20).optional().default("web"),
+  changed_at: fahrtFields.timestamp,
+}), { error: "Ungültiges Änderungsprotokoll" }).optional().default([]);
+
+// Alle Daten eines Fahrzeugs (Teil beider Formate)
+const fahrzeugDaten = z.object({
   fahrzeug: z.object({
     id:            z.number().int().nullable().optional(),
     name:          text("Fahrzeugname fehlt", 100),
@@ -208,19 +223,19 @@ export const importBody = z.object({
     months:       z.number().int().min(1).max(12).optional().default(12),
     tax_rate:     z.number().min(0).max(60).nullable().optional().default(null),
   }), { error: "Ungültige Jahreskosten" }).optional().default([]),
-  fahrten: z.array(z.object({
-    id:        z.number().int(),
-    kmstand:   fahrtFields.kmstand,
-    ziel:      fahrtFields.ziel,
-    fahrtart:  fahrtFields.fahrtart,
-    timestamp: fahrtFields.timestamp,
-  }), { error: "Ungültige Fahrtenliste" }).max(MAX_IMPORT_FAHRTEN, { error: `Höchstens ${MAX_IMPORT_FAHRTEN} Fahrten pro Import` }),
-  protokoll: z.array(z.object({
-    fahrt_id:   z.number().int(),
-    action:     z.enum(["create", "update", "delete"]),
-    old_data:   auditDaten,
-    new_data:   auditDaten,
-    source:     z.string().max(20).optional().default("web"),
-    changed_at: fahrtFields.timestamp,
-  }), { error: "Ungültiges Änderungsprotokoll" }).optional().default([]),
+  fahrten:   importFahrten,
+  protokoll: importProtokoll,
+});
+
+export const importBody = fahrzeugDaten.extend({
+  format:  z.literal(EXPORT_FORMAT, { error: "Keine Fahrzeug-Sicherung" }),
+  version: z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
+});
+
+export const backupBody = z.object({
+  format:    z.literal(BACKUP_FORMAT, { error: "Keine Gesamtsicherung" }),
+  version:   z.literal(EXPORT_VERSION, { error: `Nicht unterstützte Version (erwartet ${EXPORT_VERSION})` }),
+  fahrzeuge: z.array(fahrzeugDaten, { error: "Fahrzeuge fehlen" }),
+  ohne_fahrzeug: z.object({ fahrten: importFahrten, protokoll: importProtokoll })
+    .optional().default({ fahrten: [], protokoll: [] }),
 });

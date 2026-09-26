@@ -22,6 +22,11 @@
 
 <!-- 🔹 Dashboard Inhalt -->
 <div class="container py-5 flex-fill" >
+  <div id="sicherungHinweis" class="alert alert-warning d-flex flex-wrap align-items-center gap-2 d-none" role="status">
+    <span class="flex-grow-1" id="sicherungHinweisText"></span>
+    <button class="btn btn-sm btn-warning" id="sicherungJetztBtn">Jetzt sichern</button>
+  </div>
+
   <h2 class="mb-4">Fahrtenbuch Dashboard</h2>
 
   <div class="row mb-4">
@@ -82,6 +87,7 @@
 <script src="js/config.js"></script>
 <script src="js/fahrzeug.js"></script>
 <script src="js/offline.js"></script>
+<script src="js/sicherung.js"></script>
 <script src="js/dashboard.js"></script>
 
 <footer class="bg-dark text-light mt-5">

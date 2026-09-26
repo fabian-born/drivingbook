@@ -8,7 +8,7 @@
 // CACHE setzt der Git-Hook (.githooks/pre-commit) automatisch auf die
 // Frontend-Version; neue Dateien in APP_SHELL eintragen.
 
-const CACHE = "fahrtenbuch-2026.09.25.13";
+const CACHE = "fahrtenbuch-2026.09.26.1";
 
 const APP_SHELL = [
   "./",
@@ -16,7 +16,7 @@ const APP_SHELL = [
   "profile.html", "auto.html", "admin.html", "login.html", "register.html",
   "js/nav.js", "js/config.js", "js/auth-check.js", "js/footer.js", "js/fahrzeug.js", "js/offline.js",
   "js/dashboard.js", "js/dashboard-history.js", "js/driving-new.js",
-  "js/view.js", "js/profile.js", "js/auto.js", "js/admin.js", "js/login.js", "js/register.js",
+  "js/view.js", "js/profile.js", "js/auto.js", "js/sicherung.js", "js/admin.js", "js/login.js", "js/register.js",
   "drivingbooklogo.png", "manifest.webmanifest", "release.ver",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png",
 ];

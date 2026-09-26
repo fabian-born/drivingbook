@@ -135,8 +135,11 @@ DELETE /api/tokens/:id      # Token löschen
 | DELETE | `/api/fahrt/:id` | Fahrt löschen |
 | GET  | `/api/fahrt/:id/history` | Änderungsverlauf einer Fahrt |
 | GET  | `/api/audit?year=YYYY` | Änderungen und Löschungen eines Jahres |
-| GET  | `/api/vehicles/:id/export` | Alle Daten eines Fahrzeugs als JSON (Fahrzeugdaten, Jahreskosten, Fahrten, Änderungsprotokoll) |
-| POST | `/api/vehicles/import[?vehicle=CODE]` | Exportdatei als neues Fahrzeug bzw. in ein bestehendes Fahrzeug importieren (max. 25 MB) |
+| GET  | `/api/vehicles/:id/export` | Sicherung eines Fahrzeugs als JSON (Fahrzeugdaten, Jahreskosten, Fahrten, Änderungsprotokoll) |
+| POST | `/api/vehicles/import` | Fahrzeug-Sicherung wiederherstellen – ergänzt nur; Fahrzeug über Code erkannt, sonst neu angelegt (max. 25 MB) |
+| GET  | `/api/backup` | Gesamtsicherung aller Fahrzeuge inkl. Fahrten ohne Fahrzeug |
+| POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur (max. 50 MB) |
+| GET  | `/api/backup/status` | Letzte Sicherung je Fahrzeug, Änderungen seitdem, Erinnerung (> 30 Tage) |
 | GET  | `/api/vehicles/:id/pruefung?year=YYYY` | Prüfung eines Jahres: Ampel + Auffälligkeiten (km-Rückschritte, Lücken, Koordinaten als Ziel …) |
 | GET  | `/api/fahrten?year=YYYY` | Fahrten eines Jahres mit Strecke je Fahrt, Monatsübersicht und Jahressumme |
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |

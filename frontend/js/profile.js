@@ -164,6 +164,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch { alert("Netzwerkfehler."); }
   });
 
+  // ──────────────────────────────────────────────────────────
+  // Sicherung
+  // ──────────────────────────────────────────────────────────
+  const sicherungAlert = (text, typ) => {
+    const box = document.getElementById("sicherungAlert");
+    box.className   = `alert alert-${typ}`;
+    box.textContent = text;
+  };
+
+  async function zeigeSicherungsStatus() {
+    const status = await ladeSicherungsStatus();
+    if (!status) return;
+    document.getElementById("sicherungTabelle").innerHTML = status.fahrzeuge.length === 0
+      ? `<tr><td colspan="3" class="text-muted">Keine Fahrzeuge vorhanden.</td></tr>`
+      : status.fahrzeuge.map(v => `
+        <tr class="${v.erinnern ? "table-warning" : ""}">
+          <td>${escapeHtml(v.name)}</td>
+          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.erinnern ? ' <span class="badge text-bg-warning">fällig</span>' : ""}</td>
+          <td>${v.aenderungen}</td>
+        </tr>`).join("");
+  }
+
+  document.getElementById("sichernBtn").addEventListener("click", async () => {
+    await sichereAlles();
+    await zeigeSicherungsStatus();
+  });
+
+  document.getElementById("wiederherstellenBtn").addEventListener("click", async () => {
+    const datei = document.getElementById("wiederherstellenDatei").files[0];
+    if (!datei) return sicherungAlert("Bitte eine Sicherungsdatei auswählen.", "warning");
+    try {
+      const ergebnis = await stelleSicherungWiederHer(datei);
+      if (!ergebnis) return;
+      sicherungAlert(`✅ Wiederhergestellt\n${ergebnis.text}`, "success");
+      await zeigeSicherungsStatus();
+    } catch (err) {
+      sicherungAlert(err.message, "danger");
+    }
+  });
+
   // ── Init ──────────────────────────────────────────────────
-  await ladeProfil();
+  await Promise.all([ladeProfil(), zeigeSicherungsStatus()]);
 });

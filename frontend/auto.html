@@ -181,39 +181,18 @@
     </div>
   </div>
 
-  <!-- Export / Import -->
+  <!-- Sicherung dieses Fahrzeugs -->
   <div class="card shadow-sm mb-4">
-    <div class="card-header"><span class="mdi mdi-swap-vertical me-2"></span>Export / Import</div>
+    <div class="card-header"><span class="mdi mdi-backup-restore me-2"></span>Sicherung dieses Fahrzeugs</div>
     <div class="card-body">
-      <div id="importAlert" class="alert d-none"></div>
-      <div class="row g-4">
-        <div class="col-md-5">
-          <h6>Export</h6>
-          <p class="small text-muted">Alle Daten des aktiven Fahrzeugs als JSON-Datei: Fahrzeugdaten, Jahreskosten,
-            Fahrten und das vollständige Änderungsprotokoll.</p>
-          <button class="btn btn-sm btn-outline-primary" id="exportBtn">
-            <span class="mdi mdi-download me-1"></span>Fahrzeug exportieren
-          </button>
-        </div>
-        <div class="col-md-7">
-          <h6>Import</h6>
-          <input type="file" id="importDatei" class="form-control form-control-sm mb-2" accept=".json,application/json">
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="importModus" id="importNeu" value="neu" checked>
-            <label class="form-check-label small" for="importNeu">Als neues Fahrzeug anlegen</label>
-          </div>
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="radio" name="importModus" id="importZusammen" value="zusammen">
-            <label class="form-check-label small" for="importZusammen">
-              In das aktive Fahrzeug <strong id="importZielName"></strong> übernehmen
-              <span class="text-muted">(bereits vorhandene Fahrten werden übersprungen)</span>
-            </label>
-          </div>
-          <button class="btn btn-sm btn-primary" id="importBtn">
-            <span class="mdi mdi-upload me-1"></span>Importieren
-          </button>
-          <p class="small text-muted mt-2 mb-0">Importierte Fahrten sind im Änderungsprotokoll als „importiert“ gekennzeichnet.</p>
-        </div>
+      <div id="importAlert" class="alert d-none" style="white-space: pre-line"></div>
+      <p class="small text-muted">Fahrzeugdaten, Jahreskosten, Fahrten und Änderungsprotokoll als JSON-Datei.
+        Beim Wiederherstellen wird nur Fehlendes ergänzt; ein gelöschtes Fahrzeug wird mit seinem Code neu angelegt.
+        Alle Fahrzeuge auf einmal sicherst du unter <a href="profile.html#sicherung">Profil → Konto</a>.</p>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <button class="btn btn-sm btn-primary" id="exportBtn"><span class="mdi mdi-download me-1"></span>Fahrzeug sichern</button>
+        <input type="file" id="importDatei" class="form-control form-control-sm w-auto" accept=".json,application/json">
+        <button class="btn btn-sm btn-outline-primary" id="importBtn"><span class="mdi mdi-upload me-1"></span>Wiederherstellen</button>
       </div>
     </div>
   </div>
@@ -258,6 +237,7 @@
 <script src="js/fahrzeug.js"></script>
 <script src="js/offline.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<script src="js/sicherung.js"></script>
 <script src="js/auto.js"></script>
 
 <footer class="bg-dark text-light mt-5">

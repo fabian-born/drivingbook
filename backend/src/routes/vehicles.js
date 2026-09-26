@@ -8,10 +8,9 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { steuerVergleich } from "../lib/steuer.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { pruefeJahr } from "../lib/pruefung.js";
-import { exportiereFahrzeug, importiereFahrzeug } from "../lib/fahrzeugexport.js";
-import { vehicleIdByCode } from "../lib/vehicles.js";
+import { sichereFahrzeug, stelleFahrzeugWiederHer } from "../lib/sicherung.js";
 import { withTransaction } from "../db.js";
-import { idParam, importBody, importQuery, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
+import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
                         list_price::float8 AS list_price, drive_type`;
@@ -92,31 +91,27 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     });
   }));
 
-  // GET /api/vehicles/:id/export  →  Alle Daten des Fahrzeugs als JSON-Datei
+  // GET /api/vehicles/:id/export  →  Sicherung aller Daten des Fahrzeugs (JSON-Datei)
   router.get("/vehicles/:id/export", requireAuth, asyncHandler(async (req, res) => {
     const { id } = parse(idParam, req.params);
-    const daten = await exportiereFahrzeug(pool, req.userId, id);
+    const daten = await sichereFahrzeug(pool, req.userId, id);
     if (!daten) {
       throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
     }
-    const datum = daten.exportiert_am.slice(0, 10);
-    res.attachment(`fahrzeug_${daten.fahrzeug.code}_${datum}.json`);
+    res.attachment(`fahrzeug_${daten.fahrzeug.code}_${daten.erstellt_am.slice(0, 10)}.json`);
     return res.json(daten);
   }));
 
-  // POST /api/vehicles/import[?vehicle=CODE]  →  Exportdatei einspielen
-  // Ohne vehicle: als neues Fahrzeug; mit vehicle: in dieses Fahrzeug übernehmen
-  // (gleiche Fahrten – Zeitpunkt + km-Stand – werden übersprungen)
+  // POST /api/vehicles/import  →  Fahrzeug-Sicherung wiederherstellen (ergänzt nur)
+  // Fahrzeug mit gleichem Code wird ergänzt, sonst neu angelegt
   router.post("/vehicles/import", requireAuth, express.json({ limit: "25mb" }), asyncHandler(async (req, res) => {
-    const { vehicle } = parse(importQuery, req.query);
     const daten = parse(importBody, req.body);
-    const zielId = vehicle ? await vehicleIdByCode(pool, req.userId, vehicle) : null;
-
-    const ergebnis = await withTransaction(pool, client => importiereFahrzeug(client, req.userId, daten, zielId));
+    const ergebnis = await withTransaction(pool, client => stelleFahrzeugWiederHer(client, req.userId, daten));
     const fahrzeug = (await pool.query(`SELECT ${VEHICLE_FIELDS} FROM vehicles WHERE id = $1`, [ergebnis.vehicle_id])).rows[0];
 
-    console.log(`📥 Import für User ${req.userId}: ${ergebnis.importiert.fahrten} Fahrten → Fahrzeug ${fahrzeug.code}`);
-    return res.status(zielId ? 200 : 201).json({ vehicle: fahrzeug, importiert: ergebnis.importiert });
+    console.log(`📥 Wiederherstellung für User ${req.userId}: ${ergebnis.fahrten} Fahrten → Fahrzeug ${fahrzeug.code}`);
+    const { vehicle_id, neu, ...importiert } = ergebnis;
+    return res.status(neu ? 201 : 200).json({ vehicle: fahrzeug, neu, importiert });
   }));
 
   // GET /api/vehicles/:id/pruefung?year=YYYY  →  Ampel + Auffälligkeiten eines Jahres

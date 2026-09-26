@@ -552,13 +552,8 @@ function historyButton(f) {
 
 const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
 const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
-const QUELLEN     = { web: "Web", api_token: "API-Token", import: "Import" };
-
-// "import:web" → "Web (importiert)"
-function quelleText(quelle) {
-  if (quelle?.startsWith("import:")) return `${quelleText(quelle.slice(7))} (importiert)`;
-  return QUELLEN[quelle] || quelle;
-}
+const QUELLEN     = { web: "Web", api_token: "API-Token" };
+const quelleText  = quelle => QUELLEN[quelle] || quelle;
 
 function formatWert(feld, wert) {
   if (wert == null) return "–";
