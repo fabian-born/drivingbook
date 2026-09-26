@@ -5,7 +5,7 @@ let chartInstanzHistory = null;
 
 async function ladeHistoryDashboard(jahr) {
   const ziel = document.getElementById("historyContent");
-  document.getElementById("printHeadline").textContent = `Fahrtenbuch – Jahreshistorie ${jahr}`;
+  document.getElementById("printHeadline").textContent = t("history.printHeadline", { year: jahr });
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
 
   let daten = { months: [], totals: { total: 0, trips: 0 } };
@@ -22,9 +22,9 @@ async function ladeHistoryDashboard(jahr) {
   chartInstanzHistory = zeigeJahresauswertung(ziel, {
     jahr, monate, summe, alterChart: chartInstanzHistory,
     kacheln: [
-      { label: `Gesamt ${jahr}`, wert: kmText(summe.total), hinweis: `${zahl(summe.trips)} Fahrten` },
-      { label: "Ø pro Monat", wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0) },
-      { label: "Aktive Monate", wert: `${monate.length} / 12` },
+      { label: t("history.total", { year: jahr }), wert: kmText(summe.total), hinweis: t("history.trips", { count: summe.trips, n: zahl(summe.trips) }) },
+      { label: t("history.perMonth"), wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0) },
+      { label: t("history.activeMonths"), wert: `${monate.length} / 12` },
     ],
   });
 }
@@ -63,7 +63,7 @@ function initHistory() {
     ladeHistoryDashboard(jahrSelect.value);
   } else {
     document.getElementById("historyContent").innerHTML = `
-      <div class="alert alert-warning">Keine vergangenen Jahre verfügbar (START_JAHR = ${START_JAHR}).</div>`;
+      <div class="alert alert-warning">${tHtml("history.noYears", { start: START_JAHR })}</div>`;
   }
 }
 

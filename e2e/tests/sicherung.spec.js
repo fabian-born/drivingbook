@@ -25,7 +25,7 @@ test("Fahrzeug sichern, löschen und mit gleichem Code wiederherstellen", async 
   page.on("dialog", d => d.accept());
   await page.locator("#vehicleTabelle tr", { hasText: "Passat" }).locator(".delete-vehicle-btn").click();
   await expect(page.locator("#loeschenModal")).toBeVisible();
-  await expect(page.locator("#loeschenText")).toContainText("2 Fahrt(en)");
+  await expect(page.locator("#loeschenText")).toContainText("2 Fahrten");
   await Promise.all([page.waitForEvent("load"), page.click("#loeschenBestaetigen")]);
   await expect(page.locator("#autoName")).toHaveText("Polo");
   await expect(page.locator("#kzFahrten")).toHaveText("2");

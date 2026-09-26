@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-  <title>Admin – Fahrtenbuch</title>
+  <title data-i18n="admin.pageTitle">Admin – Fahrtenbuch</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#212529">
   <script src="js/theme.js"></script>
@@ -22,20 +22,20 @@
 <script src="js/nav.js"></script>
 
 <div class="container py-5 flex-fill" style="max-width: 800px;">
-  <h2 class="mb-1">🛠️ Admin-Panel</h2>
-  <p class="text-muted mb-4">Benutzerverwaltung &amp; Wartung</p>
+  <h2 class="mb-1" data-i18n="admin.title">🛠️ Admin-Panel</h2>
+  <p class="text-muted mb-4" data-i18n="admin.subtitle">Benutzerverwaltung &amp; Wartung</p>
 
   <div id="adminAlert" class="d-none mb-3"></div>
-  <div id="adminNoAccess" class="alert alert-danger d-none">
+  <div id="adminNoAccess" class="alert alert-danger d-none" data-i18n="admin.noAccess">
     ⛔ Kein Zugriff – nur für Administratoren.
   </div>
 
   <!-- ── User-Tabelle ─────────────────────────────────────── -->
   <div class="card shadow-sm mb-4" id="adminPanel">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span><span class="mdi mdi-account-group me-1"></span>Alle Benutzer</span>
+      <span><span class="mdi mdi-account-group me-1"></span><span data-i18n="admin.users.title">Alle Benutzer</span></span>
       <button class="btn btn-sm btn-outline-primary" id="btnNeuerUser">
-        <span class="mdi mdi-account-plus me-1"></span>Neuer Benutzer
+        <span class="mdi mdi-account-plus me-1"></span><span data-i18n="admin.users.new">Neuer Benutzer</span>
       </button>
     </div>
     <div class="card-body p-0 table-responsive">
@@ -43,13 +43,13 @@
         <thead class="table-dark">
           <tr>
             <th class="d-none d-sm-table-cell">#</th>
-            <th>Benutzername</th>
-            <th>Rolle</th>
-            <th>Erstellt</th>
+            <th data-i18n="login.username">Benutzername</th>
+            <th data-i18n="admin.users.role">Rolle</th>
+            <th data-i18n="admin.users.created">Erstellt</th>
           </tr>
         </thead>
         <tbody id="userTabelle">
-          <tr><td colspan="4" class="text-muted p-3">Lade…</td></tr>
+          <tr><td colspan="4" class="text-muted p-3" data-i18n="admin.users.loading">Lade…</td></tr>
         </tbody>
       </table>
     </div>
@@ -58,27 +58,27 @@
   <!-- ── Datenbank aufräumen ──────────────────────────────── -->
   <div class="card shadow-sm mb-4" id="aufraeumenPanel">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span><span class="mdi mdi-broom me-1"></span>Datenbank aufräumen</span>
+      <span><span class="mdi mdi-broom me-1"></span><span data-i18n="admin.cleanup.title">Datenbank aufräumen</span></span>
       <button class="btn btn-sm btn-outline-primary" id="btnPruefen">
-        <span class="mdi mdi-magnify me-1"></span>Prüfen
+        <span class="mdi mdi-magnify me-1"></span><span data-i18n="admin.cleanup.check">Prüfen</span>
       </button>
     </div>
     <div class="card-body">
       <div id="aufraeumenAlert" class="d-none mb-3"></div>
-      <p class="small text-muted mb-0" id="aufraeumenStart">
+      <p class="small text-muted mb-0" id="aufraeumenStart" data-i18n="admin.cleanup.intro">
         Sucht in allen Konten nach doppelten Fahrten und nach Fahrten, die keinem Fahrzeug zugeordnet sind.
         Jede Änderung wird im Änderungsprotokoll des Benutzers mit Quelle „Admin“ festgehalten.
       </p>
 
       <div id="aufraeumenErgebnis" class="d-none">
-        <h6 class="mt-1">Doppelte Fahrten <span class="badge text-bg-secondary" id="duplikatAnzahl">0</span></h6>
+        <h6 class="mt-1"><span data-i18n="admin.cleanup.duplicates">Doppelte Fahrten</span> <span class="badge text-bg-secondary" id="duplikatAnzahl">0</span></h6>
         <p class="small text-muted" id="duplikatRegel"></p>
         <div id="duplikatListe"></div>
         <button class="btn btn-sm btn-danger mt-2 d-none" id="btnDuplikateLoeschen">
-          <span class="mdi mdi-delete me-1"></span>Ausgewählte Duplikate löschen
+          <span class="mdi mdi-delete me-1"></span><span data-i18n="admin.cleanup.deleteSelected">Ausgewählte Duplikate löschen</span>
         </button>
 
-        <h6 class="mt-4">Fahrten ohne Fahrzeug <span class="badge text-bg-secondary" id="ohneAnzahl">0</span></h6>
+        <h6 class="mt-4"><span data-i18n="admin.cleanup.unassigned">Fahrten ohne Fahrzeug</span> <span class="badge text-bg-secondary" id="ohneAnzahl">0</span></h6>
         <div id="ohneListe"></div>
       </div>
     </div>
@@ -90,37 +90,37 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Neuen Benutzer anlegen</h5>
+        <h5 class="modal-title" data-i18n="admin.modal.title">Neuen Benutzer anlegen</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="userModalAlert" class="d-none mb-3"></div>
         <div class="mb-3">
-          <label class="form-label">Benutzername</label>
+          <label class="form-label" data-i18n="login.username">Benutzername</label>
           <input type="text" id="newUsername" class="form-control">
         </div>
         <div class="mb-3">
-          <label class="form-label">Passwort <span class="text-muted small">(mind. 8 Zeichen)</span></label>
+          <label class="form-label"><span data-i18n="login.password">Passwort</span> <span class="text-muted small" data-i18n="admin.modal.minLength">(mind. 8 Zeichen)</span></label>
           <input type="password" id="newUserPassword" class="form-control">
         </div>
         <div class="mb-3">
-          <label class="form-label">Fahrzeugname <span class="text-muted small">(optional)</span></label>
-          <input type="text" id="newUserVehicle" class="form-control" placeholder="Fahrzeug 1">
+          <label class="form-label"><span data-i18n="admin.modal.vehicleName">Fahrzeugname</span> <span class="text-muted small" data-i18n="register.optional">(optional)</span></label>
+          <input type="text" id="newUserVehicle" class="form-control" placeholder="Fahrzeug 1" data-i18n-attr="placeholder:register.vehicleDefault">
         </div>
         <div class="mb-3">
-          <label class="form-label">Rolle</label>
+          <label class="form-label" data-i18n="admin.users.role">Rolle</label>
           <select id="newUserRole" class="form-select">
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
+            <option value="user" data-i18n="admin.modal.roleUser">User</option>
+            <option value="admin" data-i18n="admin.modal.roleAdmin">Admin</option>
           </select>
         </div>
         <div id="newUserTokenBox" class="d-none">
           <div class="alert alert-warning">
-            <strong>🔑 API-Token (einmalig):</strong>
+            <strong data-i18n="admin.modal.tokenOnce">🔑 API-Token (einmalig):</strong>
             <div class="input-group mt-2">
               <input type="text" id="newUserToken" class="form-control font-monospace" readonly>
               <button class="btn btn-outline-secondary"
-                onclick="navigator.clipboard.writeText(document.getElementById('newUserToken').value).then(()=>alert('Kopiert!'))">
+                onclick="navigator.clipboard.writeText(document.getElementById('newUserToken').value).then(()=>alert(t('admin.modal.copied')))">
                 <span class="mdi mdi-content-copy"></span>
               </button>
             </div>
@@ -128,8 +128,8 @@
         </div>
       </div>
       <div class="modal-footer" id="userModalFooter">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-        <button type="button" class="btn btn-primary" id="btnUserSpeichern">Anlegen</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="admin.modal.cancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="btnUserSpeichern" data-i18n="admin.modal.create">Anlegen</button>
       </div>
     </div>
   </div>

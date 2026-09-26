@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-<title>Neue Fahrt – Fahrtenbuch</title>
+<title data-i18n="driving.pageTitle">Neue Fahrt – Fahrtenbuch</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#212529">
 <script src="js/theme.js"></script>
@@ -56,15 +56,15 @@
 
   <div id="offlineHinweis" class="d-none">
     <div class="alert alert-info d-flex flex-wrap gap-2 justify-content-between align-items-center">
-      <span><span class="mdi mdi-cloud-off-outline me-1"></span><span id="offlineAnzahl"></span> auf die Übertragung.</span>
-      <button class="btn btn-sm btn-primary" type="button" id="syncJetzt">Jetzt senden</button>
+      <span><span class="mdi mdi-cloud-off-outline me-1"></span><span id="offlineAnzahl"></span></span>
+      <button class="btn btn-sm btn-primary" type="button" id="syncJetzt" data-i18n="driving.sendNow">Jetzt senden</button>
     </div>
   </div>
 
   <div id="offlineFehler" class="d-none mb-3">
     <div class="alert alert-danger mb-0">
-      <strong><span class="mdi mdi-alert-outline me-1"></span>Nicht übertragene Fahrten</strong>
-      <p class="small mb-2">Diese offline erfassten Fahrten konnten nicht gespeichert werden.</p>
+      <strong><span class="mdi mdi-alert-outline me-1"></span><span data-i18n="driving.failedTitle">Nicht übertragene Fahrten</span></strong>
+      <p class="small mb-2" data-i18n="driving.failedHint">Diese offline erfassten Fahrten konnten nicht gespeichert werden.</p>
       <ul class="list-unstyled mb-0 d-grid gap-2" id="offlineFehlerListe"></ul>
     </div>
   </div>
@@ -76,7 +76,7 @@
       <span class="mdi mdi-car" aria-hidden="true"></span>
       <div class="flex-grow-1 min-w-0">
         <div class="d-flex flex-wrap align-items-center gap-2">
-          <strong class="text-truncate" id="fahrzeugName">Fahrzeug</strong>
+          <strong class="text-truncate" id="fahrzeugName" data-i18n="driving.vehicle">Fahrzeug</strong>
           <span class="kennzeichen d-none" id="fahrzeugKennzeichen"></span>
         </div>
         <div class="small text-white-50" id="letzterStand">&nbsp;</div>
@@ -88,7 +88,7 @@
 
       <!-- km-Stand -->
       <div class="mb-3">
-        <label for="kmstand" class="form-label fw-semibold">Kilometerstand</label>
+        <label for="kmstand" class="form-label fw-semibold" data-i18n="driving.odometer">Kilometerstand</label>
         <div class="input-group input-group-lg">
           <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" class="form-control" id="kmstand"
             placeholder="0" autocomplete="off" aria-describedby="kmHinweis" required>
@@ -99,12 +99,13 @@
 
       <!-- Ziel -->
       <div class="mb-4">
-        <label for="ziel" class="form-label fw-semibold">Ziel / Kunde</label>
+        <label for="ziel" class="form-label fw-semibold" data-i18n="driving.destination">Ziel / Kunde</label>
         <div class="input-group input-group-lg">
-          <input type="text" class="form-control" id="ziel" placeholder="Adresse oder Kunde"
+          <input type="text" class="form-control" id="ziel" placeholder="Adresse oder Kunde" data-i18n-attr="placeholder:driving.destinationPlaceholder"
             autocomplete="off" enterkeyhint="done" maxlength="500" required>
           <button class="btn btn-outline-secondary btn-standort" type="button" id="standortBtn"
-            title="Aktuellen Standort übernehmen" aria-label="Aktuellen Standort übernehmen">
+            title="Aktuellen Standort übernehmen" aria-label="Aktuellen Standort übernehmen"
+            data-i18n-attr="title:driving.useLocation;aria-label:driving.useLocation">
             <span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>
           </button>
         </div>
@@ -112,25 +113,25 @@
 
       <!-- Fahrtart -->
       <fieldset class="mb-4">
-        <legend class="form-label fw-semibold fs-6">Fahrtart</legend>
+        <legend class="form-label fw-semibold fs-6" data-i18n="driving.tripType">Fahrtart</legend>
         <div class="row g-2">
           <div class="col-4">
             <input type="radio" class="btn-check" name="fahrtart" id="geschaeftlich" value="business" checked>
             <label class="btn btn-outline-primary w-100 fahrtart-kachel" for="geschaeftlich">
-              <span class="mdi mdi-briefcase-outline" aria-hidden="true"></span>Geschäftlich
+              <span class="mdi mdi-briefcase-outline" aria-hidden="true"></span><span data-i18n="tripType.business">Geschäftlich</span>
             </label>
           </div>
           <div class="col-4">
             <input type="radio" class="btn-check" name="fahrtart" id="privat" value="private">
             <label class="btn btn-outline-success w-100 fahrtart-kachel" for="privat">
-              <span class="mdi mdi-home-outline" aria-hidden="true"></span>Privat
+              <span class="mdi mdi-home-outline" aria-hidden="true"></span><span data-i18n="tripType.private">Privat</span>
             </label>
           </div>
           <div class="col-4">
             <input type="radio" class="btn-check" name="fahrtart" id="arbeitsweg" value="commute">
             <label class="btn btn-outline-warning w-100 fahrtart-kachel text-body" for="arbeitsweg"
-              title="Fahrt zwischen Wohnung und Arbeitsstätte">
-              <span class="mdi mdi-office-building-outline" aria-hidden="true"></span>Arbeitsweg
+              title="Fahrt zwischen Wohnung und Arbeitsstätte" data-i18n-attr="title:driving.commuteHint">
+              <span class="mdi mdi-office-building-outline" aria-hidden="true"></span><span data-i18n="tripType.commute">Arbeitsweg</span>
             </label>
           </div>
         </div>
@@ -138,9 +139,9 @@
 
       <button type="submit" class="btn btn-success btn-lg w-100" id="speichernBtn">
         <span class="spinner-border spinner-border-sm me-2 d-none" id="speichernSpinner" aria-hidden="true"></span>
-        <span class="mdi mdi-check me-1" aria-hidden="true"></span>Fahrt speichern
+        <span class="mdi mdi-check me-1" aria-hidden="true"></span><span data-i18n="driving.save">Fahrt speichern</span>
       </button>
-      <p class="small text-muted text-center mt-3 mb-0">
+      <p class="small text-muted text-center mt-3 mb-0" data-i18n="driving.footerHint">
         Zeitpunkt wird beim Speichern erfasst · Fahrzeug wechselst du oben im Menü
       </p>
     </div>

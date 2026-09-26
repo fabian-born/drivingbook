@@ -12,11 +12,14 @@ document.head.insertAdjacentHTML("beforeend", `<style>
   @media print { .verlauf-druckbild { max-height: 230px; object-fit: contain; } }
 </style>`);
 
-const kmText   = n => `${(n ?? 0).toLocaleString("de-DE")} km`;
-const zahl     = n => (n ?? 0).toLocaleString("de-DE");
-const anteil   = (teil, ganz) => (ganz > 0 ? `${((teil / ganz) * 100).toLocaleString("de-DE", { maximumFractionDigits: 1 })} %` : "–");
-const monatLang = monat => new Date(`${monat}-01T12:00:00`).toLocaleString("de-DE", { month: "long" });
-const monatKurz = monat => new Date(`${monat}-01T12:00:00`).toLocaleString("de-DE", { month: "short" });
+const kmText   = n => `${(n ?? 0).toLocaleString(i18n.locale)} km`;
+const zahl     = n => (n ?? 0).toLocaleString(i18n.locale);
+// „3 Fahrten“ (Zahl formatiert, Einzahl/Mehrzahl über i18n)
+const fahrtenText = n => t("analysis.trips", { count: n ?? 0, n: zahl(n) });
+const anteil   = (teil, ganz) => (ganz > 0 ? `${((teil / ganz) * 100).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })} %` : "–");
+const monatsFormat = art => new Intl.DateTimeFormat(i18n.locale, { month: art });
+const monatLang = monat => monatsFormat("long").format(new Date(`${monat}-01T12:00:00`));
+const monatKurz = monat => monatsFormat("short").format(new Date(`${monat}-01T12:00:00`));
 
 // Aufteilungsbalken: Segmente je Fahrtart mit 2px Lücke (Farbe nie allein – Legende daneben)
 function aufteilungsBalken(werte, { hoehe = 10 } = {}) {
@@ -70,8 +73,8 @@ function monatsTabelle(monate) {
     <div class="table-responsive">
       <table class="table table-sm table-striped align-middle mb-0 monats-tabelle">
         <thead class="table-dark">
-          <tr><th>Monat</th><th class="text-end">Start km</th><th class="text-end">End km</th>
-              <th class="text-end">Gefahren</th>${kopf}<th class="text-end">Fahrten</th></tr>
+          <tr><th>${t("analysis.col.month")}</th><th class="text-end">${t("analysis.col.startKm")}</th><th class="text-end">${t("analysis.col.endKm")}</th>
+              <th class="text-end">${t("analysis.col.driven")}</th>${kopf}<th class="text-end">${t("analysis.col.trips")}</th></tr>
         </thead>
         <tbody>${zeilen}</tbody>
       </table>
@@ -89,7 +92,7 @@ function monatsKarten(monate) {
       <div class="d-flex flex-wrap column-gap-3 row-gap-1 small">
         ${FAHRTARTEN.map(a => `<span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(m[a.key])}</span>`).join("")}
       </div>
-      <div class="small text-muted mt-1">${zahl(m.start_km)} → ${zahl(m.end_km)} km · ${zahl(m.trips)} Fahrt${m.trips === 1 ? "" : "en"}</div>
+      <div class="small text-muted mt-1">${zahl(m.start_km)} → ${zahl(m.end_km)} km · ${escapeHtml(fahrtenText(m.trips))}</div>
     </div>`).join("")}</div>`;
 }
 
@@ -151,7 +154,7 @@ function zeichneVerlauf(canvas, monate) {
         tooltip: {
           callbacks: {
             label:  ctx => ` ${ctx.dataset.label}: ${kmText(ctx.parsed.y)}`,
-            footer: items => `Gesamt: ${kmText(items.reduce((n, i) => n + i.parsed.y, 0))}`,
+            footer: items => t("analysis.total", { km: kmText(items.reduce((n, i) => n + i.parsed.y, 0)) }),
           },
         },
       },
@@ -172,7 +175,7 @@ function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart 
   alterChart?.destroy();
 
   if (monate.length === 0) {
-    ziel.innerHTML = `<div class="alert alert-info">Keine Fahrten im Jahr <strong>${escapeHtml(jahr)}</strong> vorhanden.</div>`;
+    ziel.innerHTML = `<div class="alert alert-info">${tHtml("analysis.noTrips", { year: jahr })}</div>`;
     return null;
   }
 
@@ -183,7 +186,7 @@ function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart 
       <div class="col-lg-4">
         <div class="card shadow-sm border-0 h-100">
           <div class="card-body">
-            <h2 class="h6 mb-3">Aufteilung ${escapeHtml(jahr)}</h2>
+            <h2 class="h6 mb-3">${tHtml("analysis.split", { year: jahr })}</h2>
             ${aufteilungsBalken(summe, { hoehe: 14 })}
             <div class="d-grid gap-2 mt-3">${aufteilungsLegende(summe)}</div>
           </div>
@@ -192,8 +195,8 @@ function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart 
       <div class="col-lg-8">
         <div class="card shadow-sm border-0 h-100">
           <div class="card-body">
-            <h2 class="h6 mb-2">Gefahrene km je Monat</h2>
-            <div class="verlauf-diagramm d-print-none"><canvas aria-label="Gefahrene km je Monat nach Fahrtart" role="img"></canvas></div>
+            <h2 class="h6 mb-2">${t("analysis.kmPerMonth")}</h2>
+            <div class="verlauf-diagramm d-print-none"><canvas aria-label="${escapeHtml(t("analysis.kmPerMonthAria"))}" role="img"></canvas></div>
             <img class="verlauf-druckbild d-none d-print-block w-100" alt="">
           </div>
         </div>
@@ -201,7 +204,7 @@ function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart 
     </div>
 
     <div class="card shadow-sm border-0">
-      <div class="card-body pb-0"><h2 class="h6 mb-2">Monatsübersicht</h2></div>
+      <div class="card-body pb-0"><h2 class="h6 mb-2">${t("analysis.monthlyOverview")}</h2></div>
       <div class="d-none d-md-block d-print-block">${monatsTabelle(monate)}</div>
       <div class="d-md-none d-print-none">${monatsKarten([...monate].reverse())}</div>
     </div>`;

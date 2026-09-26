@@ -54,13 +54,13 @@ async function fuelleMonateMitCheck() {
   try {
     await ladeJahr();
   } catch {
-    setLeer("Fehler beim Laden");
+    setLeer(t("view.loadError"));
     return;
   }
 
   const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
-  const monatsname = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString("de-DE", { month: "short" });
-  monatSelect.innerHTML = `<option value="alle">Alle</option>` +
+  const monatsname = mm => new Date(2000, Number(mm) - 1, 1).toLocaleString(i18n.locale, { month: "short" });
+  monatSelect.innerHTML = `<option value="alle">${t("view.all")}</option>` +
     Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))
       .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${monatsname(mm)}</option>`)
       .join("");
@@ -75,7 +75,7 @@ async function fuelleMonateMitCheck() {
     zeigeAuswahl();
   } else {
     aktuelleFahrten = [];
-    setLeer("Keine Daten für dieses Jahr");
+    setLeer(t("view.noDataThisYear"));
   }
 }
 
@@ -88,7 +88,7 @@ function zeigeAuswahl() {
     : jahresFahrten.filter(f => f.month === `${jahrSelect.value}-${monat}`);
 
   if (aktuelleFahrten.length === 0) {
-    setLeer(jahresansicht ? `Keine Daten für ${jahrSelect.value} vorhanden` : "Keine Daten vorhanden");
+    setLeer(jahresansicht ? t("view.noDataForYear", { year: jahrSelect.value }) : t("view.noData"));
     return;
   }
   renderAll();
@@ -100,7 +100,7 @@ async function ladeFahrten() {
   try {
     await ladeJahr();
   } catch {
-    setLeer("Fehler beim Laden");
+    setLeer(t("view.loadError"));
     return;
   }
   // Monate mit neuen Fahrten freischalten, Auswahl bleibt
@@ -153,7 +153,7 @@ function renderTabelle() {
       </td>
       <td class="text-center text-nowrap">
         ${historyButton(f)}
-        <button class="btn btn-sm btn-outline-danger delete-btn" data-index="${i}" title="Löschen">
+        <button class="btn btn-sm btn-outline-danger delete-btn" data-index="${i}" title="${t("view.delete.button")}">
           <span class="mdi mdi-delete"></span>
         </button>
       </td>`;
@@ -191,7 +191,7 @@ function renderTabelleJahresansicht() {
       <td>${diff >= 0 ? diff : "–"}</td>
       <td>${escapeHtml(f.destination)}</td>
       <td>${fahrtartBadge(f.trip_type)}</td>
-      <td>${new Date(f.timestamp).toLocaleString("de-DE")}</td>
+      <td>${new Date(f.timestamp).toLocaleString(i18n.locale)}</td>
       <td class="text-center">${historyButton(f)}</td>`;
     tbody.appendChild(tr);
   });
@@ -238,7 +238,7 @@ function renderCardsJahresansicht() {
 }
 
 function buildCard(f, i, diff, readonly, nr) {
-  const zeitpunkt = new Date(f.timestamp).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  const zeitpunkt = new Date(f.timestamp).toLocaleString(i18n.locale, { dateStyle: "medium", timeStyle: "short" });
   const strecke   = f.distance == null ? "" : `+${zahl(Math.max(diff, 0))} km`;
 
   const div = document.createElement("div");
@@ -263,27 +263,27 @@ function buildCard(f, i, diff, readonly, nr) {
   } else {
     div.innerHTML = `
       <div class="d-flex align-items-center gap-2 mb-2">
-        <input type="datetime-local" class="form-control card-timestamp" aria-label="Zeitpunkt"
+        <input type="datetime-local" class="form-control card-timestamp" aria-label="${t("view.col.time")}"
           data-index="${i}" value="${toDatetimeLocal(f.timestamp)}">
-        <button class="btn btn-outline-danger btn-icon delete-btn" data-index="${i}" title="Fahrt löschen" aria-label="Fahrt löschen">
+        <button class="btn btn-outline-danger btn-icon delete-btn" data-index="${i}" title="${t("view.delete.title")}" aria-label="${t("view.delete.title")}">
           <span class="mdi mdi-delete"></span>
         </button>
       </div>
 
       <div class="d-flex align-items-center gap-2 mb-2">
         <div class="input-group km-feld">
-          <input type="number" inputmode="numeric" class="form-control card-field-km" aria-label="km-Stand"
+          <input type="number" inputmode="numeric" class="form-control card-field-km" aria-label="${t("view.odometer")}"
             data-index="${i}" data-field="odometer_km" value="${escapeHtml(f.odometer_km)}">
           <span class="input-group-text">km</span>
         </div>
         <span class="strecke">${strecke}</span>
       </div>
 
-      <input type="text" class="form-control mb-2 card-field-ziel" aria-label="Ziel / Kunde"
+      <input type="text" class="form-control mb-2 card-field-ziel" aria-label="${t("view.col.destination")}"
         data-index="${i}" data-field="destination" value="${escapeHtml(f.destination)}">
 
       <div class="d-flex align-items-center gap-2">
-        <select class="form-select card-fahrtart" data-index="${i}" aria-label="Fahrtart">
+        <select class="form-select card-fahrtart" data-index="${i}" aria-label="${t("view.tripType")}">
           ${fahrtartOptionen(f.trip_type)}
         </select>
         <span class="card-meta">#${i + 1}</span>${historyButton(f)}
@@ -306,10 +306,10 @@ function renderSumme() {
   const gesamt = FAHRTARTEN.reduce((n, a) => n + summe[a.key], 0);
 
   document.getElementById("auswahlTitel").textContent = jahresansicht
-    ? `Jahr ${jahrSelect.value}`
+    ? t("analysis.year", { year: jahrSelect.value })
     : formatMonat(`${jahrSelect.value}-${monatSelect.value}`);
   document.getElementById("auswahlKm").textContent      = kmText(gesamt);
-  document.getElementById("auswahlFahrten").textContent = `· ${fahrten.length} Fahrt${fahrten.length === 1 ? "" : "en"}`;
+  document.getElementById("auswahlFahrten").textContent = `· ${t("analysis.trips", { count: fahrten.length, n: fahrten.length })}`;
   document.getElementById("auswahlBalken").innerHTML    = aufteilungsBalken(summe, { hoehe: 8 });
   document.getElementById("auswahlLegende").innerHTML   = FAHRTARTEN.map(a => `
     <span class="text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:8px;height:8px;background:${a.chart}"></span>${a.label} ${zahl(summe[a.key])} km</span>`).join("");
@@ -423,7 +423,7 @@ async function handleTimestampChange(index, localVal) {
   if (neuerMonthKey !== alterMonthKey) {
     // Fahrt gehört jetzt zu einem anderen Monat → Jahresdaten und Strecken neu laden
     await ladeFahrten();
-    zeigeHinweis(`Fahrt wurde nach ${neuerMonthKey} verschoben.`, "info");
+    zeigeHinweis(t("view.moved", { month: neuerMonthKey }), "info");
   }
 }
 
@@ -443,31 +443,31 @@ async function speichereFahrt(index, aenderungen) {
     // km-Stand passt nicht zu den Nachbarfahrten → nachfragen und ggf. erzwingen
     if (res.status === 409) {
       const err = await res.json().catch(() => ({}));
-      if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\nTrotzdem speichern?`)) {
+      if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\n${t("offline.saveAnyway")}`)) {
         res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body: { ...body, force: true } });
       } else {
-        zeigeHinweis(`Nicht gespeichert: ${err.error || res.status}`, "warning");
+        zeigeHinweis(t("view.notSaved", { error: err.error || res.status }), "warning");
         ladeFahrten();  // Anzeige auf gespeicherten Stand zurücksetzen
         return false;
       }
     }
 
     if (!res.ok) {
-      zeigeHinweis(`Fehler beim Speichern: ${await apiError(res)}`, "danger");
+      zeigeHinweis(`${t("common.saveError")}: ${await apiError(res)}`, "danger");
       return false;
     }
     fahrt.edited = true;
     return true;
   } catch (err) {
     console.error("Speicherfehler:", err);
-    zeigeHinweis("Fehler beim Speichern.", "danger");
+    zeigeHinweis(`${t("common.saveError")}.`, "danger");
     return false;
   }
 }
 
 function zeigeLoeschModal(index) {
   const fahrt    = aktuelleFahrten[index];
-  const zeitpunkt = new Date(fahrt.timestamp).toLocaleString("de-DE");
+  const zeitpunkt = new Date(fahrt.timestamp).toLocaleString(i18n.locale);
 
   document.getElementById("confirmDeleteInfo").textContent =
     `#${parseInt(index) + 1} · ${fahrt.odometer_km} km · ${fahrt.destination} · ${fahrt.trip_type} · ${zeitpunkt}`;
@@ -486,10 +486,10 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
       await ladeFahrten();  // Strecke der Folgefahrt ändert sich mit
     } else {
-      alert("Fehler beim Löschen!");
+      alert(t("view.deleteError"));
     }
   } catch (err) {
-    alert("Fehler beim Löschen!");
+    alert(t("view.deleteError"));
   }
 });
 
@@ -513,10 +513,10 @@ function monthKeyFromISO(isoString) {
 function formatMonat(monthKey) {
   if (!monthKey) return monthKey;
   const [y, m] = monthKey.split("-");
-  return new Date(y, parseInt(m) - 1).toLocaleString("de-DE", { month: "long", year: "numeric" });
+  return new Date(y, parseInt(m) - 1).toLocaleString(i18n.locale, { month: "long", year: "numeric" });
 }
 
-function setLaden(text = "Lade Daten...") {
+function setLaden(text = t("view.loading")) {
   tbody.innerHTML   = `<tr><td colspan="7">${escapeHtml(text)}</td></tr>`;
   cardList.innerHTML = `<p class="text-muted small">${escapeHtml(text)}</p>`;
 }
@@ -549,11 +549,11 @@ function zeigeHinweis(text, typ = "info") {
 fahrtartFilter.addEventListener("change", renderAll);
 
 csvExportBtn?.addEventListener("click", () => {
-  downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `fahrten_${jahrSelect.value}.csv`);
+  downloadDatei(mitFahrzeug(`/api/export/csv/year/${jahrSelect.value}`), `${t("view.fileCsv")}_${jahrSelect.value}.csv`);
 });
 
 document.getElementById("pdfExportYear")?.addEventListener("click", () => {
-  downloadDatei(mitFahrzeug(`/api/export/pdf/year/${jahrSelect.value}`), `fahrtenbuch_${jahrSelect.value}.pdf`);
+  downloadDatei(mitFahrzeug(`/api/export/pdf/year/${jahrSelect.value}`), `${t("view.filePdf")}_${jahrSelect.value}.pdf`);
 });
 
 let startX = 0;
@@ -585,22 +585,23 @@ monatSelect.addEventListener("change", zeigeAuswahl);
 function historyButton(f) {
   if (!f.edited) return "";
   return `<button class="btn btn-sm btn-outline-secondary history-btn" data-id="${escapeHtml(f.id)}"
-            title="Nachträglich geändert – Verlauf anzeigen">
+            title="${t("view.history.button")}">
             <span class="mdi mdi-history"></span>
           </button>`;
 }
 
-const FELD_LABELS = { odometer_km: "km-Stand", destination: "Ziel", trip_type: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
-const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
-const QUELLEN     = { web: "Web", api_token: "API-Token", admin: "Admin" };
+const FELD_LABELS = { odometer_km: t("view.odometer"), destination: t("view.field.destination"), trip_type: t("view.tripType"),
+                      timestamp: t("view.col.time"), vehicle_id: t("view.field.vehicle") };
+const AKTIONEN    = { create: t("view.action.create"), update: t("view.action.update"), delete: t("view.action.delete") };
+const QUELLEN     = { web: "Web", api_token: t("view.source.apiToken"), admin: t("nav.admin") };
 const quelleText  = quelle => QUELLEN[quelle] || quelle;
 
 function formatWert(feld, wert) {
   if (wert == null) return "–";
-  if (feld === "timestamp")   return new Date(wert).toLocaleString("de-DE");
+  if (feld === "timestamp")   return new Date(wert).toLocaleString(i18n.locale);
   if (feld === "odometer_km") return `${wert} km`;
   if (feld === "trip_type")   return fahrtartInfo(wert).label;
-  if (feld === "vehicle_id")  return vehicleById.get(wert)?.name ?? `Fahrzeug #${wert}`;
+  if (feld === "vehicle_id")  return vehicleById.get(wert)?.name ?? t("view.vehicleNumber", { id: wert });
   return String(wert);
 }
 
@@ -611,7 +612,7 @@ function beschreibeEintrag(e) {
       .filter(f => JSON.stringify(e.old_data?.[f]) !== JSON.stringify(e.new_data?.[f]))
       .map(f => `${FELD_LABELS[f]}: <del>${escapeHtml(formatWert(f, e.old_data?.[f]))}</del>
                  → <strong>${escapeHtml(formatWert(f, e.new_data?.[f]))}</strong>`);
-    return zeilen.length ? zeilen.join("<br>") : "Gespeichert ohne inhaltliche Änderung";
+    return zeilen.length ? zeilen.join("<br>") : escapeHtml(t("view.history.noChange"));
   }
   const d = e.action === "delete" ? e.old_data : e.new_data;
   return escapeHtml(`${formatWert("timestamp", d.timestamp)} · ${formatWert("odometer_km", d.odometer_km)} · ${formatWert("trip_type", d.trip_type)} · ${d.destination}`);
@@ -624,8 +625,8 @@ function zeigeProtokoll(titel, eintraege, leerText) {
     : `<ul class="list-group list-group-flush">${eintraege.map(e => `
         <li class="list-group-item px-0">
           <div class="d-flex justify-content-between small text-muted mb-1">
-            <span>${escapeHtml(new Date(e.changed_at).toLocaleString("de-DE"))} · ${escapeHtml(quelleText(e.source))}</span>
-            <span>${e.trip_id ? `Fahrt-ID ${escapeHtml(e.trip_id)} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
+            <span>${escapeHtml(new Date(e.changed_at).toLocaleString(i18n.locale))} · ${escapeHtml(quelleText(e.source))}</span>
+            <span>${e.trip_id ? `${tHtml("view.tripId", { id: e.trip_id })} · ` : ""}${escapeHtml(AKTIONEN[e.action] || e.action)}</span>
           </div>
           <div class="small">${beschreibeEintrag(e)}</div>
         </li>`).join("")}</ul>`;
@@ -635,15 +636,15 @@ function zeigeProtokoll(titel, eintraege, leerText) {
 async function zeigeVerlauf(id) {
   const res = await apiFetch(`/api/trips/${id}/history`);
   if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
-  zeigeProtokoll("Änderungsverlauf der Fahrt", await res.json(), "Keine Einträge.");
+  zeigeProtokoll(t("view.history.title"), await res.json(), t("view.history.empty"));
 }
 
 document.getElementById("auditYear")?.addEventListener("click", async () => {
   const jahr = jahrSelect.value;
   const res  = await apiFetch(mitFahrzeug(`/api/audit?year=${jahr}`));
   if (!res.ok) return zeigeHinweis(await apiError(res), "danger");
-  zeigeProtokoll(`Änderungsprotokoll ${jahr}`, await res.json(),
-    `Keine nachträglichen Änderungen oder Löschungen in ${jahr}.`);
+  zeigeProtokoll(t("view.audit.yearTitle", { year: jahr }), await res.json(),
+    t("view.audit.empty", { year: jahr }));
 });
 
 ladeVehicles().then(() => {

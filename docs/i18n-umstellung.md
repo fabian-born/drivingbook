@@ -45,8 +45,8 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
       - `i18n.js`, Sprachdateien, Einbindung in alle Seiten, Service Worker, `Accept-Language`.
       - `users.language` (Migration 013), `PATCH /api/profile`, Login-Antwort, Auswahl im Profil und beim Login.
       - Gemeinsame Teile übersetzt: Navigation, `config.js`, `offline.js`, `sicherung.js`, Footer, Login, Registrierung.
-- [ ] 3a. Seiten: Neue Fahrt, Dashboard (+ `auswertung.js`), Jahreshistorie, Fahrten anzeigen
-- [ ] 3b. Seiten: Auto-Info, Konto, Admin
+- [x] 3a. Seiten: Neue Fahrt, Dashboard (+ `auswertung.js`), Jahreshistorie, Fahrten anzeigen
+- [x] 3b. Seiten: Auto-Info, Konto, Admin
 - [ ] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
 - [ ] 5. PDF und CSV
 - [ ] 6. Tests für Englisch (Backend + Browser), Doku (README, GitHub-Page), Aufräumen

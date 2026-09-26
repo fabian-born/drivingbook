@@ -9,7 +9,7 @@ function zeigeAlert(text, typ = "success", id = "adminAlert") {
 }
 
 function formatDatum(iso) {
-  return new Date(iso).toLocaleString("de-DE", {
+  return new Date(iso).toLocaleString(i18n.locale, {
     day: "2-digit", month: "2-digit", year: "numeric"
   });
 }
@@ -53,8 +53,8 @@ document.getElementById("btnNeuerUser").addEventListener("click", () => {
   document.getElementById("newUserRole").value     = "user";
   document.getElementById("newUserTokenBox").classList.add("d-none");
   document.getElementById("userModalFooter").innerHTML = `
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-    <button type="button" class="btn btn-primary" id="btnUserSpeichern">Anlegen</button>`;
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${t("admin.modal.cancel")}</button>
+    <button type="button" class="btn btn-primary" id="btnUserSpeichern">${t("admin.modal.create")}</button>`;
   document.getElementById("btnUserSpeichern").addEventListener("click", erstelleUser);
   userModal.show();
 });
@@ -66,11 +66,11 @@ async function erstelleUser() {
   const role        = document.getElementById("newUserRole").value;
 
   if (!username || !password) {
-    zeigeAlert("Benutzername und Passwort erforderlich.", "danger", "userModalAlert");
+    zeigeAlert(t("admin.modal.required"), "danger", "userModalAlert");
     return;
   }
   if (password.length < 8) {
-    zeigeAlert("Passwort muss mindestens 8 Zeichen haben.", "danger", "userModalAlert");
+    zeigeAlert(t("register.tooShort"), "danger", "userModalAlert");
     return;
   }
 
@@ -83,7 +83,7 @@ async function erstelleUser() {
   const data = await res.json();
 
   if (!res.ok) {
-    zeigeAlert(data.error || "Fehler beim Anlegen.", "danger", "userModalAlert");
+    zeigeAlert(data.error || t("admin.modal.createFailed"), "danger", "userModalAlert");
     return;
   }
 
@@ -100,7 +100,7 @@ async function erstelleUser() {
   document.getElementById("newUserToken").value = data.default_token;
   document.getElementById("newUserTokenBox").classList.remove("d-none");
   document.getElementById("userModalFooter").innerHTML = `
-    <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="ladeUsers()">Fertig</button>`;
+    <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="ladeUsers()">${t("admin.modal.done")}</button>`;
 }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ ladeUsers();
 
 // ── Datenbank aufräumen ──────────────────────────────────────
 
-const datumZeit = iso => new Date(iso).toLocaleString("de-DE");
+const datumZeit = iso => new Date(iso).toLocaleString(i18n.locale);
 
 function aufraeumenMeldung(text, typ) {
   const box = document.getElementById("aufraeumenAlert");
@@ -119,31 +119,30 @@ function aufraeumenMeldung(text, typ) {
 function fahrtZeile(f, status) {
   return `
     <tr class="${status === "behalten" ? "table-success" : ""}">
-      <td>${status === "behalten" ? '<span class="badge bg-success">behalten</span>' : '<span class="badge bg-danger">entfernen</span>'}</td>
+      <td>${status === "behalten" ? `<span class="badge bg-success">${t("admin.cleanup.keep")}</span>` : `<span class="badge bg-danger">${t("admin.cleanup.remove")}</span>`}</td>
       <td class="small">#${escapeHtml(f.id)}</td>
       <td class="small">${escapeHtml(datumZeit(f.timestamp))}</td>
       <td class="small">${escapeHtml(f.odometer_km)} km</td>
       <td class="small">${escapeHtml(f.destination)}</td>
-      <td class="small">${escapeHtml(f.audit_entries)} Einträge</td>
+      <td class="small">${tHtml("admin.cleanup.entries", { count: Number(f.audit_entries) })}</td>
     </tr>`;
 }
 
 function zeigeDuplikate({ groups: gruppen, to_remove: zu_entfernen }, sekunden) {
   document.getElementById("duplikatAnzahl").textContent = zu_entfernen;
   document.getElementById("duplikatRegel").textContent =
-    `Gleicher Benutzer, gleiches Fahrzeug, gleicher km-Stand, gleiches Ziel und gleiche Fahrtart, höchstens ` +
-    `${sekunden / 60} Minuten auseinander. Behalten wird die Fahrt mit dem meisten Änderungsverlauf, sonst die älteste.`;
+    t("admin.cleanup.rule", { minutes: sekunden / 60 });
   document.getElementById("btnDuplikateLoeschen").classList.toggle("d-none", gruppen.length === 0);
 
   document.getElementById("duplikatListe").innerHTML = gruppen.length === 0
-    ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>Keine doppelten Fahrten gefunden.</p>`
+    ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>${t("admin.cleanup.noDuplicates")}</p>`
     : gruppen.map((g, i) => `
       <div class="border rounded p-2 mb-2">
         <div class="form-check mb-1">
           <input class="form-check-input duplikat-gruppe" type="checkbox" id="dup${i}" checked
             data-ids="${g.remove.map(f => f.id).join(",")}">
           <label class="form-check-label small fw-semibold" for="dup${i}">
-            ${escapeHtml(g.username)} · ${escapeHtml(g.vehicle_name ?? "ohne Fahrzeug")} · ${escapeHtml(fahrtartInfo(g.keep.trip_type).label)}
+            ${escapeHtml(g.username)} · ${escapeHtml(g.vehicle_name ?? t("admin.cleanup.withoutVehicle"))} · ${escapeHtml(fahrtartInfo(g.keep.trip_type).label)}
           </label>
         </div>
         <div class="table-responsive">
@@ -157,25 +156,25 @@ function zeigeDuplikate({ groups: gruppen, to_remove: zu_entfernen }, sekunden) 
 function zeigeOhneFahrzeug(liste) {
   document.getElementById("ohneAnzahl").textContent = liste.reduce((n, o) => n + o.count, 0);
   document.getElementById("ohneListe").innerHTML = liste.length === 0
-    ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>Alle Fahrten sind einem Fahrzeug zugeordnet.</p>`
+    ? `<p class="text-success small mb-0"><span class="mdi mdi-check-circle me-1"></span>${t("admin.cleanup.allAssigned")}</p>`
     : `<div class="list-group">${liste.map(o => `
         <div class="list-group-item ohne-eintrag" data-user="${o.user_id}">
           <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
             <strong>${escapeHtml(o.username)}</strong>
-            <span class="small text-muted">${escapeHtml(o.count)} Fahrt(en) · ${escapeHtml(formatDatum(o.first))} – ${escapeHtml(formatDatum(o.last))}</span>
+            <span class="small text-muted">${tHtml("admin.cleanup.tripsRange", { count: Number(o.count), first: formatDatum(o.first), last: formatDatum(o.last) })}</span>
           </div>
           <div class="d-flex flex-column flex-sm-row gap-2">
-            <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" aria-label="Fahrzeug von ${escapeHtml(o.username)}"
+            <select class="form-select form-select-sm ohne-ziel" data-user="${o.user_id}" aria-label="${tHtml("admin.cleanup.vehicleOf", { name: o.username })}"
               ${o.vehicles.length ? "" : "disabled"}>
               ${o.vehicles.length
                 ? o.vehicles.map(v => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.code)})</option>`).join("")
-                : "<option>kein Fahrzeug vorhanden</option>"}
+                : `<option>${t("admin.cleanup.noVehicle")}</option>`}
             </select>
             <div class="d-flex gap-2">
               <button class="btn btn-sm btn-outline-primary flex-grow-1 text-nowrap ohne-zuordnen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.count}" ${o.vehicles.length ? "" : "disabled"}>Zuordnen</button>
+                data-anzahl="${o.count}" ${o.vehicles.length ? "" : "disabled"}>${t("admin.cleanup.assign")}</button>
               <button class="btn btn-sm btn-outline-danger ohne-loeschen" data-user="${o.user_id}" data-name="${escapeHtml(o.username)}"
-                data-anzahl="${o.count}" title="Fahrten löschen" aria-label="Fahrten löschen"><span class="mdi mdi-delete"></span></button>
+                data-anzahl="${o.count}" title="${t("admin.cleanup.deleteTrips")}" aria-label="${t("admin.cleanup.deleteTrips")}"><span class="mdi mdi-delete"></span></button>
             </div>
           </div>
         </div>`).join("")}</div>`;
@@ -200,14 +199,14 @@ document.getElementById("btnPruefen").addEventListener("click", () => {
 document.getElementById("btnDuplikateLoeschen").addEventListener("click", async () => {
   const ids = [...document.querySelectorAll(".duplikat-gruppe:checked")]
     .flatMap(c => c.dataset.ids.split(",").map(Number));
-  if (ids.length === 0) return aufraeumenMeldung("Keine Gruppe ausgewählt.", "warning");
-  if (!confirm(`${ids.length} doppelte Fahrt(en) löschen? Die Löschung wird im Änderungsprotokoll festgehalten.`)) return;
+  if (ids.length === 0) return aufraeumenMeldung(t("admin.cleanup.noGroup"), "warning");
+  if (!confirm(`${t("admin.cleanup.confirmDeleteDuplicates", { count: ids.length })} ${t("admin.cleanup.auditHint")}`)) return;
 
   const res = await apiFetch("/api/admin/cleanup/duplicates", { method: "POST", body: { ids } });
   if (!res.ok) return aufraeumenMeldung(await apiError(res), "danger");
   const { removed: entfernt, rejected: abgelehnt } = await res.json();
-  aufraeumenMeldung(`✅ ${entfernt} doppelte Fahrt(en) gelöscht` +
-    (abgelehnt.length ? ` – ${abgelehnt.length} nicht mehr doppelt, übersprungen.` : "."), "success");
+  aufraeumenMeldung(t("admin.cleanup.duplicatesDeleted", { count: Number(entfernt) }) +
+    (abgelehnt.length ? t("admin.cleanup.skipped", { count: abgelehnt.length }) : "."), "success");
   pruefeDatenbank();
 });
 
@@ -222,17 +221,17 @@ document.getElementById("ohneListe").addEventListener("click", async e => {
   if (zuordnen) {
     const select = document.querySelector(`.ohne-ziel[data-user="${user_id}"]`);
     const name   = select.selectedOptions[0].textContent;
-    if (!confirm(`${btn.dataset.anzahl} Fahrt(en) von „${btn.dataset.name}“ dem Fahrzeug ${name} zuordnen?`)) return;
+    if (!confirm(t("admin.cleanup.confirmAssign", { count: Number(btn.dataset.anzahl), name: btn.dataset.name, vehicle: name }))) return;
     body = { user_id, action: "assign", vehicle_id: Number(select.value) };
   } else {
-    if (!confirm(`${btn.dataset.anzahl} Fahrt(en) ohne Fahrzeug von „${btn.dataset.name}“ endgültig löschen?\n` +
-                 "Die Löschung wird im Änderungsprotokoll festgehalten.")) return;
+    if (!confirm(`${t("admin.cleanup.confirmDeleteUnassigned", { count: Number(btn.dataset.anzahl), name: btn.dataset.name })}\n` +
+                 t("admin.cleanup.auditHint"))) return;
     body = { user_id, action: "delete" };
   }
 
   const res = await apiFetch("/api/admin/cleanup/unassigned", { method: "POST", body });
   if (!res.ok) return aufraeumenMeldung(await apiError(res), "danger");
   const { count: anzahl } = await res.json();
-  aufraeumenMeldung(`✅ ${anzahl} Fahrt(en) ${zuordnen ? "zugeordnet" : "gelöscht"}.`, "success");
+  aufraeumenMeldung(t(zuordnen ? "admin.cleanup.assigned" : "admin.cleanup.deleted", { count: Number(anzahl) }), "success");
   pruefeDatenbank();
 });

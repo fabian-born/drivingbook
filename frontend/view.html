@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-<title>Fahrten anzeigen</title>
+<title data-i18n="nav.trips">Fahrten anzeigen</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#212529">
 <script src="js/theme.js"></script>
@@ -73,32 +73,32 @@
 <div class="filter-bar">
   <div class="row g-2 align-items-end">
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="jahrSelect">Jahr</label>
+      <label class="form-label mb-1 small" for="jahrSelect" data-i18n="view.year">Jahr</label>
       <select id="jahrSelect" class="form-select form-select-sm"></select>
     </div>
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="monatSelect">Monat</label>
+      <label class="form-label mb-1 small" for="monatSelect" data-i18n="view.month">Monat</label>
       <select id="monatSelect" class="form-select form-select-sm"></select>
     </div>
     <div class="col-4 col-md-2">
-      <label class="form-label mb-1 small" for="fahrtartFilter">Fahrtart</label>
+      <label class="form-label mb-1 small" for="fahrtartFilter" data-i18n="view.tripType">Fahrtart</label>
       <select id="fahrtartFilter" class="form-select form-select-sm">
-        <option value="alle">Alle</option>
-        <option value="business">Geschäftlich</option>
-        <option value="private">Privat</option>
-        <option value="commute">Arbeitsweg</option>
+        <option value="alle" data-i18n="view.all">Alle</option>
+        <option value="business" data-i18n="tripType.business">Geschäftlich</option>
+        <option value="private" data-i18n="tripType.private">Privat</option>
+        <option value="commute" data-i18n="tripType.commute">Arbeitsweg</option>
       </select>
     </div>
     <div class="col-12 col-md-6">
-      <div class="btn-group w-100" role="group" aria-label="Export und Protokoll">
-        <button class="btn btn-outline-secondary btn-sm" id="csvExportYear" title="CSV-Export des Jahres">
+      <div class="btn-group w-100" role="group" aria-label="Export und Protokoll" data-i18n-attr="aria-label:view.exportGroup">
+        <button class="btn btn-outline-secondary btn-sm" id="csvExportYear" title="CSV-Export des Jahres" data-i18n-attr="title:view.csvTitle">
           <span class="mdi mdi-file-delimited-outline me-1"></span>CSV
         </button>
-        <button class="btn btn-outline-secondary btn-sm" id="pdfExportYear" title="PDF-Fahrtenbuch des Jahres">
+        <button class="btn btn-outline-secondary btn-sm" id="pdfExportYear" title="PDF-Fahrtenbuch des Jahres" data-i18n-attr="title:view.pdfTitle">
           <span class="mdi mdi-file-pdf-box me-1"></span>PDF
         </button>
-        <button class="btn btn-outline-secondary btn-sm" id="auditYear" title="Änderungsprotokoll des Jahres">
-          <span class="mdi mdi-history me-1"></span>Protokoll
+        <button class="btn btn-outline-secondary btn-sm" id="auditYear" title="Änderungsprotokoll des Jahres" data-i18n-attr="title:view.auditTitle">
+          <span class="mdi mdi-history me-1"></span><span data-i18n="view.auditButton">Protokoll</span>
         </button>
       </div>
     </div>
@@ -126,16 +126,16 @@
         <thead class="table-dark">
           <tr>
             <th>#</th>
-            <th>KM Stand</th>
+            <th data-i18n="view.col.odometer">KM Stand</th>
             <th>Diff</th>
-            <th>Ziel / Kunde</th>
-            <th>Fahrtart</th>
-            <th>Zeitpunkt</th>
+            <th data-i18n="view.col.destination">Ziel / Kunde</th>
+            <th data-i18n="view.tripType">Fahrtart</th>
+            <th data-i18n="view.col.time">Zeitpunkt</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="fahrtenTabelle">
-          <tr><td colspan="7">Lade Daten...</td></tr>
+          <tr><td colspan="7" data-i18n="view.loading">Lade Daten...</td></tr>
         </tbody>
       </table>
     </div>
@@ -154,19 +154,19 @@
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
         <h5 class="modal-title" id="deleteModalLabel">
-          <span class="mdi mdi-delete me-2"></span>Fahrt löschen
+          <span class="mdi mdi-delete me-2"></span><span data-i18n="view.delete.title">Fahrt löschen</span>
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen" data-i18n-attr="aria-label:view.close"></button>
       </div>
       <div class="modal-body">
-        <p class="mb-2">Soll diese Fahrt wirklich gelöscht werden?</p>
+        <p class="mb-2" data-i18n="view.delete.question">Soll diese Fahrt wirklich gelöscht werden?</p>
         <p class="text-muted small mb-0" id="confirmDeleteInfo"></p>
         <input type="hidden" id="confirmDeleteIndex">
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="view.cancel">Abbrechen</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
-          <span class="mdi mdi-delete me-1"></span>Löschen
+          <span class="mdi mdi-delete me-1"></span><span data-i18n="view.delete.button">Löschen</span>
         </button>
       </div>
     </div>
@@ -178,8 +178,8 @@
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="auditModalLabel">Änderungsprotokoll</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        <h5 class="modal-title" id="auditModalLabel" data-i18n="view.audit.title">Änderungsprotokoll</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen" data-i18n-attr="aria-label:view.close"></button>
       </div>
       <div class="modal-body" id="auditModalBody"></div>
     </div>

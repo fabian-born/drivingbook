@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-  <title>Profil – Fahrtenbuch</title>
+  <title data-i18n="profile.pageTitle">Profil – Fahrtenbuch</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#212529">
   <script src="js/theme.js"></script>
@@ -23,22 +23,22 @@
 <div class="container py-4 flex-fill" style="max-width: 720px;">
 
   <div class="alert alert-light border small">
-    <span class="mdi mdi-car-info me-1"></span>Fahrzeuge, Fahrzeugdaten und den Steuervergleich findest du unter
-    <a href="auto.html">Profil → Auto-Info</a>.
+    <span class="mdi mdi-car-info me-1"></span><span data-i18n-html="profile.vehicleHint">Fahrzeuge, Fahrzeugdaten und den Steuervergleich findest du unter
+    <a href="auto.html">Profil → Auto-Info</a>.</span>
   </div>
 
   <!-- Benutzerinfo -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-dark text-white">
-      <span class="mdi mdi-account-circle me-2"></span>Benutzerprofil
+      <span class="mdi mdi-account-circle me-2"></span><span data-i18n="profile.userCard">Benutzerprofil</span>
     </div>
     <div class="card-body">
       <div class="row g-2">
-        <div class="col-sm-4 text-muted small">Benutzername</div>
+        <div class="col-sm-4 text-muted small" data-i18n="login.username">Benutzername</div>
         <div class="col-sm-8 fw-semibold" id="profileUsername">–</div>
-        <div class="col-sm-4 text-muted small">Rolle</div>
+        <div class="col-sm-4 text-muted small" data-i18n="profile.role">Rolle</div>
         <div class="col-sm-8" id="profileRole">–</div>
-        <div class="col-sm-4 text-muted small">Registriert am</div>
+        <div class="col-sm-4 text-muted small" data-i18n="profile.registered">Registriert am</div>
         <div class="col-sm-8" id="profileCreated">–</div>
         <div class="col-sm-4 text-muted small" data-i18n="profile.country">Land</div>
         <div class="col-sm-8">
@@ -56,23 +56,23 @@
 
   <!-- Sicherung -->
   <div class="card shadow-sm mb-4" id="sicherung">
-    <div class="card-header"><span class="mdi mdi-backup-restore me-2"></span>Sicherung</div>
+    <div class="card-header"><span class="mdi mdi-backup-restore me-2"></span><span data-i18n="profile.backup.title">Sicherung</span></div>
     <div class="card-body">
       <div id="sicherungAlert" class="alert d-none" style="white-space: pre-line"></div>
-      <p class="small text-muted">Sichert alle Fahrzeuge mit Fahrten, Jahreskosten und Änderungsprotokoll in eine
+      <p class="small text-muted" data-i18n="profile.backup.intro">Sichert alle Fahrzeuge mit Fahrten, Jahreskosten und Änderungsprotokoll in eine
         JSON-Datei. Beim Wiederherstellen wird nur Fehlendes ergänzt; gelöschte Fahrzeuge werden mit ihrem Code neu
         angelegt. Auch einzelne Fahrzeug-Sicherungen aus der Auto-Info können hier eingespielt werden.</p>
       <div class="table-responsive mb-3">
         <table class="table table-sm mb-0">
-          <thead><tr><th>Fahrzeug</th><th>Gesichert</th><th class="text-end"><span class="d-sm-none" title="Änderungen seitdem">Änd.</span><span class="d-none d-sm-inline">Änderungen</span></th></tr></thead>
-          <tbody id="sicherungTabelle"><tr><td colspan="3" class="text-muted">Lade …</td></tr></tbody>
+          <thead><tr><th data-i18n="profile.backup.vehicle">Fahrzeug</th><th data-i18n="profile.backup.saved">Gesichert</th><th class="text-end"><span class="d-sm-none" title="Änderungen seitdem" data-i18n="profile.backup.changesShort" data-i18n-attr="title:profile.backup.changesSince">Änd.</span><span class="d-none d-sm-inline" data-i18n="profile.backup.changes">Änderungen</span></th></tr></thead>
+          <tbody id="sicherungTabelle"><tr><td colspan="3" class="text-muted" data-i18n="profile.loading">Lade …</td></tr></tbody>
         </table>
       </div>
-      <button class="btn btn-sm btn-primary mb-3" id="sichernBtn"><span class="mdi mdi-download me-1"></span>Alles sichern</button>
+      <button class="btn btn-sm btn-primary mb-3" id="sichernBtn"><span class="mdi mdi-download me-1"></span><span data-i18n="profile.backup.saveAll">Alles sichern</span></button>
       <div class="d-flex flex-column flex-sm-row gap-2">
         <input type="file" id="wiederherstellenDatei" class="form-control form-control-sm" accept=".json,application/json"
-          aria-label="Sicherungsdatei">
-        <button class="btn btn-sm btn-outline-primary text-nowrap" id="wiederherstellenBtn"><span class="mdi mdi-upload me-1"></span>Wiederherstellen</button>
+          aria-label="Sicherungsdatei" data-i18n-attr="aria-label:profile.backup.file">
+        <button class="btn btn-sm btn-outline-primary text-nowrap" id="wiederherstellenBtn"><span class="mdi mdi-upload me-1"></span><span data-i18n="profile.backup.restore">Wiederherstellen</span></button>
       </div>
     </div>
   </div>
@@ -80,46 +80,46 @@
   <!-- Passwort ändern -->
   <div class="card shadow-sm mb-4">
     <div class="card-header">
-      <span class="mdi mdi-lock-reset me-2"></span>Passwort ändern
+      <span class="mdi mdi-lock-reset me-2"></span><span data-i18n="profile.password.title">Passwort ändern</span>
     </div>
     <div class="card-body">
       <div id="pwAlert" class="alert d-none"></div>
       <div class="mb-2">
         <input type="password" id="pwCurrent" class="form-control form-control-sm"
-          placeholder="Aktuelles Passwort">
+          placeholder="Aktuelles Passwort" data-i18n-attr="placeholder:profile.password.current">
       </div>
       <div class="mb-2">
         <input type="password" id="pwNew" class="form-control form-control-sm"
-          placeholder="Neues Passwort (mind. 8)">
+          placeholder="Neues Passwort (mind. 8)" data-i18n-attr="placeholder:profile.password.new">
       </div>
       <div class="mb-3">
         <input type="password" id="pwNewConfirm" class="form-control form-control-sm"
-          placeholder="Neues Passwort wiederholen">
+          placeholder="Neues Passwort wiederholen" data-i18n-attr="placeholder:profile.password.repeat">
       </div>
-      <button class="btn btn-sm btn-primary" id="pwSaveBtn">Passwort speichern</button>
+      <button class="btn btn-sm btn-primary" id="pwSaveBtn" data-i18n="profile.password.save">Passwort speichern</button>
     </div>
   </div>
 
   <!-- API-Tokens -->
   <div class="card shadow-sm mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span><span class="mdi mdi-key-variant me-2"></span>API-Tokens</span>
+      <span><span class="mdi mdi-key-variant me-2"></span><span data-i18n="profile.tokens.title">API-Tokens</span></span>
       <button class="btn btn-sm btn-success" id="newTokenBtn">
-        <span class="mdi mdi-plus me-1"></span>Neuer Token
+        <span class="mdi mdi-plus me-1"></span><span data-i18n="profile.tokens.new">Neuer Token</span>
       </button>
     </div>
     <div class="card-body p-0 table-responsive">
       <table class="table table-sm table-striped align-middle mb-0">
         <thead class="table-dark">
           <tr>
-            <th>Bezeichnung</th>
-            <th>Standard</th>
-            <th class="d-none d-sm-table-cell">Erstellt</th>
+            <th data-i18n="profile.tokens.label">Bezeichnung</th>
+            <th data-i18n="profile.tokens.default">Standard</th>
+            <th class="d-none d-sm-table-cell" data-i18n="profile.tokens.created">Erstellt</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="tokenTabelle">
-          <tr><td colspan="4" class="text-muted p-3">Lade …</td></tr>
+          <tr><td colspan="4" class="text-muted p-3" data-i18n="profile.loading">Lade …</td></tr>
         </tbody>
       </table>
     </div>
@@ -127,25 +127,25 @@
 
   <!-- Neuer Token – Eingabe -->
   <div class="card shadow-sm mb-4 d-none" id="newTokenForm">
-    <div class="card-header">Neuen API-Token erstellen</div>
+    <div class="card-header" data-i18n="profile.tokens.createTitle">Neuen API-Token erstellen</div>
     <div class="card-body">
       <div class="mb-2">
         <input type="text" id="tokenLabel" class="form-control form-control-sm"
-          placeholder="Bezeichnung (z. B. Home Assistant, iPhone)">
+          placeholder="Bezeichnung (z. B. Home Assistant, iPhone)" data-i18n-attr="placeholder:profile.tokens.labelPlaceholder">
       </div>
       <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" id="tokenDefault">
-        <label class="form-check-label small" for="tokenDefault">Als Standard-Token setzen</label>
+        <label class="form-check-label small" for="tokenDefault" data-i18n="profile.tokens.setDefault">Als Standard-Token setzen</label>
       </div>
-      <button class="btn btn-sm btn-success me-2" id="createTokenBtn">Token erstellen</button>
-      <button class="btn btn-sm btn-secondary" id="cancelTokenBtn">Abbrechen</button>
+      <button class="btn btn-sm btn-success me-2" id="createTokenBtn" data-i18n="profile.tokens.create">Token erstellen</button>
+      <button class="btn btn-sm btn-secondary" id="cancelTokenBtn" data-i18n="profile.tokens.cancel">Abbrechen</button>
     </div>
   </div>
 
   <!-- Token-Anzeige nach Erstellung (einmalig) -->
   <div class="card shadow-sm mb-4 d-none border-warning" id="newTokenResult">
     <div class="card-header bg-warning text-dark fw-semibold">
-      <span class="mdi mdi-alert me-2"></span>Token einmalig sichtbar – jetzt kopieren!
+      <span class="mdi mdi-alert me-2"></span><span data-i18n="profile.tokens.onceVisible">Token einmalig sichtbar – jetzt kopieren!</span>
     </div>
     <div class="card-body">
       <div class="input-group">

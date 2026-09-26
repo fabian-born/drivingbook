@@ -12,9 +12,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("profileUsername").textContent =
         data.user.username;
       document.getElementById("profileRole").textContent =
-        data.user.role === "admin" ? "👑 Administrator" : "👤 Benutzer";
+        data.user.role === "admin" ? t("profile.roleAdmin") : t("profile.roleUser");
       document.getElementById("profileCreated").textContent =
-        new Date(data.user.created_at).toLocaleString("de-DE");
+        new Date(data.user.created_at).toLocaleString(i18n.locale);
       document.getElementById("profileCountry").textContent =
         landName(data.user.country);
       sprachAuswahl(document.getElementById("profileLanguage"), speichereSprache, data.user.language);
@@ -40,19 +40,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderTokenTabelle(tokens) {
     const tbody = document.getElementById("tokenTabelle");
     if (!tokens.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">Keine Tokens vorhanden.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="text-muted p-3">${t("profile.tokens.none")}</td></tr>`;
       return;
     }
-    tbody.innerHTML = tokens.map(t => `
+    tbody.innerHTML = tokens.map(tok => `
       <tr>
-        <td>${escapeHtml(t.label)}</td>
-        <td>${t.is_default
-          ? '<span class="badge bg-success">Standard</span>'
-          : '<span class="badge bg-secondary">Nein</span>'}</td>
-        <td class="text-muted small d-none d-sm-table-cell">${new Date(t.created_at).toLocaleString("de-DE")}</td>
+        <td>${escapeHtml(tok.label)}</td>
+        <td>${tok.is_default
+          ? `<span class="badge bg-success">${t("profile.tokens.default")}</span>`
+          : `<span class="badge bg-secondary">${t("profile.tokens.no")}</span>`}</td>
+        <td class="text-muted small d-none d-sm-table-cell">${new Date(tok.created_at).toLocaleString(i18n.locale)}</td>
         <td class="text-end">
-          <button class="btn btn-sm btn-outline-danger delete-token-btn" data-id="${t.id}"
-            title="Token löschen">
+          <button class="btn btn-sm btn-outline-danger delete-token-btn" data-id="${tok.id}"
+            title="${t("profile.tokens.delete")}">
             <span class="mdi mdi-delete"></span>
           </button>
         </td>
@@ -72,17 +72,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!current || !newPw) {
       alert.className = "alert alert-danger";
-      alert.textContent = "Bitte alle Felder ausfüllen.";
+      alert.textContent = t("profile.password.fillAll");
       return;
     }
     if (newPw.length < 8) {
       alert.className = "alert alert-danger";
-      alert.textContent = "Neues Passwort muss mindestens 8 Zeichen haben.";
+      alert.textContent = t("profile.password.tooShort");
       return;
     }
     if (newPw !== newPwConfirm) {
       alert.className = "alert alert-danger";
-      alert.textContent = "Passwörter stimmen nicht überein.";
+      alert.textContent = t("register.mismatch");
       return;
     }
 
@@ -95,17 +95,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (!res.ok) {
         alert.className   = "alert alert-danger";
-        alert.textContent = data.error || "Fehler beim Ändern.";
+        alert.textContent = data.error || t("profile.password.failed");
       } else {
         alert.className   = "alert alert-success";
-        alert.textContent = "✅ Passwort erfolgreich geändert.";
+        alert.textContent = t("profile.password.changed");
         document.getElementById("pwCurrent").value    = "";
         document.getElementById("pwNew").value        = "";
         document.getElementById("pwNewConfirm").value = "";
       }
     } catch {
       alert.className   = "alert alert-danger";
-      alert.textContent = "Netzwerkfehler.";
+      alert.textContent = t("profile.networkError");
     }
   });
 
@@ -135,7 +135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
       const data = await res.json();
 
-      if (!res.ok) { alert(data.error || "Fehler"); return; }
+      if (!res.ok) { alert(data.error || t("profile.tokens.error")); return; }
 
       // Token einmalig anzeigen
       document.getElementById("newTokenForm").classList.add("d-none");
@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Tabelle neu laden
       await ladeProfil();
 
-    } catch { alert("Netzwerkfehler."); }
+    } catch { alert(t("profile.networkError")); }
   });
 
   // Neuen Token kopieren
@@ -164,15 +164,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tokenTabelle").addEventListener("click", async e => {
     const btn = e.target.closest(".delete-token-btn");
     if (!btn) return;
-    if (!confirm("Token wirklich löschen?")) return;
+    if (!confirm(t("profile.tokens.confirmDelete"))) return;
 
     try {
       const res = await apiFetch(`/api/tokens/${btn.dataset.id}`, {
         method: "DELETE",
       });
       if (res.ok) await ladeProfil();
-      else alert("Fehler beim Löschen.");
-    } catch { alert("Netzwerkfehler."); }
+      else alert(t("profile.tokens.deleteFailed"));
+    } catch { alert(t("profile.networkError")); }
   });
 
   // ──────────────────────────────────────────────────────────
@@ -188,11 +188,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const status = await ladeSicherungsStatus();
     if (!status) return;
     document.getElementById("sicherungTabelle").innerHTML = status.vehicles.length === 0
-      ? `<tr><td colspan="3" class="text-muted">Keine Fahrzeuge vorhanden.</td></tr>`
+      ? `<tr><td colspan="3" class="text-muted">${t("profile.backup.noVehicles")}</td></tr>`
       : status.vehicles.map(v => `
         <tr class="${v.remind ? "table-warning" : ""}">
           <td>${escapeHtml(v.name)}</td>
-          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.remind ? ' <span class="badge text-bg-warning">fällig</span>' : ""}</td>
+          <td>${escapeHtml(datumKurz(v.last_backup_at))}${v.remind ? ` <span class="badge text-bg-warning">${t("profile.backup.due")}</span>` : ""}</td>
           <td class="text-end">${v.changes}</td>
         </tr>`).join("");
   }
@@ -204,11 +204,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("wiederherstellenBtn").addEventListener("click", async () => {
     const datei = document.getElementById("wiederherstellenDatei").files[0];
-    if (!datei) return sicherungAlert("Bitte eine Sicherungsdatei auswählen.", "warning");
+    if (!datei) return sicherungAlert(t("profile.backup.chooseFile"), "warning");
     try {
       const ergebnis = await stelleSicherungWiederHer(datei);
       if (!ergebnis) return;
-      sicherungAlert(`✅ Wiederhergestellt\n${ergebnis.text}`, "success");
+      sicherungAlert(`${t("profile.backup.restored")}\n${ergebnis.text}`, "success");
       await zeigeSicherungsStatus();
     } catch (err) {
       sicherungAlert(err.message, "danger");

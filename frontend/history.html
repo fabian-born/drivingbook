@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>Fahrtenbuch – Jahreshistorie</title>
+<title data-i18n="history.pageTitle">Fahrtenbuch – Jahreshistorie</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#212529">
 <script src="js/theme.js"></script>
@@ -54,26 +54,26 @@
 
   <!-- Steuerleiste (wird nicht gedruckt) -->
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print steuerleiste">
-    <h1 class="h3 mb-0 me-auto">Jahreshistorie</h1>
+    <h1 class="h3 mb-0 me-auto" data-i18n="nav.history">Jahreshistorie</h1>
     <div class="d-flex gap-2">
-      <select id="historyJahrSelect" class="form-select w-auto" aria-label="Jahr"></select>
-      <button id="historyCSVExport" class="btn btn-outline-secondary" title="CSV-Export des Jahres">
+      <select id="historyJahrSelect" class="form-select w-auto" aria-label="Jahr" data-i18n-attr="aria-label:history.year"></select>
+      <button id="historyCSVExport" class="btn btn-outline-secondary" title="CSV-Export des Jahres" data-i18n-attr="title:history.csvTitle">
         <span class="mdi mdi-file-delimited-outline"></span><span class="d-none d-sm-inline ms-1">CSV</span>
       </button>
-      <button id="historyPDFExport" class="btn btn-outline-secondary" title="Seite drucken bzw. als PDF speichern">
-        <span class="mdi mdi-printer-outline"></span><span class="d-none d-sm-inline ms-1">Drucken</span>
+      <button id="historyPDFExport" class="btn btn-outline-secondary" title="Seite drucken bzw. als PDF speichern" data-i18n-attr="title:history.printTitle">
+        <span class="mdi mdi-printer-outline"></span><span class="d-none d-sm-inline ms-1" data-i18n="history.print">Drucken</span>
       </button>
     </div>
   </div>
 
   <!-- Druckkopf (nur im Druck sichtbar) -->
   <div class="print-header" style="display:none;">
-    <h2 id="printHeadline">Fahrtenbuch – Jahreshistorie</h2>
+    <h2 id="printHeadline" data-i18n="history.pageTitle">Fahrtenbuch – Jahreshistorie</h2>
     <span id="printDatum"></span>
   </div>
 
   <div id="historyContent">
-    <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>Lade Daten …</div>
+    <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div><span data-i18n="history.loading">Lade Daten …</span></div>
   </div>
 </main>
 
@@ -88,13 +88,13 @@
 <!-- Druckkopf mit Jahr + Datum befüllen -->
 <script>
   document.getElementById("printDatum").textContent =
-    "Erstellt: " + new Date().toLocaleDateString("de-DE");
+    t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
 
   document.getElementById("historyJahrSelect")?.addEventListener("change", function () {
     document.getElementById("printHeadline").textContent =
-      "Fahrtenbuch – Jahreshistorie " + this.value;
+      t("history.printHeadline", { year: this.value });
     document.getElementById("printDatum").textContent =
-      "Erstellt: " + new Date().toLocaleDateString("de-DE");
+      t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
   });
 </script>
 

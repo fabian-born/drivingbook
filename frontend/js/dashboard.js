@@ -22,11 +22,11 @@ async function ladeDashboard() {
     chartInstanz = zeigeJahresauswertung(ziel, {
         jahr: aktuellesJahr, monate, summe, alterChart: chartInstanz,
         kacheln: [
-            { label: "Dieser Monat", wert: kmText(dieserMonat?.total),
-              hinweis: `${zahl(dieserMonat?.trips)} Fahrt${dieserMonat?.trips === 1 ? "" : "en"}` },
-            { label: `Jahr ${aktuellesJahr}`, wert: kmText(summe.total), hinweis: `${zahl(summe.trips)} Fahrten` },
-            { label: "Ø pro Monat", wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0),
-              hinweis: `${monate.length} Monat${monate.length === 1 ? "" : "e"}` },
+            { label: t("dashboard.thisMonth"), wert: kmText(dieserMonat?.total),
+              hinweis: fahrtenText(dieserMonat?.trips) },
+            { label: t("analysis.year", { year: aktuellesJahr }), wert: kmText(summe.total), hinweis: fahrtenText(summe.trips) },
+            { label: t("dashboard.avgPerMonth"), wert: kmText(monate.length ? Math.round(summe.total / monate.length) : 0),
+              hinweis: t("dashboard.months", { count: monate.length }) },
         ],
     });
 }
@@ -41,8 +41,8 @@ async function pruefeSicherung() {
 
     const nie = faellig.every(v => !v.last_backup_at);
     document.getElementById("sicherungHinweisText").textContent = nie
-        ? "Deine Fahrten wurden noch nie gesichert."
-        : `Deine letzte Sicherung ist über ${status.reminder_days} Tage her und es gibt seitdem Änderungen.`;
+        ? t("dashboard.neverBackedUp")
+        : t("dashboard.backupOverdue", { days: status.reminder_days });
 }
 
 document.getElementById("sicherungJetztBtn").addEventListener("click", async () => {
