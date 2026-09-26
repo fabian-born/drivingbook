@@ -273,12 +273,21 @@ git config core.hooksPath .githooks
 
 Die Backend-Version liefert `GET /api/health`; der Footer zeigt beide Versionen.
 
+## Prod prüfen
+
+`./scripts/check-prod.sh` prüft per SSH (nur lesend) Versionen gegen das Repo, angewendete
+Migrationen, einige Datenpunkte und Fehler im Backend-Log. Auf Prod heißen die Container
+`drivingbook-backend`, `drivebook-frontend` und `drivingbook-db`.
+
 ## Passwort vergessen
 
 Setzt das Passwort eines Benutzers direkt in der Datenbank zurück (Standard: `admin`).
 Im Terminal wird das neue Passwort verdeckt abgefragt; leer lassen erzeugt ein zufälliges.
 
 ```bash
+# Prod (Stack auf docker-host-01)
+docker exec -it drivingbook-backend node scripts/reset-password.js admin
+# lokal mit docker-compose.yaml
 docker exec -it fahrtenbuch-backend node scripts/reset-password.js admin
 ```
 

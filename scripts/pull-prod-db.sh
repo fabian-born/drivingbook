@@ -13,6 +13,8 @@
 #   DEV_HOST    SSH-Ziel des Dev-Hosts  (Standard: marder)
 #   DB_NAME     Datenbankname           (Standard: fahrtenbuch)
 #   DB_USER     Datenbank-User          (Standard: fahrtenbuch)
+#   PROD_DB_CONTAINER  DB-Container auf Prod (Standard: drivingbook-db)
+#   DEV_DB_CONTAINER   DB-Container auf Dev  (Standard: fahrtenbuch-db)
 #
 # ACHTUNG: Die Dev-Datenbank auf $DEV_HOST wird komplett ersetzt!
 # ============================================================
@@ -22,7 +24,9 @@ PROD_HOST="${PROD_HOST:-docker-host-01}"
 DEV_HOST="${DEV_HOST:-marder}"
 DB_NAME="${DB_NAME:-fahrtenbuch}"
 DB_USER="${DB_USER:-fahrtenbuch}"
-CONTAINER="fahrtenbuch-db"
+# Prod läuft als Stack mit anderen Containernamen als docker-compose.yaml
+PROD_CONTAINER="${PROD_DB_CONTAINER:-drivingbook-db}"
+CONTAINER="${DEV_DB_CONTAINER:-fahrtenbuch-db}"
 STOP_CONTAINERS=(fahrtenbuch-backend fahrtenbuch-backup)
 BACKUP_FILE="${1:-}"
 
@@ -46,7 +50,7 @@ trap 'rm -rf "$tmp"' EXIT
 if [[ -z "$BACKUP_FILE" ]]; then
   echo "→ Ziehe Dump von $PROD_HOST …"
   ssh "$PROD_HOST" \
-    "docker exec $CONTAINER pg_dump -U $DB_USER -d $DB_NAME -Fc --no-owner --no-privileges" \
+    "docker exec $PROD_CONTAINER pg_dump -U $DB_USER -d $DB_NAME -Fc --no-owner --no-privileges" \
     > "$tmp/prod.dump"
   echo "  $(du -h "$tmp/prod.dump" | cut -f1) empfangen"
 elif [[ ! -f "$BACKUP_FILE" ]]; then

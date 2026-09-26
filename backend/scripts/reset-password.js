@@ -9,7 +9,7 @@
 // Passwort erzeugt und ausgegeben.
 //
 // Im Container (Prod):
-//   docker exec -it fahrtenbuch-backend node scripts/reset-password.js admin
+//   docker exec -it drivingbook-backend node scripts/reset-password.js admin
 //
 // Datenbank über DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 // (im Container bereits gesetzt).
