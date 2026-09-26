@@ -100,5 +100,74 @@
     "deleted_one": "{{count}} Fahrt wurde gelöscht – nachvollziehbar im Änderungsprotokoll.",
     "deleted_other": "{{count}} Fahrten wurden gelöscht – nachvollziehbar im Änderungsprotokoll.",
     "empty": "In diesem Jahr sind keine Fahrten erfasst."
+  },
+  "tripType": {
+    "business": "Geschäftlich",
+    "private": "Privat",
+    "commute": "Arbeitsweg"
+  },
+  "pdf": {
+    "fileName": "fahrtenbuch",
+    "title": "Fahrtenbuch {{year}}",
+    "subtitle": "Benutzer: {{username}}   ·   Erstellt am {{date}}",
+    "unassigned": "Ohne Fahrzeug",
+    "noTrips": "Keine Fahrten im Jahr {{year}} vorhanden.",
+    "summary": "Übersicht",
+    "summaryHeader": {
+      "vehicle": "Fahrzeug",
+      "startKm": "Start-km",
+      "endKm": "End-km",
+      "totalKm": "Gesamt km",
+      "privateKm": "Privat km",
+      "businessKm": "Geschäftlich km",
+      "commuteKm": "Arbeitsweg km"
+    },
+    "percent": "{{value}} %",
+    "trips": "Fahrten",
+    "tripHeader": {
+      "no": "Nr.",
+      "date": "Datum",
+      "odometer": "km-Stand",
+      "distance": "Strecke",
+      "tripType": "Fahrtart",
+      "vehicle": "Fahrzeug",
+      "destination": "Ziel"
+    },
+    "editedNote": "* nachträglich geändert – Details im Änderungsprotokoll",
+    "auditLog": "Änderungsprotokoll",
+    "noAudit": "Keine nachträglichen Änderungen oder Löschungen.",
+    "auditHeader": {
+      "changedAt": "Geändert am",
+      "tripId": "Fahrt-ID",
+      "change": "Änderung"
+    },
+    "field": {
+      "odometer_km": "km-Stand",
+      "destination": "Ziel",
+      "trip_type": "Fahrtart",
+      "timestamp": "Zeitpunkt",
+      "vehicle_id": "Fahrzeug-ID"
+    },
+    "deleted": "Gelöscht: {{date}}, {{km}}, {{type}}, {{destination}}",
+    "savedWithoutChange": "Gespeichert ohne inhaltliche Änderung",
+    "footer": "Fahrtenbuch {{year}} · Seite {{page}} von {{pages}}"
+  },
+  "csv": {
+    "fileName": "fahrten",
+    "header": {
+      "odometer": "KM Stand",
+      "destination": "Ziel",
+      "tripType": "Fahrtart",
+      "time": "Zeitpunkt",
+      "vehicle": "Fahrzeug",
+      "edited": "Nachträglich geändert"
+    },
+    "tripType": {
+      "business": "geschäftlich",
+      "private": "privat",
+      "commute": "arbeitsweg"
+    },
+    "yes": "ja",
+    "no": "nein"
   }
 }

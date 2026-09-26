@@ -48,7 +48,7 @@ jede weitere Sprache braucht nur eigene Sprachdateien.
 - [x] 3a. Seiten: Neue Fahrt, Dashboard (+ `auswertung.js`), Jahreshistorie, Fahrten anzeigen
 - [x] 3b. Seiten: Auto-Info, Konto, Admin
 - [x] 4. Backend: Fehlermeldungen, Erfolgsmeldungen, Prüfbefunde
-- [ ] 5. PDF und CSV
+- [x] 5. PDF und CSV
 - [ ] 6. Tests für Englisch (Backend + Browser), Doku (README, GitHub-Page), Aufräumen
 
 Nach jedem Schritt: Backend-Tests und Browser-Tests grün (Standard bleibt Deutsch).

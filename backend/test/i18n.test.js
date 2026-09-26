@@ -56,6 +56,21 @@ describe("Translated API responses", () => {
     assert.equal(res.body.error, "Odometer reading 900 is lower than on the previous trip (1000 km on 01/03/2026, 09:00:00)");
   });
 
+  it("exports CSV and PDF in the requested language", async () => {
+    const csv = await t.http().get(`/api/export/csv/year/2026?vehicle=${user.vehicle.code}`).set(user).set(en);
+    const lines = csv.text.replace(/^\uFEFF/, "").trim().split("\n");
+    assert.equal(lines[0], "Odometer,Destination,Trip type,Time,Vehicle,Changed afterwards");
+    assert.equal(lines[1], '1000,"Kunde",private,01/03/2026 09:00,"Fahrzeug 1",no');
+    assert.match(csv.headers["content-disposition"], /trips_2026\.csv/);
+
+    const deCsv = await t.http().get(`/api/export/csv/year/2026?vehicle=${user.vehicle.code}`).set(user);
+    assert.equal(deCsv.text.replace(/^\uFEFF/, "").split("\n")[1], '1000;"Kunde";privat;01.03.2026 09:00;"Fahrzeug 1";nein');
+
+    const pdf = await t.http().get("/api/export/pdf/year/2026").set(user).set(en);
+    assert.equal(pdf.status, 200);
+    assert.match(pdf.headers["content-disposition"], /logbook_2026\.pdf/);
+  });
+
   it("returns check findings in the requested language", async () => {
     await post({ odometer_km: 5000, timestamp: "2026-03-03T08:00:00Z", force: true });
     const res = await t.http().get(`/api/vehicles/${user.vehicle.id}/check?year=2026`).set(user).set(en);

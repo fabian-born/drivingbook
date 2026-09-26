@@ -100,5 +100,74 @@
     "deleted_one": "{{count}} trip was deleted – traceable in the audit log.",
     "deleted_other": "{{count}} trips were deleted – traceable in the audit log.",
     "empty": "No trips recorded this year."
+  },
+  "tripType": {
+    "business": "Business",
+    "private": "Private",
+    "commute": "Commute"
+  },
+  "pdf": {
+    "fileName": "logbook",
+    "title": "Logbook {{year}}",
+    "subtitle": "User: {{username}}   ·   Created on {{date}}",
+    "unassigned": "Without vehicle",
+    "noTrips": "No trips in {{year}}.",
+    "summary": "Summary",
+    "summaryHeader": {
+      "vehicle": "Vehicle",
+      "startKm": "Start km",
+      "endKm": "End km",
+      "totalKm": "Total km",
+      "privateKm": "Private km",
+      "businessKm": "Business km",
+      "commuteKm": "Commute km"
+    },
+    "percent": "{{value}}%",
+    "trips": "Trips",
+    "tripHeader": {
+      "no": "No.",
+      "date": "Date",
+      "odometer": "Odometer",
+      "distance": "Distance",
+      "tripType": "Trip type",
+      "vehicle": "Vehicle",
+      "destination": "Destination"
+    },
+    "editedNote": "* changed afterwards – details in the audit log",
+    "auditLog": "Audit log",
+    "noAudit": "No subsequent changes or deletions.",
+    "auditHeader": {
+      "changedAt": "Changed on",
+      "tripId": "Trip ID",
+      "change": "Change"
+    },
+    "field": {
+      "odometer_km": "Odometer",
+      "destination": "Destination",
+      "trip_type": "Trip type",
+      "timestamp": "Time",
+      "vehicle_id": "Vehicle ID"
+    },
+    "deleted": "Deleted: {{date}}, {{km}}, {{type}}, {{destination}}",
+    "savedWithoutChange": "Saved without any change in content",
+    "footer": "Logbook {{year}} · Page {{page}} of {{pages}}"
+  },
+  "csv": {
+    "fileName": "trips",
+    "header": {
+      "odometer": "Odometer",
+      "destination": "Destination",
+      "tripType": "Trip type",
+      "time": "Time",
+      "vehicle": "Vehicle",
+      "edited": "Changed afterwards"
+    },
+    "tripType": {
+      "business": "business",
+      "private": "private",
+      "commute": "commute"
+    },
+    "yes": "yes",
+    "no": "no"
   }
 }

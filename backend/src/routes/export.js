@@ -11,17 +11,21 @@ import { loadYearTrips } from "../lib/distances.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
 // CSV is for humans (Excel) – trip type stays German as before
-const TRIP_TYPE_CSV = { private: "privat", business: "geschäftlich", commute: "arbeitsweg" };
+// Per language: separator (Excel expects ";" in German, "," in English) and time format
+const CSV_FORMAT = {
+  de: { separator: ";", time: "DD.MM.YYYY HH24:MI" },
+  en: { separator: ",", time: "DD/MM/YYYY HH24:MI" },
+};
 
 export function exportRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
   const tz = config.timezone;
 
   // All exports accept ?vehicle=CODE; vehicleId === null → all vehicles
-  const yearTrips = (userId, year, vehicleId) => pool.query(
+  const yearTrips = (userId, year, vehicleId, timeFormat = CSV_FORMAT.de.time) => pool.query(
     `SELECT f.id, f.odometer_km, f.destination, f.trip_type, f.timestamp, f.vehicle_id,
             v.name AS vehicle_name,
-            TO_CHAR(f.timestamp AT TIME ZONE $3, 'DD.MM.YYYY HH24:MI') AS local_time,
+            TO_CHAR(f.timestamp AT TIME ZONE $3, $5) AS local_time,
             EXISTS (SELECT 1 FROM trip_audit a
                     WHERE a.trip_id = f.id AND a.action = 'update') AS edited
      FROM   trips f
@@ -31,7 +35,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
        AND  f.timestamp <  make_timestamptz($2 + 1, 1, 1, 0, 0, 0, $3)
        AND  ($4::int IS NULL OR f.vehicle_id = $4)
      ORDER  BY f.timestamp ASC, f.id ASC`,
-    [userId, year, tz, vehicleId]
+    [userId, year, tz, vehicleId, timeFormat]
   );
 
   // GET /api/export/json?month=YYYY-MM[&vehicle=CODE]  →  trips of one month
@@ -74,18 +78,20 @@ export function exportRoutes({ pool, config, requireAuth }) {
   router.get("/export/csv/year/:year", requireAuth, asyncHandler(async (req, res) => {
     const { year } = parse(yearParam, req.params);
     const { vehicle } = parse(vehicleQuery, req.query);
-    const result = await yearTrips(req.userId, year, await vehicleIdByCode(pool, req.userId, vehicle));
+    const format = CSV_FORMAT[req.language] ?? CSV_FORMAT.de;
+    const result = await yearTrips(req.userId, year, await vehicleIdByCode(pool, req.userId, vehicle), format.time);
 
-    let csv = "KM Stand;Ziel;Fahrtart;Zeitpunkt;Fahrzeug;Nachträglich geändert\n";
+    let csv = ["odometer", "destination", "tripType", "time", "vehicle", "edited"]
+      .map(k => req.t(`csv.header.${k}`)).join(format.separator) + "\n";
     for (const f of result.rows) {
       csv += [
-        f.odometer_km, csvField(f.destination), TRIP_TYPE_CSV[f.trip_type] ?? f.trip_type, f.local_time,
-        csvField(f.vehicle_name), f.edited ? "ja" : "nein",
-      ].join(";") + "\n";
+        f.odometer_km, csvField(f.destination), req.t(`csv.tripType.${f.trip_type}`), f.local_time,
+        csvField(f.vehicle_name), req.t(f.edited ? "csv.yes" : "csv.no"),
+      ].join(format.separator) + "\n";
     }
 
     res.header("Content-Type", "text/csv; charset=utf-8");
-    res.attachment(`fahrten_${year}.csv`);
+    res.attachment(`${req.t("csv.fileName")}_${year}.csv`);
     return res.send("﻿" + csv);  // BOM for Excel
   }));
 
@@ -115,13 +121,14 @@ export function exportRoutes({ pool, config, requireAuth }) {
     ]);
 
     res.header("Content-Type", "application/pdf");
-    res.attachment(`fahrtenbuch_${year}.pdf`);
+    res.attachment(`${req.t("pdf.fileName")}_${year}.pdf`);
     await renderYearPdf(res, {
       year,
       username: user.rows[0]?.username ?? "",
       trips,
       audit:    audit.rows,
       timezone: tz,
+      language: req.language,
     });
   }));
 
