@@ -20,7 +20,7 @@
 
 <div class="container py-5 flex-fill" style="max-width: 800px;">
   <h2 class="mb-1">🛠️ Admin-Panel</h2>
-  <p class="text-muted mb-4">Benutzerverwaltung</p>
+  <p class="text-muted mb-4">Benutzerverwaltung &amp; Wartung</p>
 
   <div id="adminAlert" class="d-none mb-3"></div>
   <div id="adminNoAccess" class="alert alert-danger d-none">
@@ -49,6 +49,35 @@
           <tr><td colspan="4" class="text-muted p-3">Lade…</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ── Datenbank aufräumen ──────────────────────────────── -->
+  <div class="card shadow-sm mb-4" id="aufraeumenPanel">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><span class="mdi mdi-broom me-1"></span>Datenbank aufräumen</span>
+      <button class="btn btn-sm btn-outline-primary" id="btnPruefen">
+        <span class="mdi mdi-magnify me-1"></span>Prüfen
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="aufraeumenAlert" class="d-none mb-3"></div>
+      <p class="small text-muted mb-0" id="aufraeumenStart">
+        Sucht in allen Konten nach doppelten Fahrten und nach Fahrten, die keinem Fahrzeug zugeordnet sind.
+        Jede Änderung wird im Änderungsprotokoll des Benutzers mit Quelle „Admin“ festgehalten.
+      </p>
+
+      <div id="aufraeumenErgebnis" class="d-none">
+        <h6 class="mt-1">Doppelte Fahrten <span class="badge text-bg-secondary" id="duplikatAnzahl">0</span></h6>
+        <p class="small text-muted" id="duplikatRegel"></p>
+        <div id="duplikatListe"></div>
+        <button class="btn btn-sm btn-danger mt-2 d-none" id="btnDuplikateLoeschen">
+          <span class="mdi mdi-delete me-1"></span>Ausgewählte Duplikate löschen
+        </button>
+
+        <h6 class="mt-4">Fahrten ohne Fahrzeug <span class="badge text-bg-secondary" id="ohneAnzahl">0</span></h6>
+        <div id="ohneListe"></div>
+      </div>
     </div>
   </div>
 </div>

@@ -8,7 +8,8 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
-import { createUserBody, idParam, vehicleBody } from "../schemas.js";
+import { bearbeiteOhneFahrzeug, bericht, entferneDuplikate } from "../lib/aufraeumen.js";
+import { createUserBody, duplikateBody, idParam, ohneFahrzeugBody, vehicleBody } from "../schemas.js";
 
 export function adminRoutes({ pool, requireAuth, requireAdmin }) {
   const router = express.Router();
@@ -63,6 +64,37 @@ export function adminRoutes({ pool, requireAuth, requireAdmin }) {
       return createVehicle(client, id, name, is_default);
     });
     return res.status(201).json(created);
+  }));
+
+  // ── Datenbank aufräumen ────────────────────────────────────
+
+  // GET /api/admin/aufraeumen  →  Bericht: doppelte Fahrten, Fahrten ohne Fahrzeug
+  router.get("/admin/aufraeumen", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    return res.json(await bericht(pool));
+  }));
+
+  // POST /api/admin/aufraeumen/duplikate  →  überzählige Duplikate löschen
+  // Body: { ids? }  ohne ids: alle aktuell erkannten
+  router.post("/admin/aufraeumen/duplikate", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    const { ids } = parse(duplikateBody, req.body);
+    const ergebnis = await withTransaction(pool, client => entferneDuplikate(client, ids ?? null));
+    console.log(`🧹 Admin ${req.userId}: ${ergebnis.entfernt} doppelte Fahrten gelöscht`);
+    return res.json(ergebnis);
+  }));
+
+  // POST /api/admin/aufraeumen/ohne-fahrzeug  →  Fahrten ohne Fahrzeug zuordnen oder löschen
+  // Body: { user_id, aktion: "zuordnen" | "loeschen", vehicle_id? }
+  router.post("/admin/aufraeumen/ohne-fahrzeug", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+    const daten = parse(ohneFahrzeugBody, req.body);
+    if (daten.aktion === "zuordnen") {
+      const vehicle = await pool.query(`SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2`, [daten.vehicle_id, daten.user_id]);
+      if (vehicle.rows.length === 0) {
+        throw new HttpError(400, "Fahrzeug gehört nicht zu diesem Benutzer");
+      }
+    }
+    const ergebnis = await withTransaction(pool, client => bearbeiteOhneFahrzeug(client, daten));
+    console.log(`🧹 Admin ${req.userId}: ${ergebnis.anzahl} Fahrten ohne Fahrzeug von User ${daten.user_id} → ${daten.aktion}`);
+    return res.json(ergebnis);
   }));
 
   return router;

@@ -552,7 +552,7 @@ function historyButton(f) {
 
 const FELD_LABELS = { kmstand: "km-Stand", ziel: "Ziel", fahrtart: "Fahrtart", timestamp: "Zeitpunkt", vehicle_id: "Fahrzeug" };
 const AKTIONEN    = { create: "Angelegt", update: "Geändert", delete: "Gelöscht" };
-const QUELLEN     = { web: "Web", api_token: "API-Token" };
+const QUELLEN     = { web: "Web", api_token: "API-Token", admin: "Admin" };
 const quelleText  = quelle => QUELLEN[quelle] || quelle;
 
 function formatWert(feld, wert) {

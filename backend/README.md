@@ -140,6 +140,9 @@ DELETE /api/tokens/:id      # Token löschen
 | GET  | `/api/backup` | Gesamtsicherung aller Fahrzeuge inkl. Fahrten ohne Fahrzeug |
 | POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur (max. 50 MB) |
 | GET  | `/api/backup/status` | Letzte Sicherung je Fahrzeug, Änderungen seitdem, Erinnerung (> 30 Tage) |
+| GET  | `/api/admin/aufraeumen` | Admin: doppelte Fahrten und Fahrten ohne Fahrzeug (alle Konten) |
+| POST | `/api/admin/aufraeumen/duplikate` | Admin: überzählige Duplikate löschen (`{ ids? }`, protokolliert mit Quelle „admin“) |
+| POST | `/api/admin/aufraeumen/ohne-fahrzeug` | Admin: Fahrten ohne Fahrzeug eines Users zuordnen oder löschen (`{ user_id, aktion, vehicle_id? }`) |
 | GET  | `/api/vehicles/:id/pruefung?year=YYYY` | Prüfung eines Jahres: Ampel + Auffälligkeiten (km-Rückschritte, Lücken, Koordinaten als Ziel …) |
 | GET  | `/api/fahrten?year=YYYY` | Fahrten eines Jahres mit Strecke je Fahrt, Monatsübersicht und Jahressumme |
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |

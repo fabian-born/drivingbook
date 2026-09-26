@@ -239,3 +239,14 @@ export const backupBody = z.object({
   ohne_fahrzeug: z.object({ fahrten: importFahrten, protokoll: importProtokoll })
     .optional().default({ fahrten: [], protokoll: [] }),
 });
+
+// ── Admin: Datenbank aufräumen ───────────────────────────────
+const idListe = z.array(z.number().int().positive(), { error: "ids muss eine Liste von Fahrt-IDs sein" });
+
+export const duplikateBody = z.object({ ids: idListe.optional() });
+
+export const ohneFahrzeugBody = z.object({
+  user_id:    z.number({ error: "user_id erforderlich" }).int().positive(),
+  aktion:     z.enum(["zuordnen", "loeschen"], { error: "aktion muss 'zuordnen' oder 'loeschen' sein" }),
+  vehicle_id: z.number().int().positive().optional(),
+}).refine(d => d.aktion !== "zuordnen" || d.vehicle_id, { error: "vehicle_id erforderlich zum Zuordnen" });
