@@ -1,8 +1,9 @@
 // Setzt die Test-Datenbank zurück und startet Backend + Frontend-Server
+// (lokal aus den Quellordnern oder mit E2E_DOCKER=1 aus den Docker-Images)
 import http from "http";
 import fs from "fs";
 import path from "path";
-import { spawn } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 
@@ -33,45 +34,76 @@ await client.connect();
 await client.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
 await client.end();
 
-const backend = spawn("node", ["server.js"], {
-  cwd: path.join(root, "backend"),
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    PORT: String(BACKEND_PORT),
-    DB_HOST: db.host, DB_PORT: String(db.port), DB_NAME: db.database, DB_USER: db.user, DB_PASSWORD: db.password,
-    JWT_SECRET: "e2e-secret-".padEnd(48, "x"),
-    ADMIN_PASSWORD,
-    GEOCODING: "false",
-  },
-});
-backend.on("exit", code => process.exit(code ?? 1));
-
-// Statisches Frontend wie im nginx-Container: /api → Backend
-const TYPES = {
-  ".html": "text/html", ".json": "application/json", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
-  ".ver": "text/plain", ".webmanifest": "application/manifest+json",
+const backendEnv = {
+  DB_HOST: db.host, DB_PORT: String(db.port), DB_NAME: db.database, DB_USER: db.user, DB_PASSWORD: db.password,
+  JWT_SECRET: "e2e-secret-".padEnd(48, "x"),
+  ADMIN_PASSWORD,
+  GEOCODING: "false",
 };
-const frontend = path.join(root, "frontend");
-http.createServer((req, res) => {
-  if (req.url.startsWith("/api")) {
-    const proxy = http.request(
-      { host: "127.0.0.1", port: BACKEND_PORT, path: req.url, method: req.method, headers: req.headers },
-      r => { res.writeHead(r.statusCode, r.headers); r.pipe(res); }
-    );
-    proxy.on("error", () => { res.writeHead(502); res.end(); });
-    req.pipe(proxy);
-    return;
-  }
-  const datei = path.join(frontend, path.normalize(decodeURIComponent(req.url.split("?")[0])).replace(/^\/$/, "/index.html"));
-  if (!datei.startsWith(frontend)) { res.writeHead(403); return res.end(); }
-  fs.readFile(datei, (err, inhalt) => {
-    if (err) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(datei)] || "application/octet-stream" });
-    res.end(inhalt);
-  });
-}).listen(FRONTEND_PORT);
 
-const beenden = () => { backend.kill(); process.exit(0); };
-process.on("SIGTERM", beenden);
-process.on("SIGINT", beenden);
+// E2E_DOCKER=1: gegen die gebauten Docker-Images testen (wie in Produktion: nginx + Backend).
+// Die Images müssen vorher gebaut sein (siehe README), Namen über E2E_FRONTEND_IMAGE / E2E_BACKEND_IMAGE.
+if (process.env.E2E_DOCKER) {
+  const images = {
+    backend:  process.env.E2E_BACKEND_IMAGE  || "drivingbook-e2e-backend",
+    frontend: process.env.E2E_FRONTEND_IMAGE || "drivingbook-e2e-frontend",
+  };
+  const docker = args => execFileSync("docker", args, { stdio: ["ignore", "pipe", "inherit"] }).toString().trim();
+  const entfernen = () => {
+    for (const name of ["drivingbook-e2e-frontend", "drivingbook-e2e-backend"]) {
+      try { docker(["rm", "-f", name]); } catch { /* existiert nicht */ }
+    }
+  };
+  entfernen();
+  // Backend im Host-Netz (erreicht die Test-DB), nginx findet es als "backend:3000" über host-gateway
+  docker(["run", "-d", "--name", "drivingbook-e2e-backend", "--network", "host",
+    ...Object.entries({ ...backendEnv, PORT: "3000" }).flatMap(([k, v]) => ["-e", `${k}=${v}`]), images.backend]);
+  docker(["run", "-d", "--name", "drivingbook-e2e-frontend", "-p", `${FRONTEND_PORT}:80`,
+    "--add-host", "backend:host-gateway", images.frontend]);
+
+  const logs = spawn("docker", ["logs", "-f", "drivingbook-e2e-backend"], { stdio: "inherit" });
+  const beendenDocker = () => { logs.kill(); entfernen(); process.exit(0); };
+  process.on("SIGTERM", beendenDocker);
+  process.on("SIGINT", beendenDocker);
+} else {
+  starteLokal();
+}
+
+// Backend als Node-Prozess + statisches Frontend aus dem Quellordner
+function starteLokal() {
+  const backend = spawn("node", ["server.js"], {
+    cwd: path.join(root, "backend"),
+    stdio: "inherit",
+    env: { ...process.env, ...backendEnv, PORT: String(BACKEND_PORT) },
+  });
+  backend.on("exit", code => process.exit(code ?? 1));
+
+  // Statisches Frontend wie im nginx-Container: /api → Backend
+  const TYPES = {
+    ".html": "text/html", ".json": "application/json", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
+    ".ver": "text/plain", ".webmanifest": "application/manifest+json",
+  };
+  const frontend = path.join(root, "frontend");
+  http.createServer((req, res) => {
+    if (req.url.startsWith("/api")) {
+      const proxy = http.request(
+        { host: "127.0.0.1", port: BACKEND_PORT, path: req.url, method: req.method, headers: req.headers },
+        r => { res.writeHead(r.statusCode, r.headers); r.pipe(res); }
+      );
+      proxy.on("error", () => { res.writeHead(502); res.end(); });
+      req.pipe(proxy);
+      return;
+    }
+    const datei = path.join(frontend, path.normalize(decodeURIComponent(req.url.split("?")[0])).replace(/^\/$/, "/index.html"));
+    if (!datei.startsWith(frontend)) { res.writeHead(403); return res.end(); }
+    fs.readFile(datei, (err, inhalt) => {
+      if (err) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { "Content-Type": TYPES[path.extname(datei)] || "application/octet-stream" });
+      res.end(inhalt);
+    });
+  }).listen(FRONTEND_PORT);
+
+  const beenden = () => { backend.kill(); process.exit(0); };
+  process.on("SIGTERM", beenden);
+  process.on("SIGINT", beenden);
+}

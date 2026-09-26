@@ -15,6 +15,19 @@ DB_HOST=127.0.0.1 DB_PORT=5432 DB_NAME=fahrtenbuch_test \
 DB_USER=fahrtenbuch DB_PASSWORD=test npx playwright test
 ```
 
+**Gegen die Docker-Images testen** (so läuft es in der CI): Die Images werden vorher gebaut,
+`start.mjs` startet sie dann wie in Produktion (nginx-Frontend + Backend-Container):
+
+```bash
+docker build -t drivingbook-e2e-backend  ../backend
+docker build -t drivingbook-e2e-frontend ../frontend
+E2E_DOCKER=1 DB_HOST=127.0.0.1 DB_PORT=5432 DB_NAME=fahrtenbuch_test \
+DB_USER=fahrtenbuch DB_PASSWORD=test npx playwright test
+```
+
+Das Backend läuft dabei im Host-Netz auf Port 3000, das Frontend auf Port 8099; nach dem Lauf
+werden die Container entfernt.
+
 Testbenutzer werden über die Admin-API angelegt (die Registrierung ist ratenbegrenzt).
 In der CI laufen die Tests bei jeder Änderung an `frontend/`, `backend/` oder `e2e/`;
 Images werden nur gebaut, wenn sie bestehen.

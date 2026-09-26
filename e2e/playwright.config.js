@@ -9,6 +9,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  globalTeardown: "./teardown.mjs",   // Container des Docker-Modus entfernen
   workers: 1,                // gemeinsame Datenbank
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,

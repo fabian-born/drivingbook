@@ -36,7 +36,9 @@ jobs:
             e2e:
               - 'e2e/**'
 
-  # Browser-Tests: Frontend + Backend zusammen, bei jeder Änderung an einem der beiden
+  # Browser-Tests: Frontend + Backend zusammen, bei jeder Änderung an einem der beiden.
+  # Getestet werden die gebauten Docker-Images (nginx + Backend wie in Produktion),
+  # damit auch fehlende Dateien im Image oder nginx-Regeln auffallen.
   e2e:
     needs: detect-changes
     if: >-
@@ -78,11 +80,17 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
 
-      - name: Browser-Tests
+      - name: Docker-Images für die Tests bauen
+        run: |
+          docker build -t drivingbook-e2e-backend  backend
+          docker build -t drivingbook-e2e-frontend frontend
+
+      - name: Browser-Tests (gegen die Docker-Images)
         run: npx playwright test
         working-directory: e2e
         env:
           CI:          "true"
+          E2E_DOCKER:  "1"
           DB_HOST:     127.0.0.1
           DB_PORT:     5432
           DB_NAME:     fahrtenbuch_test
