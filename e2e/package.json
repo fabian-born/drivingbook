@@ -1,6 +1,7 @@
 {
   "name": "fahrtenbuch-e2e",
   "private": true,
+  "license": "MIT",
   "description": "Browser-Tests für Frontend + Backend (Playwright)",
   "type": "module",
   "scripts": {

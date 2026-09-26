@@ -1,6 +1,7 @@
 {
   "name": "fahrtenbuch-backend",
   "version": "2.0.0",
+  "license": "MIT",
   "description": "Logbook backend – PostgreSQL + JWT + API tokens",
   "main": "server.js",
   "type": "module",
