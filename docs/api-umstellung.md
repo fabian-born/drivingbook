@@ -15,7 +15,7 @@ Ziel: API-Pfade, Feldnamen und Werte englisch – wie die Datenbank seit Migrati
 - [x] 2b. Backend-Tests auf die neue API umstellen (+ Tests für `POST /api/fahrt` und v1-Import); grün
 - [x] 3. Frontend auf die neue API; Browser-Tests grün (inkl. Offline-Warteschlange: alte
       Einträge werden beim Laden umgeschrieben, `js/offline.js` → `neuesFormat`)
-- [ ] 4. README/HA-Doku auf die neue API; Aufräumen (Reste deutscher API-Namen suchen)
+- [x] 4. README/HA-Doku auf die neue API; Aufräumen (Reste deutscher API-Namen suchen)
 
 Weitermachen: Checkliste oben, dann `git log --oneline` – jeder Schritt ist ein Commit
 „API englisch – Schritt N: …“. Tests: siehe `backend/README.md` und `e2e/README.md`

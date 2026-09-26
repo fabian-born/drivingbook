@@ -1,27 +1,39 @@
 Home Assistant Integration – Fahrtenbuch
 =========================================
 
-Endpoint:   POST https://fahrtenbuch.home.fabianborn.net/api/fahrt
-Auth:       Authorization: Bearer <API-TOKEN>  (Token unter Profil > API-Tokens erzeugen)
+Endpoint:   POST https://fahrtenbuch.home.fabianborn.net/api/trips
+Auth:       Authorization: Bearer <API-TOKEN>  (Token unter Profil > Konto > API-Tokens erzeugen)
+
+Übergang: Die frühere Adresse POST /api/fahrt mit den deutschen Feldern
+(kmstand, ziel, fahrtart = privat/geschäftlich/arbeitsweg) funktioniert weiterhin.
+Bei Gelegenheit auf die neue Adresse und Felder unten umstellen.
+
+Felder
+------
+odometer_km   km-Stand (ganze Zahl)
+destination   Ziel / Kunde
+trip_type     business (geschäftlich) | private (privat) | commute (Arbeitsweg)
+timestamp     Zeitpunkt (ISO 8601)
+vehicle_code  optional, siehe unten
 
 Verhalten vehicle_code
 -----------------------
 - Kein vehicle_code im Payload  -> Fahrt wird automatisch dem Standard-Fahrzeug zugeordnet
-                                    (im Profil über "Als Standard" änderbar)
+                                    (unter Profil > Auto-Info über "Als Standard" änderbar)
 - vehicle_code: null            -> Fahrt bewusst ohne Fahrzeug-Zuordnung
 - vehicle_code: "A9F82D"        -> Fahrt wird genau diesem Fahrzeug zugeordnet
-                                    (Code steht im Profil neben dem jeweiligen Fahrzeug)
+                                    (Code steht unter Profil > Auto-Info)
 
 configuration.yaml
 -------------------
 rest_command:
   fahrtenbuch_fahrt_eintragen:
-    url: "https://fahrtenbuch.home.fabianborn.net/api/fahrt"
+    url: "https://fahrtenbuch.home.fabianborn.net/api/trips"
     method: POST
     headers:
       Content-Type: "application/json"
       Authorization: "Bearer !secret fahrtenbuch_token"
-    payload: '{"kmstand":{{ kmstand }},"ziel":"{{ ziel }}","fahrtart":"{{ fahrtart }}","timestamp":"{{ timestamp }}"}'
+    payload: '{"odometer_km":{{ odometer_km }},"destination":"{{ destination }}","trip_type":"{{ trip_type }}","timestamp":"{{ timestamp }}"}'
 
 secrets.yaml
 -------------
@@ -31,27 +43,27 @@ Aufruf (z. B. aus einer Automation)
 -------------------------------------
 service: rest_command.fahrtenbuch_fahrt_eintragen
 data:
-  kmstand: "{{ states('sensor.auto_kilometerstand') | int }}"
-  ziel: "Home Assistant Update"
-  fahrtart: "privat"
+  odometer_km: "{{ states('sensor.auto_kilometerstand') | int }}"
+  destination: "Home Assistant Update"
+  trip_type: "private"
   timestamp: "{{ now().isoformat() }}"
 
 Variante mit explizitem Fahrzeug
 -----------------------------------
 payload (rest_command):
-'{"kmstand":{{ kmstand }},"ziel":"{{ ziel }}","fahrtart":"{{ fahrtart }}","timestamp":"{{ timestamp }}","vehicle_code":"{{ vehicle_code }}"}'
+'{"odometer_km":{{ odometer_km }},"destination":"{{ destination }}","trip_type":"{{ trip_type }}","timestamp":"{{ timestamp }}","vehicle_code":"{{ vehicle_code }}"}'
 
 Aufruf:
 service: rest_command.fahrtenbuch_fahrt_eintragen
 data:
-  kmstand: "{{ states('sensor.auto_kilometerstand') | int }}"
-  ziel: "Home Assistant Update"
-  fahrtart: "privat"
+  odometer_km: "{{ states('sensor.auto_kilometerstand') | int }}"
+  destination: "Home Assistant Update"
+  trip_type: "private"
   timestamp: "{{ now().isoformat() }}"
   vehicle_code: "A9F82D"
 
 km-Plausibilität
 -------------------
-Ist der neue kmstand kleiner als bei der vorherigen oder größer als bei der
+Ist der neue km-Stand kleiner als bei der vorherigen oder größer als bei der
 folgenden Fahrt desselben Fahrzeugs, antwortet die API mit HTTP 409
 (code: "KM_PLAUSIBILITY"). Mit "force": true im Payload wird das umgangen.

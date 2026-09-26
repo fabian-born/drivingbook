@@ -125,35 +125,38 @@ DELETE /api/tokens/:id      # Token löschen
 
 ## 5. Wichtige Endpoints
 
+Pfade, Feldnamen und Werte der API sind englisch (seit 09/2026); Fehlermeldungen sind deutsch.
+
 | Methode | Route | Beschreibung |
 |---------|-------|--------------|
 | POST | `/api/login` | Login → JWT |
 | POST | `/api/register` | Registrierung (abschaltbar) |
-| GET  | `/api/health` | Healthcheck |
-| POST | `/api/fahrt` | Fahrt speichern |
-| PUT  | `/api/fahrt/:id` | Fahrt bearbeiten (Teil-Update; neuer `timestamp` verschiebt ggf. den Monat) |
-| DELETE | `/api/fahrt/:id` | Fahrt löschen |
-| GET  | `/api/fahrt/:id/history` | Änderungsverlauf einer Fahrt |
+| GET  | `/api/health` | Healthcheck (inkl. Backend-Version) |
+| POST | `/api/trips` | Fahrt speichern |
+| PUT  | `/api/trips/:id` | Fahrt bearbeiten (Teil-Update; neuer `timestamp` verschiebt ggf. den Monat) |
+| DELETE | `/api/trips/:id` | Fahrt löschen |
+| GET  | `/api/trips/:id/history` | Änderungsverlauf einer Fahrt |
+| GET  | `/api/trips?year=YYYY` | Fahrten eines Jahres mit Strecke (`distance`), Monatsübersicht (`months`) und Jahressumme (`totals`) |
 | GET  | `/api/audit?year=YYYY` | Änderungen und Löschungen eines Jahres |
-| GET  | `/api/vehicles/:id/export` | Sicherung eines Fahrzeugs als JSON (Fahrzeugdaten, Jahreskosten, Fahrten, Änderungsprotokoll) |
-| POST | `/api/vehicles/import` | Fahrzeug-Sicherung wiederherstellen – ergänzt nur; Fahrzeug über Code erkannt, sonst neu angelegt (max. 25 MB) |
-| GET  | `/api/backup` | Gesamtsicherung aller Fahrzeuge inkl. Fahrten ohne Fahrzeug |
-| POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur (max. 50 MB) |
-| GET  | `/api/backup/status` | Letzte Sicherung je Fahrzeug, Änderungen seitdem, Erinnerung (> 30 Tage) |
-| GET  | `/api/admin/aufraeumen` | Admin: doppelte Fahrten und Fahrten ohne Fahrzeug (alle Konten) |
-| POST | `/api/admin/aufraeumen/duplikate` | Admin: überzählige Duplikate löschen (`{ ids? }`, protokolliert mit Quelle „admin“) |
-| POST | `/api/admin/aufraeumen/ohne-fahrzeug` | Admin: Fahrten ohne Fahrzeug eines Users zuordnen oder löschen (`{ user_id, aktion, vehicle_id? }`) |
-| GET  | `/api/vehicles/:id/pruefung?year=YYYY` | Prüfung eines Jahres: Ampel + Auffälligkeiten (km-Rückschritte, Lücken, Koordinaten als Ziel …) |
-| GET  | `/api/fahrten?year=YYYY` | Fahrten eines Jahres mit Strecke je Fahrt, Monatsübersicht und Jahressumme |
 | GET  | `/api/export/json?month=YYYY-MM` | Fahrten eines Monats (`edited` = nachträglich geändert) |
-| GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres |
+| GET  | `/api/export/csv/year/:year` | CSV-Export eines Jahres (Spalten deutsch) |
 | GET  | `/api/export/pdf/year/:year` | PDF-Fahrtenbuch eines Jahres inkl. Änderungsprotokoll |
-
-Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE`) und liefern dann
-nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
 | GET  | `/api/vehicles` | Fahrzeuge des Users |
 | POST | `/api/vehicles` | Fahrzeug anlegen |
-| DELETE | `/api/vehicles/:id[?ziel=ID]` | Fahrzeug löschen; hat es Fahrten, ziehen sie in Fahrzeug `ziel` um (protokolliert), ohne `ziel` → 409 `HAT_FAHRTEN` |
+| PATCH | `/api/vehicles/:id` | Name, Kennzeichen, Listenpreis, Antrieb (`drive_type`) ändern |
+| DELETE | `/api/vehicles/:id[?target=ID]` | Fahrzeug löschen; hat es Fahrten, ziehen sie in Fahrzeug `target` um (protokolliert), ohne `target` → 409 `HAS_TRIPS` |
+| GET  | `/api/vehicles/:id/info?year=YYYY` | Auto-Info: Kennzahlen, Jahreskosten, Vergleich 1-%-Regel ↔ Fahrtenbuch (`comparison`) |
+| PATCH | `/api/vehicles/:id/default` | Fahrzeug als Standard markieren |
+| PUT  | `/api/vehicles/:id/years/:year` | Jahreskosten speichern |
+| GET  | `/api/vehicles/:id/check?year=YYYY` | Prüfung eines Jahres: `status` (green/yellow/red) + `findings` |
+| GET  | `/api/vehicles/:id/export` | Sicherung eines Fahrzeugs (Format v2) |
+| POST | `/api/vehicles/import` | Fahrzeug-Sicherung wiederherstellen – ergänzt nur; v2 und v1 (max. 25 MB) |
+| GET  | `/api/backup` | Gesamtsicherung aller Fahrzeuge inkl. Fahrten ohne Fahrzeug |
+| POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur; v2 und v1 (max. 50 MB) |
+| GET  | `/api/backup/status` | Letzte Sicherung je Fahrzeug, Änderungen seitdem, Erinnerung (> 30 Tage) |
+| GET  | `/api/admin/cleanup` | Admin: doppelte Fahrten und Fahrten ohne Fahrzeug (alle Konten) |
+| POST | `/api/admin/cleanup/duplicates` | Admin: überzählige Duplikate löschen (`{ ids? }`, protokolliert mit Quelle „admin“) |
+| POST | `/api/admin/cleanup/unassigned` | Admin: Fahrten ohne Fahrzeug zuordnen oder löschen (`{ user_id, action: "assign" \| "delete", vehicle_id? }`) |
 | GET  | `/api/tokens` | API-Tokens anzeigen |
 | POST | `/api/tokens` | API-Token generieren |
 | DELETE | `/api/tokens/:id` | API-Token löschen |
@@ -161,24 +164,32 @@ nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
 | GET  | `/api/users` | Alle User *(nur Admin)* |
 | POST | `/api/users/change-password` | Eigenes Passwort ändern |
 
+Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE`) und liefern dann
+nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
+
+**Übergang:** `POST /api/fahrt` nimmt weiterhin die früheren deutschen Felder an
+(`kmstand`, `ziel`, `fahrtart` = `privat`/`geschäftlich`/`arbeitsweg`), damit bestehende
+Home-Assistant-Automationen weiterlaufen. Neue Clients bitte `POST /api/trips` verwenden.
+
 ---
 
 ## 6. Fahrt per API-Token eintragen (Beispiel curl)
 
 ```bash
-curl -X POST https://deine-domain.de/api/fahrt \
+curl -X POST https://deine-domain.de/api/trips \
   -H "X-API-Token: <DEIN-API-TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
-    "kmstand": 12345,
-    "ziel": "Kunde Muster GmbH",
-    "fahrtart": "geschäftlich",
+    "odometer_km": 12345,
+    "destination": "Kunde Muster GmbH",
+    "trip_type": "business",
     "timestamp": "2026-04-29T09:30:00.000Z",
     "vehicle_code": "A9F82D"
   }'
 ```
 
-`vehicle_code` ist der 6-stellige Code des Fahrzeugs (sichtbar im Profil unter "Fahrzeuge").
+`trip_type`: `business` (geschäftlich), `private` (privat) oder `commute` (Arbeitsweg).
+`vehicle_code` ist der 6-stellige Code des Fahrzeugs (Profil → Auto-Info).
 Fehlt `vehicle_code` komplett, wird automatisch das als Standard markierte Fahrzeug verwendet
 (falls eins existiert). `"vehicle_code": null` trägt die Fahrt explizit ohne Fahrzeug ein.
 
@@ -199,17 +210,10 @@ altem und neuem Stand sowie der Quelle (`web`, `api_token` oder `admin`) in
 docker exec -it fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch   # Prod: drivingbook-db
 ```
 
-**Namen:** Die Datenbank verwendet seit Migration 011 englische Namen, die API bleibt
-deutsch (für Frontend, Home Assistant und Sicherungsdateien). Übersetzt wird ausschließlich
-in `src/lib/dbschema.js` – neue SQL-Zugriffe auf Fahrten bitte über dessen Helfer.
-
-| API (deutsch) | Datenbank (englisch) |
-|---|---|
-| Tabelle Fahrten / Protokoll | `trips` / `trip_audit` |
-| `kmstand`, `ziel`, `fahrtart` | `odometer_km`, `destination`, `trip_type` |
-| `fahrt_id` (Protokoll) | `trip_id` |
-| `privat`, `geschäftlich`, `arbeitsweg` | `private`, `business`, `commute` |
-| `verbrenner`, `hybrid`, `elektro`, `elektro_teuer` | `combustion`, `hybrid`, `electric`, `electric_high_price` |
+Datenbank und API verwenden dieselben englischen Namen: Tabellen `trips` (`odometer_km`,
+`destination`, `trip_type`) und `trip_audit` (`trip_id`), Werte `business`/`private`/`commute`
+und `combustion`/`hybrid`/`electric`/`electric_high_price`. Sicherungsdateien im alten
+Format v1 (deutsche Felder) übersetzt `src/lib/altformat.js` beim Einspielen.
 
 Nützliche Queries:
 ```sql
