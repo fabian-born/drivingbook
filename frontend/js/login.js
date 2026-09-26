@@ -1,10 +1,10 @@
 const form = document.getElementById("loginForm");
 
-// Sprachwahl vor dem Login (nur für dieses Gerät)
+// Language choice before login (this device only)
 sprachAuswahl(document.getElementById("spracheWahl"), neu => { i18n.setze(neu); location.reload(); });
 const errorBox = document.getElementById("loginError");
 
-// Weiterleitung von apiFetch nach abgelaufener Anmeldung
+// Redirect from apiFetch after the session expired
 if (new URLSearchParams(location.search).has("expired")) {
   errorBox.innerText = t("login.expired");
   errorBox.className = "alert alert-warning";
@@ -33,11 +33,11 @@ form.addEventListener("submit", async e => {
 
     const data = await res.json();
 
-    // Token speichern; Fahrzeugauswahl eines früheren Logins gilt nicht mehr
+    // Store the token; the vehicle choice of an earlier login no longer applies
     localStorage.setItem("authToken", data.token);
     localStorage.removeItem("aktivesFahrzeug");
     localStorage.removeItem("fahrzeuge");
-    // Im Profil gewählte Sprache gilt auf diesem Gerät (sonst bleibt die bisherige Wahl)
+    // The language chosen in the profile applies on this device (otherwise the previous choice stays)
     if (data.user?.language) i18n.setze(data.user.language);
 
   } catch (err) {
@@ -49,13 +49,13 @@ form.addEventListener("submit", async e => {
   await fahrzeugWaehlen();
 });
 
-// Bei mehreren Fahrzeugen erst das Fahrzeug wählen lassen, sonst direkt zum Dashboard
+// With several vehicles let the user pick one first, otherwise go straight to the dashboard
 async function fahrzeugWaehlen() {
   let vehicles = [];
   try {
     const res = await apiFetch("/api/vehicles");
     if (res.ok) vehicles = await res.json();
-  } catch { /* Auswahl dann später über die Navigation */ }
+  } catch { /* choose later via the navigation instead */ }
 
   if (vehicles.length <= 1) {
     window.location.href = "index.html";

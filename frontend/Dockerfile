@@ -2,7 +2,7 @@ FROM nginx:alpine
 
 COPY _config/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Nur die ausgelieferten Dateien kopieren (keine Konfiguration/README im Web-Root)
+# Copy only the served files (no config/README in the web root)
 COPY *.html *.png release.ver manifest.webmanifest sw.js /usr/share/nginx/html/
 COPY js/    /usr/share/nginx/html/js/
 COPY css/   /usr/share/nginx/html/css/

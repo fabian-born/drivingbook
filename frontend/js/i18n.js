@@ -1,17 +1,17 @@
 // js/i18n.js
-// Mehrsprachigkeit. Wird im <head> jeder Seite direkt nach theme.js geladen.
-// Sprachdateien: lang/<sprache>.json im i18next-Format (verschachtelte Schlüssel,
-// Platzhalter {{name}}, Mehrzahl als key_one / key_other).
-// Die aktive Sprache wird synchron geladen, damit alle anderen Skripte t() sofort
-// nutzen können; offline kommt sie aus dem Service-Worker-Cache.
+// Internationalization. Loaded in the <head> of every page right after theme.js.
+// Language files: lang/<language>.json in i18next format (nested keys,
+// placeholders {{name}}, plurals as key_one / key_other).
+// The active language is loaded synchronously so all other scripts can use t()
+// right away; offline it comes from the service worker cache.
 //
-//   t("nav.dashboard")                     → Text (für textContent, alert, confirm)
-//   t("dashboard.trips", { count: 3 })     → Mehrzahl über Intl.PluralRules
-//   tHtml("key", { name })                 → Parameter HTML-escaped (für innerHTML)
-//   i18n.locale                            → z. B. "de-DE" für Datum und Zahlen
+//   t("nav.dashboard")                     → text (for textContent, alert, confirm)
+//   t("dashboard.trips", { count: 3 })     → plural via Intl.PluralRules
+//   tHtml("key", { name })                 → parameters HTML-escaped (for innerHTML)
+//   i18n.locale                            → e.g. "de-DE" for dates and numbers
 //
-// HTML: data-i18n="key" (textContent), data-i18n-html="key" (eigenes Markup),
-//       data-i18n-attr="placeholder:key;title:key2" (Attribute)
+// HTML: data-i18n="key" (textContent), data-i18n-html="key" (own markup),
+//       data-i18n-attr="placeholder:key;title:key2" (attributes)
 
 (function () {
   const SPRACHEN = { de: "Deutsch", en: "English" };
@@ -23,7 +23,7 @@
     try { return localStorage.getItem(KEY); } catch { return null; }
   }
 
-  // Einstellung → Browsersprache → Deutsch
+  // Setting → browser language → German
   function ermittleSprache() {
     const wahl = gespeichert();
     if (wahl && SPRACHEN[wahl]) return wahl;
@@ -37,7 +37,7 @@
   function lade(sprache) {
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open("GET", `lang/${sprache}.json`, false);   // bewusst synchron (siehe oben)
+      xhr.open("GET", `lang/${sprache}.json`, false);   // synchronous on purpose (see above)
       xhr.send();
       if (xhr.status === 200) return JSON.parse(xhr.responseText);
       console.error(`Sprachdatei lang/${sprache}.json: HTTP ${xhr.status}`);
@@ -82,8 +82,8 @@
     return ersetze(finde(key, params), params, escape);
   }
 
-  // Übersetzt statisches HTML (auch nachträglich eingefügte Bereiche).
-  // Fehlt eine Übersetzung, bleibt der deutsche Text aus dem HTML stehen.
+  // Translates static HTML (including sections inserted later).
+  // If a translation is missing, the German text from the HTML stays.
   function uebersetze(wurzel = document) {
     wurzel.querySelectorAll("[data-i18n]").forEach(el => {
       if (vorhanden(el.dataset.i18n)) el.textContent = t(el.dataset.i18n);
@@ -99,16 +99,16 @@
     });
   }
 
-  // Einstellung ändern: gespeicherte Wahl (null = automatisch), danach neu laden
+  // Change the setting: stored choice (null = automatic), then reload
   function setze(neu) {
     try {
       if (neu && SPRACHEN[neu]) localStorage.setItem(KEY, neu);
       else localStorage.removeItem(KEY);
-    } catch { /* nur für diese Sitzung */ }
+    } catch { /* for this session only */ }
   }
 
   document.documentElement.lang = sprache;
-  // Bis zur Übersetzung verbergen, damit kein deutscher Text aufblitzt
+  // Hide until translated so no German text flashes up
   if (sprache !== STANDARD) document.documentElement.classList.add("i18n-wartet");
   document.head.insertAdjacentHTML("beforeend", "<style>html.i18n-wartet body { visibility: hidden; }</style>");
   document.addEventListener("DOMContentLoaded", () => {
@@ -122,7 +122,7 @@
     sprache,
     locale: LOCALES[sprache],
     sprachen: SPRACHEN,
-    gewaehlt: () => gespeichert(),   // null = automatisch
+    gewaehlt: () => gespeichert(),   // null = automatic
     setze,
     uebersetze,
   };

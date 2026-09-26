@@ -19,11 +19,11 @@
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" rel="stylesheet" integrity="sha384-HphS8cQyN+eYiJ5PMbzShG6qZdRtvHPVLPkYb8JwMkmNgaIxrFVDhQe3jIbq3EZ2" crossorigin="anonymous">
 
 <style>
-  /* ── Filterleiste: auf dem Desktop mitlaufend, auf dem Smartphone nicht (spart Platz) ── */
+  /* ── Filter bar: sticky on desktop, not on smartphone (saves space) ── */
   .filter-bar { background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); padding: .75rem 1rem; }
   @media (min-width: 768px) { .filter-bar { position: sticky; top: 0; z-index: 100; } }
 
-  /* ── Desktop: kompakte Tabelle / Smartphone: Karten ── */
+  /* ── Desktop: compact table / smartphone: cards ── */
   @media (min-width: 768px) {
     .fahrtart-select { min-width: 120px; }
     .timestamp-input { min-width: 165px; }
@@ -31,13 +31,13 @@
   }
   @media (max-width: 767px) {
     .table-wrap { display: none; }
-    /* gut antippbare Bedienelemente */
+    /* easy-to-tap controls */
     .filter-bar .form-select, .filter-bar .btn,
     .fahrt-card .form-control, .fahrt-card .form-select, .fahrt-card .btn { min-height: 44px; }
     .filter-bar .form-select, .filter-bar .btn { font-size: 1rem; }
   }
 
-  /* ── Fahrt-Karte (Smartphone) ── */
+  /* ── Trip card (smartphone) ── */
   .fahrt-card {
     background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
     border-left: 4px solid var(--fahrtart-farbe, var(--bs-secondary-color));
@@ -51,13 +51,13 @@
   .fahrt-card .km-feld    { max-width: 10.5rem; }
   .btn-icon { min-width: 44px; }
 
-  /* Monats-Trennzeile in der Jahresansicht */
+  /* Month separator row in the year view */
   .month-divider {
     background: #343a40; color: #fff; border-radius: .4rem; padding: .4rem .75rem;
     font-size: .85rem; font-weight: 600; margin: 1rem 0 .5rem; letter-spacing: .03em;
   }
 
-  /* Tabellen-Felder kompakter */
+  /* More compact table cells */
   .table td { vertical-align: middle; }
   .table .form-select-sm, .table .form-control-sm { font-size: .8rem; }
   .delete-btn .mdi { font-size: 1rem; }
@@ -69,7 +69,7 @@
 <nav id="hauptnavigation" class="navbar navbar-expand-lg navbar-dark bg-dark"></nav>
 <script src="js/nav.js"></script>
 
-<!-- Filter-Leiste -->
+<!-- Filter bar -->
 <div class="filter-bar">
   <div class="row g-2 align-items-end">
     <div class="col-4 col-md-2">
@@ -107,7 +107,7 @@
 
 <div class="container-fluid py-3 px-3 flex-fill">
 
-  <!-- Summe der aktuellen Auswahl -->
+  <!-- Total of the current selection -->
   <div id="auswahlSumme" class="card shadow-sm border-0 mb-3 d-none">
     <div class="card-body py-2 px-3">
       <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2">
@@ -141,14 +141,14 @@
     </div>
   </div>
 
-  <!-- ── MOBILE: Card-Liste ── -->
+  <!-- ── MOBILE: card list ── -->
   <div class="card-list" id="cardList">
-    <!-- wird per JS befüllt -->
+    <!-- filled via JS -->
   </div>
 
 </div>
 
-<!-- Bestätigungs-Modal Löschen -->
+<!-- Delete confirmation modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -173,7 +173,7 @@
   </div>
 </div>
 
-<!-- Änderungsprotokoll -->
+<!-- Audit log -->
 <div class="modal fade" id="auditModal" tabindex="-1" aria-labelledby="auditModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
     <div class="modal-content">

@@ -1,9 +1,9 @@
 // js/auswertung.js
-// Jahresauswertung für Dashboard und Jahreshistorie: Kennzahlen, Aufteilung
-// nach Fahrtart, Verlauf (gestapelte Säulen) und Monatsübersicht –
-// auf dem Desktop als Tabelle, auf dem Smartphone als Monatskarten.
+// Yearly analysis for dashboard and year history: key figures, breakdown
+// by trip type, trend (stacked columns) and monthly overview –
+// as a table on desktop, as month cards on smartphones.
 
-// Stile der Auswertung (einmal pro Seite)
+// Analysis styles (once per page)
 document.head.insertAdjacentHTML("beforeend", `<style>
   .kennzahl-wert { font-size: clamp(1.1rem, 5vw, 1.75rem); font-weight: 600; line-height: 1.2; white-space: nowrap; }
   .zahl, .monats-tabelle td { font-variant-numeric: tabular-nums; }
@@ -14,14 +14,14 @@ document.head.insertAdjacentHTML("beforeend", `<style>
 
 const kmText   = n => `${(n ?? 0).toLocaleString(i18n.locale)} km`;
 const zahl     = n => (n ?? 0).toLocaleString(i18n.locale);
-// „3 Fahrten“ (Zahl formatiert, Einzahl/Mehrzahl über i18n)
+// "3 trips" (number formatted, singular/plural via i18n)
 const fahrtenText = n => t("analysis.trips", { count: n ?? 0, n: zahl(n) });
 const anteil   = (teil, ganz) => (ganz > 0 ? prozentText((teil / ganz) * 100) : "–");
 const monatsFormat = art => new Intl.DateTimeFormat(i18n.locale, { month: art });
 const monatLang = monat => monatsFormat("long").format(new Date(`${monat}-01T12:00:00`));
 const monatKurz = monat => monatsFormat("short").format(new Date(`${monat}-01T12:00:00`));
 
-// Aufteilungsbalken: Segmente je Fahrtart mit 2px Lücke (Farbe nie allein – Legende daneben)
+// Breakdown bar: one segment per trip type with 2px gap (never color alone – legend next to it)
 function aufteilungsBalken(werte, { hoehe = 10 } = {}) {
   const gesamt = FAHRTARTEN.reduce((n, a) => n + (werte[a.key] ?? 0), 0);
   const beschreibung = FAHRTARTEN.map(a => `${a.label} ${anteil(werte[a.key], gesamt)}`).join(", ");
@@ -33,7 +33,7 @@ function aufteilungsBalken(werte, { hoehe = 10 } = {}) {
             style="display:flex;gap:2px;height:${hoehe}px;border-radius:${hoehe / 2}px;overflow:hidden">${segmente}</div>`;
 }
 
-// Legende mit Farbfeld, km und Anteil (Text in Textfarbe, Identität über das Farbfeld)
+// Legend with color swatch, km and share (text in text color, identity via the swatch)
 function aufteilungsLegende(werte) {
   const gesamt = FAHRTARTEN.reduce((n, a) => n + (werte[a.key] ?? 0), 0);
   return FAHRTARTEN.map(a => `
@@ -96,11 +96,11 @@ function monatsKarten(monate) {
     </div>`).join("")}</div>`;
 }
 
-// Farben des aktuellen Themas (Hell/Dunkel) für Canvas-Diagramme
+// Colors of the current theme (light/dark) for canvas charts
 function diagrammFarben() {
   return {
     ink:     cssFarbe("--bs-secondary-color") || "#6c757d",
-    flaeche: cssFarbe("--bs-body-bg") || "#fff",                 // Kartenhintergrund = Lücke zwischen Segmenten
+    flaeche: cssFarbe("--bs-body-bg") || "#fff",                 // card background = gap between segments
     raster:  cssFarbe("--bs-border-color-translucent") || "rgba(0,0,0,.1)",
     serien:  FAHRTARTEN.map(fahrtartFarbe),
   };
@@ -117,7 +117,7 @@ function faerbeEin(chart) {
   chart.options.scales.y.grid.color  = f.raster;
 }
 
-// Beim Wechsel Hell/Dunkel (auch vor dem Drucken) sofort neu einfärben
+// Recolor immediately on light/dark switch (also before printing)
 document.addEventListener("themaGeaendert", () => {
   for (const chart of diagramme) {
     if (!chart.canvas?.isConnected) { diagramme.delete(chart); continue; }
@@ -137,7 +137,7 @@ function zeichneVerlauf(canvas, monate) {
         data: monate.map(m => m[a.key]),
         backgroundColor: f.serien[i],
         borderColor: f.flaeche,
-        borderWidth: 1,               // in Hintergrundfarbe → 2px Lücke zwischen den Segmenten
+        borderWidth: 1,               // in background color → 2px gap between segments
         borderSkipped: false,
         borderRadius: 3,
         maxBarThickness: 24,
@@ -149,7 +149,7 @@ function zeichneVerlauf(canvas, monate) {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        colors: { enabled: false },   // eigene Farben, keine automatische Chart.js-Palette
+        colors: { enabled: false },   // own colors, no automatic Chart.js palette
         legend: { position: "top", labels: { usePointStyle: true, pointStyle: "rectRounded", boxWidth: 10, boxHeight: 10, color: f.ink } },
         tooltip: {
           callbacks: {
@@ -169,8 +169,8 @@ function zeichneVerlauf(canvas, monate) {
   return chart;
 }
 
-// Rendert die komplette Auswertung in `ziel` und liefert die Chart-Instanz.
-// kacheln: [{ label, wert, hinweis? }] für die Kennzahlenzeile
+// Renders the complete analysis into `ziel` and returns the chart instance.
+// kacheln: [{ label, wert, hinweis? }] for the key figures row
 function zeigeJahresauswertung(ziel, { jahr, monate, summe, kacheln, alterChart }) {
   alterChart?.destroy();
 

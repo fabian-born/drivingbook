@@ -14,7 +14,7 @@ function formatDatum(iso) {
   });
 }
 
-// ── User-Tabelle laden ───────────────────────────────────────
+// ── Load user table ──────────────────────────────────────────
 
 async function ladeUsers() {
   const res = await apiFetch(`/api/users`);
@@ -54,16 +54,16 @@ async function ladeUsers() {
     </tr>`).join("");
 }
 
-// Länder, die der Steuervergleich kennt (Vorbereitung für weitere Länder)
+// Countries known to the tax comparison (groundwork for more countries)
 async function ladeLaender() {
   try {
     const res = await apiFetch("/api/admin/countries");
     if (res.ok) return (await res.json()).countries;
-  } catch { /* Rückfall unten */ }
+  } catch { /* fallback below */ }
   return ["DE"];
 }
 
-// Rolle oder Land direkt speichern; bei Fehler auf den alten Wert zurück
+// Save role or country immediately; revert to the old value on error
 document.getElementById("userTabelle").addEventListener("change", async e => {
   const select = e.target.closest(".user-rolle, .user-land");
   if (!select) return;
@@ -89,7 +89,7 @@ document.getElementById("userTabelle").addEventListener("change", async e => {
   }
 });
 
-// ── Neuer User (Admin-Weg) ───────────────────────────────────
+// ── New user (admin route) ───────────────────────────────────
 
 const userModal = new bootstrap.Modal(document.getElementById("userModal"));
 
@@ -121,8 +121,8 @@ async function erstelleUser() {
     return;
   }
 
-  // Admin nutzt /api/users statt /api/register, um Rolle setzen zu können
-  // Fahrzeug + Token werden danach separat angelegt
+  // Admin uses /api/users instead of /api/register so the role can be set
+  // Vehicle + token are created separately afterwards
   const res  = await apiFetch(`/api/users`, {
     method: "POST",
     body: { username, password, role }
@@ -134,8 +134,8 @@ async function erstelleUser() {
     return;
   }
 
-  // Fahrzeug anlegen (mit dem neuen User-Token geht das nicht direkt,
-  // daher rufen wir den neuen /api/admin/users/:id/setup Endpoint auf)
+  // Create the vehicle (not possible directly with the new user's token,
+  // so we call the new /api/admin/users/:id/setup endpoint)
   if (vehicleName) {
     await apiFetch(`/api/admin/users/${data.id}/vehicle`, {
       method: "POST",
@@ -143,7 +143,7 @@ async function erstelleUser() {
     });
   }
 
-  // Default-Token anzeigen
+  // Show default token
   document.getElementById("newUserToken").value = data.default_token;
   document.getElementById("newUserTokenBox").classList.remove("d-none");
   document.getElementById("userModalFooter").innerHTML = `
@@ -153,7 +153,7 @@ async function erstelleUser() {
 // ── Init ─────────────────────────────────────────────────────
 ladeUsers();
 
-// ── Datenbank aufräumen ──────────────────────────────────────
+// ── Database cleanup ─────────────────────────────────────────
 
 const datumZeit = iso => new Date(iso).toLocaleString(i18n.locale);
 

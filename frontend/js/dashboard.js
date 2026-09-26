@@ -1,5 +1,5 @@
 // js/dashboard.js
-// Dashboard: Auswertung des laufenden Jahres für das aktive Fahrzeug (siehe auswertung.js)
+// Dashboard: analysis of the current year for the active vehicle (see auswertung.js)
 
 const aktuellesJahr  = new Date().getFullYear();
 const aktuellerMonat = `${aktuellesJahr}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
@@ -10,7 +10,7 @@ async function ladeDashboard() {
     const ziel = document.getElementById("dashboardInhalt");
     document.getElementById("dashboardJahr").textContent = aktuellesJahr;
 
-    // Eine Abfrage fürs ganze Jahr; Strecken rechnet das Backend (ab dem letzten km-Stand des Vorjahres)
+    // One query for the whole year; the backend computes distances (from the previous year's last odometer reading)
     const res = await apiFetch(mitFahrzeug(`/api/trips?year=${aktuellesJahr}`));
     if (!res.ok) {
         ziel.innerHTML = `<div class="alert alert-danger">${escapeHtml(await apiError(res))}</div>`;
@@ -31,7 +31,7 @@ async function ladeDashboard() {
     });
 }
 
-// Erinnerung: letzte Sicherung älter als 30 Tage und seitdem Änderungen
+// Reminder: last backup older than 30 days and changes since then
 async function pruefeSicherung() {
     const status = await ladeSicherungsStatus().catch(() => null);
     const faellig = status?.vehicles.filter(v => v.remind) ?? [];

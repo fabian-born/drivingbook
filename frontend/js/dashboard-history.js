@@ -1,5 +1,5 @@
 // js/dashboard-history.js
-// Jahreshistorie: Auswertung abgeschlossener Jahre für das aktive Fahrzeug (siehe auswertung.js)
+// Year history: analysis of completed years for the active vehicle (see auswertung.js)
 
 let chartInstanzHistory = null;
 
@@ -29,8 +29,8 @@ async function ladeHistoryDashboard(jahr) {
   });
 }
 
-// Drucken: Diagramm als Bild einsetzen, damit es im Druck erscheint.
-// "beforeprint" läuft nach theme.js (Umschalten auf Hell) – auch bei Strg+P.
+// Printing: insert the chart as an image so it shows up in print.
+// "beforeprint" runs after theme.js (switch to light) – also on Ctrl+P.
 window.addEventListener("beforeprint", () => {
   const canvas = document.querySelector("#historyContent canvas");
   const bild   = document.querySelector("#historyContent .verlauf-druckbild");

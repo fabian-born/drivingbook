@@ -1,6 +1,6 @@
 // js/auto.js
-// Auto-Info: Daten und Kennzahlen des aktiven Fahrzeugs, Vergleich
-// 1-%-Regel ↔ Fahrtenbuch, Verwaltung aller Fahrzeuge.
+// Vehicle info: data and key figures of the active vehicle, comparison
+// 1% rule ↔ logbook, management of all vehicles.
 
 const $ = id => document.getElementById(id);
 
@@ -10,7 +10,7 @@ const prozent = (anteil, stellen = 1) =>
   prozentText(anteil * 100, stellen);
 const datum   = d => new Date(d).toLocaleDateString(i18n.locale);
 
-// Leere Zahlenfelder → null
+// Empty number fields → null
 const zahl = id => ($(id).value === "" ? null : Number($(id).value));
 
 function zeigeAlert(id, text, typ) {
@@ -20,7 +20,7 @@ function zeigeAlert(id, text, typ) {
   if (typ === "success") setTimeout(() => box.classList.add("d-none"), 3000);
 }
 
-// ── Jahr ─────────────────────────────────────────────────────
+// ── Year ─────────────────────────────────────────────────────
 
 function fuelleJahre() {
   const aktuell = new Date().getFullYear();
@@ -29,7 +29,7 @@ function fuelleJahre() {
   }
 }
 
-// ── Aktives Fahrzeug ─────────────────────────────────────────
+// ── Active vehicle ───────────────────────────────────────────
 
 async function ladeInfo() {
   if (!aktivesFahrzeug) return;
@@ -45,7 +45,7 @@ async function ladeInfo() {
   zeigeVergleich(info);
 }
 
-// ── Prüfung ──────────────────────────────────────────────────
+// ── Check ────────────────────────────────────────────────────
 
 const AMPEL  = {
   green:  { text: t("auto.check.green"),  farbe: "success" },
@@ -127,7 +127,7 @@ function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison:
   }
   hinweis.classList.add("d-none");
 
-  // 1-%-Regel
+  // 1% rule
   const satz = prozentText(vg.rate, 3);
   $("vgPauschalSumme").textContent = euro(vg.flat_rate.total);
   $("vgPauschalDetail").innerHTML = [
@@ -136,7 +136,7 @@ function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison:
     vg.flat_rate.capped ? tHtml("auto.compare.capped", { costs: euro(vg.total_costs) }) : "",
   ].filter(Boolean).join("<br>");
 
-  // Fahrtenbuch
+  // Logbook
   const fb = vg.logbook;
   $("vgFahrtenbuchSumme").textContent = fb ? euro(fb.total) : "–";
   $("vgFahrtenbuchDetail").textContent = fb
@@ -147,7 +147,7 @@ function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison:
   $("vgPauschal").classList.toggle("gewinner", vg.recommendation === "flat_rate");
   $("vgFahrtenbuch").classList.toggle("gewinner", vg.recommendation === "logbook");
 
-  // Empfehlung
+  // Recommendation
   const empfehlung = $("vgEmpfehlung");
   empfehlung.classList.toggle("d-none", !vg.recommendation);
   if (vg.recommendation) {
@@ -158,7 +158,7 @@ function zeigeVergleich({ vehicle, costs: kosten, year_totals: jahr, comparison:
       : tHtml("auto.compare.flatRateWins", { amount: euro(-vg.difference), savings: ersparnis });
   }
 
-  // Grenze: bis zu welchem Privatanteil lohnt sich das Fahrtenbuch?
+  // Threshold: up to which private share is the logbook worthwhile?
   const grenze = vg.break_even_share;
   $("vgBreakEvenBox").classList.toggle("d-none", grenze == null);
   if (grenze != null) {
@@ -223,7 +223,7 @@ function initExportImport() {
       const ergebnis = await stelleSicherungWiederHer(datei);
       if (!ergebnis) return;
       if (ergebnis.vehicle && ergebnis.vehicle.code !== aktivesFahrzeug?.code) {
-        // anderes (ggf. neu angelegtes) Fahrzeug → auswählen
+        // different (possibly newly created) vehicle → select it
         alert(`${t("auto.backup.restored")}\n${ergebnis.text}\n\n${t("auto.backup.selecting", { name: ergebnis.vehicle.name })}`);
         waehleFahrzeug(ergebnis.vehicle.code);
         return location.reload();
@@ -238,7 +238,7 @@ function initExportImport() {
   });
 }
 
-// ── Meine Fahrzeuge ──────────────────────────────────────────
+// ── My vehicles ──────────────────────────────────────────────
 
 async function ladeFahrzeugliste() {
   const tbody = $("vehicleTabelle");
@@ -296,7 +296,7 @@ function initFahrzeugverwaltung() {
     const res = await apiFetch("/api/vehicles", { method: "POST", body: { name, is_default } });
     if (!res.ok) return alert(await apiError(res, t("auto.list.createError")));
 
-    // Neues Fahrzeug direkt auswählen, damit man seine Daten erfassen kann
+    // Select the new vehicle right away so its data can be entered
     waehleFahrzeug((await res.json()).code);
     location.reload();
   });
@@ -321,14 +321,14 @@ function initFahrzeugverwaltung() {
   });
 }
 
-// Fahrzeug löschen. Hat es Fahrten, ziehen sie in ein anderes Fahrzeug um
-// (sonst verschwänden sie aus allen Ansichten und dem Fahrtenbuch-PDF).
+// Delete a vehicle. If it has trips, they are moved to another vehicle
+// (otherwise they would vanish from all views and the logbook PDF).
 async function loescheFahrzeug(id) {
   const name = alleFahrzeuge.find(v => v.id === id)?.name ?? t("auto.delete.fallbackName");
   if (!confirm(t("auto.delete.confirmQuestion", { name }))) return;
 
   const res = await apiFetch(`/api/vehicles/${id}`, { method: "DELETE" });
-  if (res.ok) return location.reload();   // Navigation und aktives Fahrzeug neu bestimmen
+  if (res.ok) return location.reload();   // re-determine navigation and active vehicle
 
   const fehler = await res.json().catch(() => ({}));
   if (fehler.code !== "HAS_TRIPS") return alert(fehler.error || t("auto.delete.error"));

@@ -12,20 +12,20 @@ let jahresansicht   = false;
 let vehicles      = [];
 let vehicleById   = new Map();
 
-// ----------------- Fahrzeuge (Namen im Änderungsprotokoll) -----------------
-// Angezeigt werden nur Fahrten des aktiven Fahrzeugs (siehe fahrzeug.js).
+// ----------------- Vehicles (names in the audit log) -----------------
+// Only trips of the active vehicle are shown (see fahrzeug.js).
 async function ladeVehicles() {
   await Promise.all([fahrzeugBereit, ersteSynchronisierung]);
   vehicles    = alleFahrzeuge;
   vehicleById = new Map(vehicles.map(v => [v.id, v]));
 }
 
-// ----------------- Hilfsfunktion: ist gerade Mobile? -----------------
+// ----------------- Helper: currently on mobile? -----------------
 function isMobile() {
   return window.innerWidth < 768;
 }
 
-// ----------------- Jahre füllen -----------------
+// ----------------- Fill years -----------------
 function fuelleJahre() {
   const aktuellesJahr = new Date().getFullYear();
   jahrSelect.innerHTML = "";
@@ -34,8 +34,8 @@ function fuelleJahre() {
   }
 }
 
-// ----------------- Fahrten des Jahres laden (eine Abfrage) -----------------
-// Liefert alle Fahrten des gewählten Jahres inkl. Strecke; Monate werden lokal gefiltert
+// ----------------- Load the year's trips (one request) -----------------
+// Returns all trips of the selected year incl. distance; months are filtered locally
 let jahresFahrten = [];
 
 async function ladeJahr() {
@@ -44,7 +44,7 @@ async function ladeJahr() {
   jahresFahrten = (await res.json()).trips;
 }
 
-// ----------------- Monate füllen & aktuellen Monat vorauswählen -----------------
+// ----------------- Fill months & preselect current month -----------------
 async function fuelleMonateMitCheck() {
   const jahr           = jahrSelect.value;
   const aktuellesJahr  = new Date().getFullYear();
@@ -65,7 +65,7 @@ async function fuelleMonateMitCheck() {
       .map(mm => `<option value="${mm}" ${monateMitDaten.has(mm) ? "" : "disabled"}>${monatsname(mm)}</option>`)
       .join("");
 
-  // Aktuelles Jahr → aktuellen Monat bevorzugen, sonst den ersten mit Daten
+  // Current year → prefer current month, otherwise the first one with data
   const aktiverMonat = String(jahr) === String(aktuellesJahr) && monateMitDaten.has(aktuellerMonat)
     ? aktuellerMonat
     : [...monateMitDaten].sort()[0];
@@ -79,7 +79,7 @@ async function fuelleMonateMitCheck() {
   }
 }
 
-// ----------------- Gewählten Monat (oder alle) aus den Jahresdaten anzeigen -----------------
+// ----------------- Show selected month (or all) from the year's data -----------------
 function zeigeAuswahl() {
   const monat = monatSelect.value;
   jahresansicht   = monat === "alle";
@@ -94,7 +94,7 @@ function zeigeAuswahl() {
   renderAll();
 }
 
-// ----------------- Fahrten neu vom Server laden (Auswahl bleibt) -----------------
+// ----------------- Reload trips from the server (selection is kept) -----------------
 async function ladeFahrten() {
   if (!jahrSelect.value || !monatSelect.value) return;
   try {
@@ -103,7 +103,7 @@ async function ladeFahrten() {
     setLeer(t("view.loadError"));
     return;
   }
-  // Monate mit neuen Fahrten freischalten, Auswahl bleibt
+  // Enable months with new trips, selection is kept
   const monateMitDaten = new Set(jahresFahrten.map(f => f.month.slice(5)));
   for (const option of monatSelect.options) {
     if (option.value !== "alle") option.disabled = !monateMitDaten.has(option.value);
@@ -124,7 +124,7 @@ function renderAll() {
 }
 
 // ═══════════════════════════════════════════════
-// DESKTOP: Tabellen-Rendering
+// DESKTOP: Table rendering
 // ═══════════════════════════════════════════════
 
 function renderTabelle() {
@@ -198,7 +198,7 @@ function renderTabelleJahresansicht() {
 }
 
 // ═══════════════════════════════════════════════
-// MOBILE: Card-Rendering
+// MOBILE: Card rendering
 // ═══════════════════════════════════════════════
 
 function renderCards() {
@@ -293,7 +293,7 @@ function buildCard(f, i, diff, readonly, nr) {
   return div;
 }
 
-// ----------------- Summe der angezeigten Fahrten -----------------
+// ----------------- Total of the displayed trips -----------------
 function renderSumme() {
   const box = document.getElementById("auswahlSumme");
   const filter = fahrtartFilter.value;
@@ -316,13 +316,13 @@ function renderSumme() {
 }
 
 // ═══════════════════════════════════════════════
-// Card-Events (Mobile)
+// Card events (mobile)
 // ═══════════════════════════════════════════════
 
 cardList.addEventListener("change", async e => {
   if (jahresansicht) return;
 
-  // Fahrtart-Dropdown
+  // Trip type dropdown
   if (e.target.classList.contains("card-fahrtart")) {
     const i = e.target.dataset.index;
     aktuelleFahrten[i].trip_type = e.target.value;
@@ -330,7 +330,7 @@ cardList.addEventListener("change", async e => {
     if (await speichereFahrt(i)) renderSumme();
   }
 
-  // Zeitpunkt
+  // Timestamp
   if (e.target.classList.contains("card-timestamp")) {
     const i = e.target.dataset.index;
     const localVal = e.target.value;
@@ -355,7 +355,7 @@ cardList.addEventListener("blur", async e => {
   }
 }, true);
 
-// Verlauf-Buttons funktionieren auch in der (sonst schreibgeschützten) Jahresansicht
+// History buttons also work in the (otherwise read-only) year view
 [cardList, tbody].forEach(el => el.addEventListener("click", e => {
   const btn = e.target.closest(".history-btn");
   if (btn) zeigeVerlauf(btn.dataset.id);
@@ -369,7 +369,7 @@ cardList.addEventListener("click", e => {
 });
 
 // ═══════════════════════════════════════════════
-// Tabellen-Events (Desktop)
+// Table events (desktop)
 // ═══════════════════════════════════════════════
 
 tbody.addEventListener("blur", async e => {
@@ -421,14 +421,14 @@ async function handleTimestampChange(index, localVal) {
 
   aktuelleFahrten[index].timestamp = neuesTimestamp;
   if (neuerMonthKey !== alterMonthKey) {
-    // Fahrt gehört jetzt zu einem anderen Monat → Jahresdaten und Strecken neu laden
+    // Trip now belongs to another month → reload the year's data and distances
     await ladeFahrten();
     zeigeHinweis(t("view.moved", { month: neuerMonthKey }), "info");
   }
 }
 
-// Speichert Änderungen einer Fahrt per ID. Ohne `aenderungen` werden
-// die bearbeitbaren Felder aus aktuelleFahrten[index] gesendet.
+// Saves changes to a trip by ID. Without `aenderungen`, the
+// editable fields from aktuelleFahrten[index] are sent.
 async function speichereFahrt(index, aenderungen) {
   const fahrt = aktuelleFahrten[index];
   const body  = aenderungen ?? {
@@ -440,14 +440,14 @@ async function speichereFahrt(index, aenderungen) {
   try {
     let res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body });
 
-    // km-Stand passt nicht zu den Nachbarfahrten → nachfragen und ggf. erzwingen
+    // Odometer reading doesn't match the neighbouring trips → ask and force if confirmed
     if (res.status === 409) {
       const err = await res.json().catch(() => ({}));
       if (err.code === "KM_PLAUSIBILITY" && confirm(`${err.error}\n\n${t("offline.saveAnyway")}`)) {
         res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "PUT", body: { ...body, force: true } });
       } else {
         zeigeHinweis(t("view.notSaved", { error: err.error || res.status }), "warning");
-        ladeFahrten();  // Anzeige auf gespeicherten Stand zurücksetzen
+        ladeFahrten();  // reset the display to the saved state
         return false;
       }
     }
@@ -484,7 +484,7 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
     const res = await apiFetch(`/api/trips/${fahrt.id}`, { method: "DELETE" });
     if (res.ok) {
       bootstrap.Modal.getInstance(document.getElementById("deleteModal")).hide();
-      await ladeFahrten();  // Strecke der Folgefahrt ändert sich mit
+      await ladeFahrten();  // the following trip's distance changes too
     } else {
       alert(t("view.deleteError"));
     }
@@ -494,7 +494,7 @@ document.getElementById("confirmDeleteBtn")?.addEventListener("click", async () 
 });
 
 // ═══════════════════════════════════════════════
-// Hilfsfunktionen
+// Helpers
 // ═══════════════════════════════════════════════
 
 function toDatetimeLocal(isoString) {
@@ -579,7 +579,7 @@ jahrSelect.addEventListener("change", fuelleMonateMitCheck);
 monatSelect.addEventListener("change", zeigeAuswahl);
 
 // ═══════════════════════════════════════════════
-// Änderungsprotokoll
+// Audit log
 // ═══════════════════════════════════════════════
 
 function historyButton(f) {
@@ -605,7 +605,7 @@ function formatWert(feld, wert) {
   return String(wert);
 }
 
-// Beschreibt einen Protokolleintrag als HTML (Werte werden maskiert)
+// Describes an audit log entry as HTML (values are escaped)
 function beschreibeEintrag(e) {
   if (e.action === "update") {
     const zeilen = Object.keys(FELD_LABELS)
@@ -653,10 +653,10 @@ ladeVehicles().then(() => {
   beiAktualisierung(aktualisiereListe);
 });
 
-// Neu laden (nachgereichte Fahrten, Rückkehr in die App, alle 5 Minuten);
-// offline.js wartet dafür, bis keine Eingabe mehr läuft
+// Reload (late-synced trips, returning to the app, every 5 minutes);
+// offline.js waits until no input is in progress
 function aktualisiereListe() {
-  // Leere Ansicht → Monatsliste neu prüfen (der Monat war evtl. noch deaktiviert)
+  // Empty view → recheck the month list (the month may still have been disabled)
   if (aktuelleFahrten.length === 0) return fuelleMonateMitCheck();
   return ladeFahrten();
 }

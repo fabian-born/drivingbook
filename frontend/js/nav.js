@@ -1,7 +1,7 @@
 // js/nav.js
-// Hauptnavigation – einmal definiert, auf allen Seiten gleich.
-// Wird direkt nach <nav id="hauptnavigation"> eingebunden (kein Flackern);
-// aktive Seite und Admin-Einträge markiert config.js.
+// Main navigation – defined once, identical on all pages.
+// Included right after <nav id="hauptnavigation"> (no flicker);
+// config.js marks the active page and admin entries.
 document.getElementById("hauptnavigation").innerHTML = `
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="index.html"><img src="drivingbooklogo.png" alt="${t("nav.logoAlt")}" style="height: clamp(34px, 11vw, 50px); width: auto;"></a>

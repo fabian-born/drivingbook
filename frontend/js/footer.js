@@ -1,5 +1,5 @@
 // js/footer.js
-// Zeigt Frontend- und Backend-Version (beide werden beim Commit automatisch hochgezählt)
+// Shows frontend and backend version (both are bumped automatically on commit)
 async function ladeVersion() {
   const [frontend, backend] = await Promise.all([
     fetch("release.ver", { cache: "no-store" })

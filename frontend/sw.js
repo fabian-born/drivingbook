@@ -1,14 +1,14 @@
-// sw.js – Service Worker für die Offline-Nutzung
+// sw.js – service worker for offline use
 //
-// Strategien:
-//   /api/…            → nie cachen (immer Netzwerk)
-//   eigene Dateien    → Netzwerk zuerst, offline aus dem Cache
-//   CDN (versioniert) → Cache zuerst
+// Strategies:
+//   /api/…            → never cache (always network)
+//   own files         → network first, cache when offline
+//   CDN (versioned)   → cache first
 //
-// CACHE setzt der Git-Hook (.githooks/pre-commit) automatisch auf die
-// Frontend-Version; neue Dateien in APP_SHELL eintragen.
+// The git hook (.githooks/pre-commit) sets CACHE to the frontend version
+// automatically; add new files to APP_SHELL.
 
-const CACHE = "fahrtenbuch-2026.09.26.16";
+const CACHE = "fahrtenbuch-2026.09.26.17";
 
 const APP_SHELL = [
   "./",
@@ -32,7 +32,7 @@ self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(APP_SHELL);
-    // CDN-Dateien einzeln, damit ein CDN-Ausfall die Installation nicht verhindert
+    // CDN files one by one so a CDN outage doesn't block the installation
     await Promise.all(CDN_ASSETS.map(url =>
       cache.add(new Request(url, { mode: "cors" })).catch(() => {})));
     await self.skipWaiting();
@@ -55,7 +55,7 @@ self.addEventListener("fetch", event => {
   const url = new URL(request.url);
 
   if (url.origin === self.location.origin) {
-    if (url.pathname.startsWith("/api/")) return;  // API nie aus dem Cache
+    if (url.pathname.startsWith("/api/")) return;  // never serve the API from the cache
     event.respondWith(networkFirst(request));
   } else if (url.hostname === "cdn.jsdelivr.net") {
     event.respondWith(cacheFirst(request));
@@ -71,7 +71,7 @@ async function networkFirst(request) {
   } catch (err) {
     const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
-    // Unbekannte Seite offline → Erfassungsseite anbieten
+    // Unknown page while offline → offer the entry page
     if (request.mode === "navigate") return cache.match("driving.html");
     throw err;
   }

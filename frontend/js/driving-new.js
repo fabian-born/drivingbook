@@ -1,14 +1,14 @@
 // js/driving-new.js
-// Neue Fahrt erfassen – auch offline: Fahrten ohne Verbindung landen in der
-// Warteschlange (offline.js) und werden automatisch nachgereicht.
+// Record a new trip – offline too: trips without a connection go into the
+// queue (offline.js) and are sent later automatically.
 
 const $ = id => document.getElementById(id);
-const LETZTER_STAND_KEY = code => `letzterStand:${code}`;   // für den Hinweis auch offline
+const LETZTER_STAND_KEY = code => `letzterStand:${code}`;   // for the hint, offline too
 
-let letzterStand = null;   // { km, zeit } der letzten Fahrt des aktiven Fahrzeugs
+let letzterStand = null;   // { km, zeit } of the active vehicle's last trip
 
-// ── Fahrzeug & letzter Stand ─────────────────────────────────
-// Neue Fahrten gehören immer zum aktiven Fahrzeug aus der Navigation.
+// ── Vehicle & last reading ───────────────────────────────────
+// New trips always belong to the active vehicle from the navigation.
 
 function relativeZeit(iso) {
   const rtf  = new Intl.RelativeTimeFormat(i18n.locale, { numeric: "auto" });
@@ -38,7 +38,7 @@ async function zeigeFahrzeug() {
   if (!vehicle) {
     $("fahrzeugName").textContent = t("driving.noVehicle");
     $("letzterStand").textContent = t("driving.manageVehicles");
-    return;   // Backend speichert ohne Zuordnung
+    return;   // backend saves without assignment
   }
 
   $("fahrzeugName").textContent = vehicle.name;
@@ -57,10 +57,10 @@ async function zeigeFahrzeug() {
     merkeLetztenStand(vehicle.code, overall.odometer_current != null
       ? { km: overall.odometer_current, zeit: overall.last_trip }
       : null);
-  } catch { /* offline → zuletzt bekannter Stand */ }
+  } catch { /* offline → last known reading */ }
 }
 
-// Live-Hinweis unter dem km-Feld: Differenz zur letzten Fahrt
+// Live hint below the km field: difference to the last trip
 function aktualisiereKmHinweis() {
   const hinweis = $("kmHinweis");
   const wert    = $("kmstand").value;
@@ -82,7 +82,7 @@ function aktualisiereKmHinweis() {
   }
 }
 
-// ── Standort ─────────────────────────────────────────────────
+// ── Location ─────────────────────────────────────────────────
 
 function holeStandort() {
   if (!navigator.geolocation) return zeigeStatus(t("driving.geoUnsupported"), "warning");
@@ -107,7 +107,7 @@ async function uebernehmePosition(position) {
   const lon = position.coords.longitude.toFixed(6);
   const zielFeld = $("ziel");
 
-  // Offline: Koordinaten eintragen – das Backend löst sie beim Speichern in eine Adresse auf
+  // Offline: enter coordinates – the backend resolves them to an address when saving
   if (!navigator.onLine) {
     zielFeld.value = `${lat}, ${lon}`;
     return;
@@ -125,7 +125,7 @@ async function uebernehmePosition(position) {
   }
 }
 
-// ── Statusanzeige ────────────────────────────────────────────
+// ── Status display ───────────────────────────────────────────
 
 function zeigeStatus(text, typ = "success") {
   const box = $("statusMeldung");
@@ -134,7 +134,7 @@ function zeigeStatus(text, typ = "success") {
   box.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
-// ── Offline-Warteschlange ────────────────────────────────────
+// ── Offline queue ────────────────────────────────────────────
 
 function aktualisiereOfflineHinweis(anzahl, fehlerhaft = []) {
   $("offlineHinweis").classList.toggle("d-none", anzahl === 0);
@@ -156,7 +156,7 @@ function aktualisiereOfflineHinweis(anzahl, fehlerhaft = []) {
 
 let offlineFehlerAktuell = [];
 
-// ── Erfassen ─────────────────────────────────────────────────
+// ── Record ───────────────────────────────────────────────────
 
 function formularLeeren() {
   $("kmstand").value = "";
@@ -164,7 +164,7 @@ function formularLeeren() {
   aktualisiereKmHinweis();
 }
 
-// Nach dem Speichern (oder Einreihen) gilt der neue Stand als letzter Stand
+// After saving (or queueing), the new reading becomes the last reading
 function erfasst(fahrt) {
   if (aktivesFahrzeug) merkeLetztenStand(aktivesFahrzeug.code, { km: Number(fahrt.odometer_km), zeit: fahrt.timestamp });
   formularLeeren();
@@ -191,16 +191,16 @@ async function addFahrt() {
     return zeigeStatus(t("driving.required"), "warning");
   }
 
-  // Zeitpunkt wird bei der Erfassung festgehalten, auch wenn erst später gesendet wird
+  // Timestamp is captured at entry time, even if sent later
   const fahrt = { odometer_km: kmstand, destination: ziel, trip_type: fahrtart, timestamp: new Date().toISOString() };
 
-  // Code wird bei der Erfassung festgehalten, auch wenn offline erst später gesendet wird
+  // Code is captured at entry time, even if sent later while offline
   const vehicle = await fahrzeugBereit;
   if (vehicle) fahrt.vehicle_code = vehicle.code;
 
   if (!navigator.onLine) return inWarteschlange(fahrt);
 
-  setzeSpeichern(true);   // verhindert Doppel-Einträge durch Doppeltippen
+  setzeSpeichern(true);   // prevents duplicate entries from double taps
   try {
     const ergebnis = await sendeFahrt(fahrt);
     if (ergebnis.status === "ok") {
@@ -211,7 +211,7 @@ async function addFahrt() {
     }
   } catch (err) {
     console.error("Fehler beim Speichern:", err);
-    inWarteschlange(fahrt);  // Netzwerkfehler → offline behandeln
+    inWarteschlange(fahrt);  // network error → handle as offline
   } finally {
     setzeSpeichern(false);
   }
@@ -219,7 +219,7 @@ async function addFahrt() {
 
 // ── Start ────────────────────────────────────────────────────
 
-// Meldungen der Warteschlange im Formular statt als Hinweis oben rechts anzeigen
+// Show queue messages in the form instead of as a top-right notice
 document.addEventListener("warteschlange", e => {
   e.preventDefault();
   zeigeStatus(e.detail.text, e.detail.typ);
@@ -244,5 +244,5 @@ document.addEventListener("DOMContentLoaded", () => {
     addFahrt();
   });
   zeigeFahrzeug();
-  beiAktualisierung(zeigeFahrzeug);   // letzten km-Stand auffrischen
+  beiAktualisierung(zeigeFahrzeug);   // refresh last odometer reading
 });

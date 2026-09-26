@@ -2,7 +2,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
 
   // ──────────────────────────────────────────────────────────
-  // Profil laden
+  // Load profile
   // ──────────────────────────────────────────────────────────
   async function ladeProfil() {
     try {
@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Sprache im Profil speichern (gilt auf allen Geräten) und sofort anwenden
+  // Save language in the profile (applies on all devices) and apply it immediately
   async function speichereSprache(language) {
     const res = await apiFetch("/api/profile", { method: "PATCH", body: { language } });
     if (!res.ok) return alert(await apiError(res, t("profile.languageSaveFailed")));
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────────────────
-  // Token-Tabelle rendern
+  // Render token table
   // ──────────────────────────────────────────────────────────
   function renderTokenTabelle(tokens) {
     const tbody = document.getElementById("tokenTabelle");
@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ──────────────────────────────────────────────────────────
-  // Passwort ändern
+  // Change password
   // ──────────────────────────────────────────────────────────
   document.getElementById("pwSaveBtn").addEventListener("click", async () => {
     const alert       = document.getElementById("pwAlert");
@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ──────────────────────────────────────────────────────────
-  // Neuer Token – Formular ein-/ausblenden
+  // New token – show/hide form
   // ──────────────────────────────────────────────────────────
   document.getElementById("newTokenBtn").addEventListener("click", () => {
     document.getElementById("newTokenForm").classList.remove("d-none");
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("newTokenBtn").classList.remove("d-none");
   });
 
-  // Token erstellen
+  // Create token
   document.getElementById("createTokenBtn").addEventListener("click", async () => {
     const label      = document.getElementById("tokenLabel").value.trim() || "API Token";
     const is_default = document.getElementById("tokenDefault").checked;
@@ -137,18 +137,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (!res.ok) { alert(data.error || t("profile.tokens.error")); return; }
 
-      // Token einmalig anzeigen
+      // Show token once
       document.getElementById("newTokenForm").classList.add("d-none");
       document.getElementById("newTokenResult").classList.remove("d-none");
       document.getElementById("newTokenValue").value = data.token;
 
-      // Tabelle neu laden
+      // Reload table
       await ladeProfil();
 
     } catch { alert(t("profile.networkError")); }
   });
 
-  // Neuen Token kopieren
+  // Copy new token
   document.getElementById("copyNewTokenBtn").addEventListener("click", () => {
     const val = document.getElementById("newTokenValue").value;
     navigator.clipboard.writeText(val).then(() => {
@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ──────────────────────────────────────────────────────────
-  // Token löschen (Event-Delegation)
+  // Delete token (event delegation)
   // ──────────────────────────────────────────────────────────
   document.getElementById("tokenTabelle").addEventListener("click", async e => {
     const btn = e.target.closest(".delete-token-btn");
@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // ──────────────────────────────────────────────────────────
-  // Sicherung
+  // Backup
   // ──────────────────────────────────────────────────────────
   const sicherungAlert = (text, typ) => {
     const box = document.getElementById("sicherungAlert");

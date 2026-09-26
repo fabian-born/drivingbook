@@ -1,19 +1,19 @@
 // js/fahrzeug.js
-// Aktives Fahrzeug („Kontext“): wird nach dem Login bzw. in der Navigation
-// gewählt und gilt für alle Seiten – Anzeige, Auswertung, Export und neue
-// Fahrten beziehen sich nur auf dieses Fahrzeug.
+// Active vehicle ("context"): chosen after login or in the navigation
+// and applies to all pages – display, statistics, export and new
+// trips refer to this vehicle only.
 
 const AKTIVES_FAHRZEUG_KEY = "aktivesFahrzeug";
-const FAHRZEUGE_CACHE_KEY  = "fahrzeuge";   // für die Offline-Nutzung
+const FAHRZEUGE_CACHE_KEY  = "fahrzeuge";   // for offline use
 
 let alleFahrzeuge   = [];
-let aktivesFahrzeug = null;   // { id, name, code, is_default } oder null, falls der User keins hat
+let aktivesFahrzeug = null;   // { id, name, code, is_default } or null if the user has none
 
 function waehleFahrzeug(code) {
   localStorage.setItem(AKTIVES_FAHRZEUG_KEY, code);
 }
 
-// Hängt ?vehicle=CODE des aktiven Fahrzeugs an einen API-Pfad an
+// Appends ?vehicle=CODE of the active vehicle to an API path
 function mitFahrzeug(path) {
   if (!aktivesFahrzeug) return path;
   return `${path}${path.includes("?") ? "&" : "?"}vehicle=${encodeURIComponent(aktivesFahrzeug.code)}`;
@@ -39,7 +39,7 @@ function zeigeFahrzeugAuswahl() {
   logoutBtn.before(select);
 }
 
-// Wird von den Seiten abgewartet, bevor sie Daten laden
+// Pages await this before loading data
 const fahrzeugBereit = (async () => {
   try {
     const res = await apiFetch("/api/vehicles");
@@ -48,11 +48,11 @@ const fahrzeugBereit = (async () => {
       localStorage.setItem(FAHRZEUGE_CACHE_KEY, JSON.stringify(alleFahrzeuge));
     }
   } catch {
-    // offline → zuletzt bekannte Fahrzeugliste verwenden
-    try { alleFahrzeuge = JSON.parse(localStorage.getItem(FAHRZEUGE_CACHE_KEY)) || []; } catch { /* leer */ }
+    // offline → use the last known vehicle list
+    try { alleFahrzeuge = JSON.parse(localStorage.getItem(FAHRZEUGE_CACHE_KEY)) || []; } catch { /* empty */ }
   }
 
-  // Gespeicherte Auswahl, sonst Standard-Fahrzeug (z. B. wenn das gewählte gelöscht wurde)
+  // Saved choice, otherwise the default vehicle (e.g. if the chosen one was deleted)
   const code = localStorage.getItem(AKTIVES_FAHRZEUG_KEY);
   aktivesFahrzeug = alleFahrzeuge.find(v => v.code === code)
     ?? alleFahrzeuge.find(v => v.is_default)

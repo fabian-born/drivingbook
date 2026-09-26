@@ -1,6 +1,6 @@
 // js/sicherung.js
-// Sicherung & Wiederherstellung – genutzt im Konto (alles), in der
-// Auto-Info (ein Fahrzeug) und für die Erinnerung auf dem Dashboard.
+// Backup & restore – used in the account (everything), in the
+// vehicle info (one vehicle) and for the reminder on the dashboard.
 
 const heute       = () => new Date().toISOString().slice(0, 10);
 const datumKurz   = d => (d ? new Date(d).toLocaleDateString(i18n.locale) : t("common.never"));
@@ -27,8 +27,8 @@ function zeileErgebnis(name, e) {
   return `${name}${e.created ? t("backup.created") : ""}: ${teile.join(", ")}`;
 }
 
-// Liest eine Sicherungsdatei (Gesamt- oder Fahrzeug-Sicherung), fragt nach und
-// stellt wieder her. Liefert { text, vehicle } oder null bei Abbruch; wirft bei Fehlern.
+// Reads a backup file (full or vehicle backup), asks for confirmation and
+// restores it. Returns { text, vehicle } or null on cancel; throws on errors.
 async function stelleSicherungWiederHer(datei) {
   let daten;
   try {

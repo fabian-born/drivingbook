@@ -1,15 +1,15 @@
 // js/theme.js
-// Hell-/Dunkelmodus. Wird im <head> geladen, damit die Seite nicht erst hell
-// aufblitzt. Einstellung pro Gerät: "auto" (folgt dem System, auch live),
-// "hell" oder "dunkel". Beim Drucken wird immer hell dargestellt.
-// Löst "themaGeaendert" aus, damit z. B. Diagramme neu gezeichnet werden.
+// Light/dark mode. Loaded in the <head> so the page doesn't flash light
+// first. Setting per device: "auto" (follows the system, also live),
+// "hell" or "dunkel". Printing always uses the light theme.
+// Fires "themaGeaendert" so that e.g. charts get redrawn.
 
 (function () {
   const KEY    = "darstellung";
   const system = window.matchMedia("(prefers-color-scheme: dark)");
   let druck    = false;
 
-  // Farben der Fahrtarten – je Modus eigene, gegen den Hintergrund geprüfte Stufen
+  // Trip type colors – separate steps per mode, checked against the background
   document.head.insertAdjacentHTML("beforeend", `<style>
     :root {
       --fa-business: #0d6efd; --fa-private: #198754; --fa-commute: #e08a00;
@@ -42,7 +42,7 @@
     modus,
     istDunkel,
     setze(m) {
-      try { localStorage.setItem(KEY, m); } catch { /* nur für diese Sitzung */ }
+      try { localStorage.setItem(KEY, m); } catch { /* for this session only */ }
       anwenden();
     },
   };

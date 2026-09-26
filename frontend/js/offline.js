@@ -1,10 +1,10 @@
 // js/offline.js
-// Warteschlange für offline erfasste Fahrten. Läuft auf jeder Seite:
-// wartende Fahrten werden nachgereicht, sobald eine Verbindung besteht,
-// und in der Navigation angezeigt.
+// Queue for trips recorded offline. Runs on every page:
+// pending trips are sent later as soon as a connection is available,
+// and shown in the navigation.
 //
-// Jede Fahrt merkt sich den User, der sie erfasst hat – nach einem
-// Benutzerwechsel auf demselben Gerät wird sie nicht unter falschem Konto gespeichert.
+// Each trip remembers the user who recorded it – after a user switch
+// on the same device it is not saved under the wrong account.
 
 const WARTESCHLANGE_KEY = "offlineFahrten";
 
@@ -12,8 +12,8 @@ function angemeldeterUser() {
   return tokenPayload()?.userId ?? null;
 }
 
-// Einträge aus App-Versionen vor der englischen API (kmstand/ziel/fahrtart)
-// ins aktuelle Format umschreiben – sie liegen evtl. noch auf dem Gerät
+// Rewrite entries from app versions before the English API (kmstand/ziel/fahrtart)
+// into the current format – they may still be stored on the device
 const ALTE_FAHRTARTEN = { privat: "private", "geschäftlich": "business", arbeitsweg: "commute" };
 function neuesFormat(f) {
   if (!("kmstand" in f) && !("ziel" in f) && !("fahrtart" in f)) return f;
@@ -29,15 +29,15 @@ function ladeWarteschlange() {
   }
 }
 
-// Wartende Fahrten des angemeldeten Users (ältere Einträge ohne User gehören ihm)
+// Pending trips of the logged-in user (older entries without a user belong to them)
 function eigeneWartende() {
   const user = angemeldeterUser();
   return ladeWarteschlange().filter(f => f.userId == null || f.userId === user);
 }
 
-// Fahrten mit dauerhaftem Fehler (z. B. Fahrzeug inzwischen gelöscht) tragen
-// `fehler` und werden übersprungen, bis der Nutzer sie erneut sendet oder verwirft –
-// so blockiert eine fehlerhafte Fahrt nicht alle später erfassten.
+// Trips with a permanent error (e.g. vehicle deleted in the meantime) carry
+// `fehler` and are skipped until the user resends or discards them –
+// so one faulty trip doesn't block all trips recorded after it.
 const sendbar = f => !f.fehler;
 const gleicheFahrt = (a, b) => a.timestamp === b.timestamp && a.userId === b.userId;
 
@@ -63,10 +63,10 @@ function inWarteschlangeAufnehmen(fahrt) {
   speichereWarteschlange([...ladeWarteschlange(), { ...fahrt, userId: angemeldeterUser() }]);
 }
 
-// ── Anzeige ──────────────────────────────────────────────────
+// ── Display ──────────────────────────────────────────────────
 
-// Seiten können "warteschlange"-Events abfangen (preventDefault) und selbst anzeigen;
-// sonst erscheint die Meldung als Hinweis oben rechts.
+// Pages can intercept "warteschlange" events (preventDefault) and display them themselves;
+// otherwise the message appears as a top-right notice.
 function meldeWarteschlange(text, typ = "success") {
   const event = new CustomEvent("warteschlange", { detail: { text, typ }, cancelable: true });
   if (!document.dispatchEvent(event)) return;
@@ -85,7 +85,7 @@ function meldeWarteschlange(text, typ = "success") {
   setTimeout(() => div.remove(), 8000);
 }
 
-// Hinweis in der Navigation; Klick sendet sofort
+// Notice in the navigation; click sends immediately
 function aktualisiereWarteschlangeAnzeige() {
   const alle       = eigeneWartende();
   const fehlerhaft = alle.filter(f => !sendbar(f));
@@ -99,7 +99,7 @@ function aktualisiereWarteschlangeAnzeige() {
     btn.type      = "button";
     btn.className = "btn btn-warning btn-sm ms-lg-2 my-2 my-lg-0";
     btn.title     = t("offline.queueTitle");
-    // Fehlerhafte Fahrten lassen sich auf "Neue Fahrt" prüfen, sonst sofort senden
+    // Faulty trips can be reviewed on "New trip", otherwise send immediately
     btn.addEventListener("click", () => {
       if (eigeneWartende().some(f => !sendbar(f)) && !location.pathname.endsWith("driving.html")) {
         location.href = "driving.html";
@@ -118,11 +118,11 @@ function aktualisiereWarteschlangeAnzeige() {
   document.dispatchEvent(new CustomEvent("warteschlangeGeaendert", { detail: { anzahl, fehlerhaft } }));
 }
 
-// ── Senden ───────────────────────────────────────────────────
+// ── Send ─────────────────────────────────────────────────────
 
-// Sendet eine Fahrt; fragt bei unplausiblem km-Stand nach.
-// Ergebnis: "ok" | "abgelehnt" (Nutzer hat abgebrochen) | "fehler" (Validierung o. ä.)
-// Netzwerkfehler werden als Exception weitergereicht.
+// Sends a trip; asks for confirmation on an implausible odometer reading.
+// Result: "ok" | "abgelehnt" (user cancelled) | "fehler" (validation etc.)
+// Network errors are propagated as exceptions.
 async function sendeFahrt(fahrt, hinweis = "") {
   let res = await apiFetch("/api/trips", { method: "POST", body: fahrt });
 
@@ -139,7 +139,7 @@ async function sendeFahrt(fahrt, hinweis = "") {
 
 let syncLaeuft = false;
 
-// Reicht die wartenden Fahrten des angemeldeten Users der Reihe nach ein
+// Sends the logged-in user's pending trips one after another
 async function synchronisiere() {
   if (syncLaeuft || !navigator.onLine || !localStorage.getItem("authToken")) return;
   syncLaeuft = true;
@@ -154,12 +154,12 @@ async function synchronisiere() {
       try {
         ergebnis = await sendeFahrt(body, `${t("offline.tripFrom", { date: datum })}\n`);
       } catch {
-        break;  // wieder offline → später erneut versuchen
+        break;  // offline again → retry later
       }
 
       if (ergebnis.status !== "ok") {
-        // Dauerhaft nicht speicherbar oder km-Stand nicht bestätigt → markieren und
-        // mit den übrigen Fahrten weitermachen (bleibt zum Prüfen in der Warteschlange)
+        // Permanently unsaveable or odometer reading not confirmed → mark it and
+        // continue with the remaining trips (stays in the queue for review)
         const meldung = ergebnis.status === "fehler"
           ? ergebnis.meldung || t("common.unknownError")
           : t("offline.notConfirmed");
@@ -168,14 +168,14 @@ async function synchronisiere() {
         continue;
       }
 
-      // Neu laden statt Index merken – die Liste kann sich in einem anderen Tab geändert haben
+      // Reload instead of keeping the index – the list may have changed in another tab
       speichereWarteschlange(ladeWarteschlange().filter(f => f.timestamp !== fahrt.timestamp || f.userId !== fahrt.userId));
       gesendet++;
     }
 
     if (gesendet > 0) {
       meldeWarteschlange(t("offline.sent", { count: gesendet }));
-      // Seiten mit Auswertungen laden daraufhin ihre Daten neu
+      // Pages with analyses then reload their data
       document.dispatchEvent(new CustomEvent("fahrtenNachgereicht", { detail: { gesendet } }));
     }
   } finally {
@@ -187,15 +187,15 @@ async function synchronisiere() {
 window.addEventListener("online", synchronisiere);
 aktualisiereWarteschlangeAnzeige();
 
-// Seiten warten vor dem Laden ihrer Daten darauf, damit nachgereichte Fahrten schon enthalten sind
+// Pages await this before loading their data so trips sent later are already included
 const ersteSynchronisierung = synchronisiere();
 
-// ── Ansicht aktualisieren ────────────────────────────────────
-// Seiten registrieren hier, wie sie ihre Daten neu laden. Ausgelöst wird
-// nach nachgereichten Offline-Fahrten, beim Zurückwechseln in die App/den
-// Tab (nach > 30 s) und alle 5 Minuten, solange die Seite sichtbar ist –
-// so erscheinen z. B. Fahrten aus Home Assistant ohne Neuladen.
-// Während einer Eingabe wird bis zum Verlassen des Feldes gewartet.
+// ── Refresh view ─────────────────────────────────────────────
+// Pages register here how they reload their data. Triggered
+// after offline trips were sent later, when switching back to the app/tab
+// (after > 30 s) and every 5 minutes while the page is visible –
+// so e.g. trips from Home Assistant appear without reloading.
+// During input, it waits until the field loses focus.
 
 const AKTUALISIEREN_NACH_MS = 30 * 1000;
 const AKTUALISIEREN_ALLE_MS = 5 * 60 * 1000;
@@ -213,7 +213,7 @@ function wirdBearbeitet() {
 let aktualisierungWartet = false;
 let aktualisierungGeplant = null;
 
-// Mehrere Auslöser kurz hintereinander (z. B. Nachreichen + Rückkehr) → einmal laden
+// Several triggers in quick succession (e.g. send later + return) → load once
 function aktualisiereAnsicht() {
   clearTimeout(aktualisierungGeplant);
   aktualisierungGeplant = setTimeout(fuehreAktualisierungAus, 300);
@@ -226,7 +226,7 @@ function fuehreAktualisierungAus() {
     aktualisierungWartet = true;
     document.activeElement.addEventListener("blur", () => {
       aktualisierungWartet = false;
-      setTimeout(fuehreAktualisierungAus, 500);   // gespeicherte Änderung abwarten
+      setTimeout(fuehreAktualisierungAus, 500);   // wait for the saved change
     }, { once: true });
     return;
   }

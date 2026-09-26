@@ -8,7 +8,7 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
 
   errorBox.classList.add("d-none");
 
-  // Client-seitige Validierung
+  // Client-side validation
   if (!username || !password) {
     errorBox.innerText = t("register.required");
     errorBox.classList.remove("d-none");
@@ -43,12 +43,12 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
       return;
     }
 
-    // JWT speichern → User direkt eingeloggt
+    // Store the JWT → user is logged in right away
     localStorage.setItem("authToken", data.token);
     localStorage.removeItem("aktivesFahrzeug");
     localStorage.removeItem("fahrzeuge");
 
-    // Erfolgsansicht mit Token
+    // Success view with token
     document.getElementById("viewForm").classList.add("d-none");
     document.getElementById("viewSuccess").classList.remove("d-none");
     document.getElementById("tokenDisplay").value   = data.default_token;
@@ -63,7 +63,7 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
   }
 });
 
-// Token in Zwischenablage kopieren
+// Copy the token to the clipboard
 document.getElementById("copyTokenBtn")?.addEventListener("click", () => {
   const input = document.getElementById("tokenDisplay");
   navigator.clipboard.writeText(input.value).then(() => {
