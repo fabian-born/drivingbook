@@ -37,16 +37,19 @@ async function stelleSicherungWiederHer(datei) {
     throw new Error("Die Datei ist kein gültiges JSON.");
   }
 
-  // Aktuelles Format (v2) und altes Format (v1, deutsche Felder) – das Backend übersetzt v1
-  const gesamt = ["drivingbook-backup", "drivingbook-sicherung"].includes(daten.format);
-  if (!gesamt && !["drivingbook-vehicle", "drivingbook-fahrzeug"].includes(daten.format)) {
+  if (["drivingbook-sicherung", "drivingbook-fahrzeug"].includes(daten.format)) {
+    throw new Error("Die Sicherung hat noch das alte Format (v1). Bitte zuerst umwandeln: " +
+                    "node scripts/convert-backup.js <datei> (im Backend-Verzeichnis bzw. -Container).");
+  }
+  const gesamt = daten.format === "drivingbook-backup";
+  if (!gesamt && daten.format !== "drivingbook-vehicle") {
     throw new Error("Die Datei ist keine Fahrtenbuch-Sicherung.");
   }
 
   const inhalt = gesamt
-    ? `${(daten.vehicles ?? daten.fahrzeuge)?.length ?? 0} Fahrzeug(en)`
-    : `dem Fahrzeug „${(daten.vehicle ?? daten.fahrzeug)?.name}“`;
-  const erstellt = daten.created_at ?? daten.erstellt_am ?? daten.exportiert_am;
+    ? `${daten.vehicles?.length ?? 0} Fahrzeug(en)`
+    : `dem Fahrzeug „${daten.vehicle?.name}“`;
+  const erstellt = daten.created_at;
   if (!confirm(`Sicherung vom ${datumKurz(erstellt)} mit ${inhalt} wiederherstellen?\n\n` +
                "Vorhandene Daten bleiben unverändert – nur Fehlendes wird ergänzt.")) {
     return null;

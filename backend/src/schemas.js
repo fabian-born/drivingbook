@@ -85,18 +85,6 @@ const force = z.boolean({ error: "force muss true oder false sein" }).optional()
 export const tripCreate = z.object({ ...tripFields, vehicle_code: vehicleCode, force });
 export const tripUpdate = z.object({ ...tripFields, vehicle_code: vehicleCode, force }).partial();
 
-// Übergang für Home Assistant: POST /api/fahrt mit den früheren deutschen Feldern
-export const LEGACY_TRIP_TYPES = { privat: "private", "geschäftlich": "business", arbeitsweg: "commute" };
-export const legacyTripCreate = z.object({
-  kmstand:  kmStand,
-  ziel:     text("Ziel darf nicht leer sein", 500),
-  fahrtart: z.enum(Object.keys(LEGACY_TRIP_TYPES), { error: `fahrtart muss einer der Werte sein: ${Object.keys(LEGACY_TRIP_TYPES).join(", ")}` }),
-  timestamp: zeitpunkt,
-  vehicle_code: vehicleCode,
-  force,
-}).transform(({ kmstand, ziel, fahrtart, ...rest }) => ({
-  ...rest, odometer_km: kmstand, destination: ziel, trip_type: LEGACY_TRIP_TYPES[fahrtart],
-}));
 
 // ── Auth & Benutzer ──────────────────────────────────────────
 const PASSWORD_MSG = "Passwort muss mindestens 8 Zeichen haben";
@@ -150,7 +138,6 @@ export const tokenBody = z.object({
 
 // ── Auto-Info ────────────────────────────────────────────────
 export const DRIVE_TYPES = ["combustion", "hybrid", "electric", "electric_high_price"];
-export const LEGACY_DRIVE_TYPES = { verbrenner: "combustion", hybrid: "hybrid", elektro: "electric", elektro_teuer: "electric_high_price" };
 
 // Dezimalzahl; Formulare senden Strings, ggf. mit Komma ("1.234,56" oder "1234,56").
 // Leerer String → null
@@ -201,8 +188,8 @@ export const vehicleYearBody = z.object({
 }).refine(d => d.depreciation <= d.total_costs, { error: "AfA/Leasing darf die Gesamtkosten nicht übersteigen" });
 
 // ── Sicherung: einzelnes Fahrzeug oder ganzes Konto ─────────
-// Format v2 (englisch). Dateien im Format v1 (deutsch, bis 09/2026) übersetzt
-// lib/altformat.js vor der Prüfung in v2.
+// Format v2 (englisch). Dateien im Format v1 (deutsch, bis 09/2026) vorher
+// mit scripts/convert-backup.js umwandeln.
 export const VEHICLE_BACKUP_FORMAT = "drivingbook-vehicle";   // Einzelsicherung (Auto-Info)
 export const BACKUP_FORMAT         = "drivingbook-backup";    // Gesamtsicherung (Konto)
 export const BACKUP_VERSION        = 2;

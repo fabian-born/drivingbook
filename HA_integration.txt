@@ -4,9 +4,9 @@ Home Assistant Integration – Fahrtenbuch
 Endpoint:   POST https://fahrtenbuch.home.fabianborn.net/api/trips
 Auth:       Authorization: Bearer <API-TOKEN>  (Token unter Profil > Konto > API-Tokens erzeugen)
 
-Übergang: Die frühere Adresse POST /api/fahrt mit den deutschen Feldern
-(kmstand, ziel, fahrtart = privat/geschäftlich/arbeitsweg) funktioniert weiterhin.
-Bei Gelegenheit auf die neue Adresse und Felder unten umstellen.
+Achtung: Die frühere Adresse POST /api/fahrt mit den deutschen Feldern
+(kmstand, ziel, fahrtart = privat/geschäftlich/arbeitsweg) gibt es nicht mehr (404).
+Bestehende rest_commands auf Adresse und Felder unten umstellen.
 
 Felder
 ------

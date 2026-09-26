@@ -8,7 +8,7 @@ import { withTransaction } from "../db.js";
 import { TRIP_COLUMNS, checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
-import { auditQuery, idParam, legacyTripCreate, tripCreate, tripUpdate, yearQuery } from "../schemas.js";
+import { auditQuery, idParam, tripCreate, tripUpdate, yearQuery } from "../schemas.js";
 
 export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   const router = express.Router();
@@ -60,13 +60,6 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   // Ohne vehicle_code wird das Default-Fahrzeug des Users verwendet (falls vorhanden).
   router.post("/trips", requireAuth, asyncHandler(async (req, res) => {
     const row = await legeFahrtAn(req, parse(tripCreate, req.body));
-    return res.json({ message: "Fahrt gespeichert", id: row.id });
-  }));
-
-  // POST /api/fahrt  →  Übergang für Home Assistant (frühere deutsche Felder:
-  // kmstand, ziel, fahrtart = privat/geschäftlich/arbeitsweg). Neu: POST /api/trips
-  router.post("/fahrt", requireAuth, asyncHandler(async (req, res) => {
-    const row = await legeFahrtAn(req, parse(legacyTripCreate, req.body));
     return res.json({ message: "Fahrt gespeichert", id: row.id });
   }));
 

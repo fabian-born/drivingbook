@@ -16,6 +16,8 @@ Ziel: API-Pfade, Feldnamen und Werte englisch – wie die Datenbank seit Migrati
 - [x] 3. Frontend auf die neue API; Browser-Tests grün (inkl. Offline-Warteschlange: alte
       Einträge werden beim Laden umgeschrieben, `js/offline.js` → `neuesFormat`)
 - [x] 4. README/HA-Doku auf die neue API; Aufräumen (Reste deutscher API-Namen suchen)
+- [x] 5. Übergänge entfernt: `POST /api/fahrt` (404) und v1-Import im Backend; alte Sicherungen
+      wandelt `backend/scripts/convert-backup.js` in v2 um (Frontend lehnt v1 mit Hinweis ab)
 
 Weitermachen: Checkliste oben, dann `git log --oneline` – jeder Schritt ist ein Commit
 „API englisch – Schritt N: …“. Tests: siehe `backend/README.md` und `e2e/README.md`
@@ -26,7 +28,7 @@ Weitermachen: Checkliste oben, dann `git log --oneline` – jeder Schritt ist ei
 
 | alt | neu |
 |---|---|
-| `POST /api/fahrt` | `POST /api/trips` (alt bleibt als Übergang für Home Assistant, deutsche Felder) |
+| `POST /api/fahrt` | `POST /api/trips` (alt: bis Schritt 5 Übergang für Home Assistant, jetzt entfernt) |
 | `PUT /api/fahrt/:id` | `PUT /api/trips/:id` |
 | `DELETE /api/fahrt/:id` | `DELETE /api/trips/:id` |
 | `GET /api/fahrt/:id/history` | `GET /api/trips/:id/history` |

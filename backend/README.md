@@ -150,9 +150,9 @@ Pfade, Feldnamen und Werte der API sind englisch (seit 09/2026); Fehlermeldungen
 | PUT  | `/api/vehicles/:id/years/:year` | Jahreskosten speichern |
 | GET  | `/api/vehicles/:id/check?year=YYYY` | Prüfung eines Jahres: `status` (green/yellow/red) + `findings` |
 | GET  | `/api/vehicles/:id/export` | Sicherung eines Fahrzeugs (Format v2) |
-| POST | `/api/vehicles/import` | Fahrzeug-Sicherung wiederherstellen – ergänzt nur; v2 und v1 (max. 25 MB) |
+| POST | `/api/vehicles/import` | Fahrzeug-Sicherung wiederherstellen – ergänzt nur; Format v2 (max. 25 MB) |
 | GET  | `/api/backup` | Gesamtsicherung aller Fahrzeuge inkl. Fahrten ohne Fahrzeug |
-| POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur; v2 und v1 (max. 50 MB) |
+| POST | `/api/backup/restore` | Gesamtsicherung wiederherstellen – ergänzt nur; Format v2 (max. 50 MB) |
 | GET  | `/api/backup/status` | Letzte Sicherung je Fahrzeug, Änderungen seitdem, Erinnerung (> 30 Tage) |
 | GET  | `/api/admin/cleanup` | Admin: doppelte Fahrten und Fahrten ohne Fahrzeug (alle Konten) |
 | POST | `/api/admin/cleanup/duplicates` | Admin: überzählige Duplikate löschen (`{ ids? }`, protokolliert mit Quelle „admin“) |
@@ -166,10 +166,6 @@ Pfade, Feldnamen und Werte der API sind englisch (seit 09/2026); Fehlermeldungen
 
 Audit und alle Exporte akzeptieren optional `?vehicle=CODE` (bzw. `&vehicle=CODE`) und liefern dann
 nur Fahrten dieses Fahrzeugs; ohne Angabe werden alle Fahrzeuge berücksichtigt.
-
-**Übergang:** `POST /api/fahrt` nimmt weiterhin die früheren deutschen Felder an
-(`kmstand`, `ziel`, `fahrtart` = `privat`/`geschäftlich`/`arbeitsweg`), damit bestehende
-Home-Assistant-Automationen weiterlaufen. Neue Clients bitte `POST /api/trips` verwenden.
 
 ---
 
@@ -213,7 +209,14 @@ docker exec -it fahrtenbuch-db psql -U fahrtenbuch -d fahrtenbuch   # Prod: driv
 Datenbank und API verwenden dieselben englischen Namen: Tabellen `trips` (`odometer_km`,
 `destination`, `trip_type`) und `trip_audit` (`trip_id`), Werte `business`/`private`/`commute`
 und `combustion`/`hybrid`/`electric`/`electric_high_price`. Sicherungsdateien im alten
-Format v1 (deutsche Felder) übersetzt `src/lib/altformat.js` beim Einspielen.
+Format v1 (deutsche Felder, bis 09/2026) nimmt das Backend nicht mehr an; sie werden vorher
+umgewandelt:
+
+```bash
+node scripts/convert-backup.js alt.json [neu.json]    # ohne Ziel: alt-v2.json
+```
+
+Das Skript braucht keine Abhängigkeiten und läuft auch außerhalb des Containers (Node ≥ 20).
 
 Nützliche Queries:
 ```sql

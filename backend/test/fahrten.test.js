@@ -187,17 +187,10 @@ describe("Fahrtart Arbeitsweg", () => {
   });
   after(() => t.close());
 
-  it("nimmt über POST /api/fahrt weiter die früheren deutschen Felder an (Home Assistant)", async () => {
+  it("hat die frühere deutsche Adresse POST /api/fahrt nicht mehr", async () => {
     const res = await t.http().post("/api/fahrt").set("X-API-Token", user.apiToken)
       .send({ kmstand: 40, ziel: "Home Assistant", fahrtart: "geschäftlich", timestamp: "2027-02-01T08:00:00Z" });
-    assert.equal(res.status, 200);
-    const jahr = await t.http().get(`/api/trips?year=2027&vehicle=${user.vehicle.code}`).set(user);
-    const fahrt = jahr.body.trips.find(f => f.id === res.body.id);
-    assert.deepEqual([fahrt.odometer_km, fahrt.destination, fahrt.trip_type], [40, "Home Assistant", "business"]);
-
-    const falsch = await t.http().post("/api/fahrt").set(user)
-      .send({ kmstand: 50, ziel: "x", fahrtart: "business", timestamp: "2027-02-02T08:00:00Z" });
-    assert.equal(falsch.status, 400);   // alte Adresse versteht nur die alten Werte
+    assert.equal(res.status, 404);
   });
 
   it("kennt die Fahrtart Arbeitsweg und zählt sie getrennt", async () => {

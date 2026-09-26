@@ -6,9 +6,8 @@
 import express from "express";
 import { asyncHandler, parse } from "../http.js";
 import { withTransaction } from "../db.js";
-import { sichereAlles, sicherungsStatus, stelleAllesWiederHer } from "../lib/sicherung.js";
+import { ohneAltformat, sichereAlles, sicherungsStatus, stelleAllesWiederHer } from "../lib/sicherung.js";
 import { backupBody } from "../schemas.js";
-import { ausAltformat } from "../lib/altformat.js";
 
 export function backupRoutes({ pool, requireAuth }) {
   const router = express.Router();
@@ -22,7 +21,7 @@ export function backupRoutes({ pool, requireAuth }) {
 
   // POST /api/backup/restore  →  Gesamtsicherung wiederherstellen (ergänzt nur; Format v2 und v1)
   router.post("/backup/restore", requireAuth, express.json({ limit: "50mb" }), asyncHandler(async (req, res) => {
-    const sicherung = parse(backupBody, ausAltformat(req.body));
+    const sicherung = parse(backupBody, ohneAltformat(req.body));
     const ergebnis  = await withTransaction(pool, client => stelleAllesWiederHer(client, req.userId, sicherung));
     const fahrten   = ergebnis.vehicles.reduce((n, f) => n + f.trips, ergebnis.unassigned.trips);
     console.log(`📥 Gesamtwiederherstellung für User ${req.userId}: ${fahrten} Fahrten`);

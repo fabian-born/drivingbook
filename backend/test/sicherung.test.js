@@ -1,6 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { setup } from "./helpers.js";
+import { ausAltformat } from "../scripts/convert-backup.js";
 
 // Legt Fahrzeugdaten, Kosten und Fahrten inkl. Änderung und Löschung an
 async function testdaten(t, user) {
@@ -125,7 +126,7 @@ describe("Fahrzeug-Sicherung", () => {
     assert.equal((await t.http().post("/api/vehicles/import").set(user).send(kaputt)).status, 400);
   });
 
-  it("spielt Sicherungen im alten Format v1 (deutsche Felder) weiterhin ein", async () => {
+  it("lehnt das alte Format v1 ab und spielt es nach convert-backup.js ein", async () => {
     const ziel = await t.registerUser("sicherung-v1");
     const v1 = {
       format: "drivingbook-fahrzeug", version: 1, exportiert_am: "2026-09-25T10:00:00Z",
@@ -145,7 +146,11 @@ describe("Fahrzeug-Sicherung", () => {
           source: "web", changed_at: "2026-04-01T09:00:00Z" },
       ],
     };
-    const res = await t.http().post("/api/vehicles/import").set(ziel).send(v1);
+    const alt = await t.http().post("/api/vehicles/import").set(ziel).send(v1);
+    assert.equal(alt.status, 400);
+    assert.match(alt.body.error, /convert-backup\.js/);
+
+    const res = await t.http().post("/api/vehicles/import").set(ziel).send(ausAltformat(v1));
     assert.equal(res.status, 201);
     assert.equal(res.body.vehicle.drive_type, "electric");
     assert.deepEqual(res.body.imported, { trips: 2, reassigned: 0, skipped: 0, years: 1, audit: 2 });

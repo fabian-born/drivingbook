@@ -8,8 +8,7 @@ import { asyncHandler, HttpError, parse } from "../http.js";
 import { steuerVergleich } from "../lib/steuer.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { pruefeJahr } from "../lib/pruefung.js";
-import { sichereFahrzeug, stelleFahrzeugWiederHer } from "../lib/sicherung.js";
-import { ausAltformat } from "../lib/altformat.js";
+import { ohneAltformat, sichereFahrzeug, stelleFahrzeugWiederHer } from "../lib/sicherung.js";
 import { withTransaction } from "../db.js";
 import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
@@ -106,7 +105,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
   // POST /api/vehicles/import  →  Fahrzeug-Sicherung wiederherstellen (ergänzt nur)
   // Fahrzeug mit gleichem Code wird ergänzt, sonst neu angelegt. Akzeptiert Format v2 und v1.
   router.post("/vehicles/import", requireAuth, express.json({ limit: "25mb" }), asyncHandler(async (req, res) => {
-    const daten = parse(importBody, ausAltformat(req.body));
+    const daten = parse(importBody, ohneAltformat(req.body));
     const ergebnis = await withTransaction(pool, client => stelleFahrzeugWiederHer(client, req.userId, daten));
     const fahrzeug = (await pool.query(`SELECT ${VEHICLE_FIELDS} FROM vehicles WHERE id = $1`, [ergebnis.vehicle_id])).rows[0];
 

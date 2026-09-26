@@ -5,7 +5,7 @@
 //                                 created_at, vehicle, years, trips, audit }
 // Gesamtsicherung (Konto):      { format: "drivingbook-backup", version: 2,
 //                                 created_at, vehicles: [...], unassigned }
-// Dateien im alten Format v1 (deutsch) übersetzt lib/altformat.js vorher.
+// Dateien im alten Format v1 (deutsch) vorher mit scripts/convert-backup.js umwandeln.
 //
 // Wiederherstellen ergänzt nur: Fahrzeuge werden über ihren Code wieder-
 // erkannt (fehlt eins, wird es neu angelegt, der Code bleibt sofern frei),
@@ -15,9 +15,18 @@
 // übernommen; nur Fahrt- und Fahrzeug-IDs werden auf die neuen IDs umgeschrieben.
 // ============================================================
 
+import { HttpError } from "../http.js";
 import { BACKUP_FORMAT, BACKUP_VERSION, VEHICLE_BACKUP_FORMAT } from "../schemas.js";
 import { createVehicle } from "./vehicles.js";
 import { AUDIT_FIELDS } from "./fahrten.js";
+
+// Dateien im alten Format v1 nimmt das Backend nicht mehr an – mit Hinweis ablehnen
+export function ohneAltformat(daten) {
+  if (daten?.version === 1) {
+    throw new HttpError(400, "Sicherung im alten Format v1 – bitte zuerst mit scripts/convert-backup.js umwandeln");
+  }
+  return daten;
+}
 
 // Fahrt-Spalten im Sicherungsformat
 const SICHERUNG_FAHRT = "id, odometer_km, destination, trip_type, timestamp";
