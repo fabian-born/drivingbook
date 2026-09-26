@@ -103,6 +103,11 @@ async function ladeFahrten() {
     setLeer("Fehler beim Laden");
     return;
   }
+  // Monate mit neuen Fahrten freischalten, Auswahl bleibt
+  const monateMitDaten = new Set(jahresFahrten.map(f => f.monat.slice(5)));
+  for (const option of monatSelect.options) {
+    if (option.value !== "alle") option.disabled = !monateMitDaten.has(option.value);
+  }
   zeigeAuswahl();
 }
 
@@ -643,20 +648,15 @@ document.getElementById("auditYear")?.addEventListener("click", async () => {
 ladeVehicles().then(() => {
   fuelleJahre();
   fuelleMonateMitCheck();
-  document.addEventListener("fahrtenNachgereicht", aktualisiereNachSync);
+  beiAktualisierung(aktualisiereListe);
 });
 
-// Nach dem Nachreichen offline erfasster Fahrten neu laden – aber nicht mitten
-// in einer Bearbeitung, sonst ginge die Eingabe verloren
-function aktualisiereNachSync() {
-  const bearbeitung = [tbody, cardList].some(el => el.contains(document.activeElement));
-  if (bearbeitung) {
-    document.activeElement.addEventListener("blur", () => setTimeout(aktualisiereNachSync, 500), { once: true });
-    return;
-  }
+// Neu laden (nachgereichte Fahrten, Rückkehr in die App, alle 5 Minuten);
+// offline.js wartet dafür, bis keine Eingabe mehr läuft
+function aktualisiereListe() {
   // Leere Ansicht → Monatsliste neu prüfen (der Monat war evtl. noch deaktiviert)
-  if (aktuelleFahrten.length === 0) fuelleMonateMitCheck();
-  else ladeFahrten();
+  if (aktuelleFahrten.length === 0) return fuelleMonateMitCheck();
+  return ladeFahrten();
 }
 
 }); // DOMContentLoaded

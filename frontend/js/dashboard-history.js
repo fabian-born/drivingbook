@@ -55,8 +55,8 @@ function initHistory() {
   document.getElementById("historyPDFExport").addEventListener("click", druckeSeite);
   jahrSelect.addEventListener("change", () => ladeHistoryDashboard(jahrSelect.value));
 
-  ersteSynchronisierung.then(() => document.addEventListener("fahrtenNachgereicht", () => {
-    if (jahrSelect.value) ladeHistoryDashboard(jahrSelect.value);
+  ersteSynchronisierung.then(() => beiAktualisierung(() => {
+    if (jahrSelect.value) return ladeHistoryDashboard(jahrSelect.value);
   }));
 
   if (jahrSelect.options.length > 0) {

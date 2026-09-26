@@ -339,4 +339,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("keinFahrzeug").classList.toggle("d-none", !!aktivesFahrzeug);
   initExportImport();
   await Promise.all([ladeInfo(), ladePruefung(), ladeFahrzeugliste()]);
+  beiAktualisierung(() => Promise.all([ladeInfo(), ladePruefung()]));
 });

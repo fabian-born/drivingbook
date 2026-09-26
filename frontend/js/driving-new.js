@@ -221,4 +221,5 @@ document.addEventListener("DOMContentLoaded", () => {
     addFahrt();
   });
   zeigeFahrzeug();
+  beiAktualisierung(zeigeFahrzeug);   // letzten km-Stand auffrischen
 });

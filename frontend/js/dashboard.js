@@ -53,5 +53,5 @@ document.getElementById("sicherungJetztBtn").addEventListener("click", async () 
 Promise.all([fahrzeugBereit, ersteSynchronisierung]).then(() => {
     ladeDashboard();
     pruefeSicherung();
-    document.addEventListener("fahrtenNachgereicht", ladeDashboard);
+    beiAktualisierung(ladeDashboard);
 });

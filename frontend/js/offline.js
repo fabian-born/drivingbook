@@ -147,3 +147,61 @@ aktualisiereWarteschlangeAnzeige();
 
 // Seiten warten vor dem Laden ihrer Daten darauf, damit nachgereichte Fahrten schon enthalten sind
 const ersteSynchronisierung = synchronisiere();
+
+// ── Ansicht aktualisieren ────────────────────────────────────
+// Seiten registrieren hier, wie sie ihre Daten neu laden. Ausgelöst wird
+// nach nachgereichten Offline-Fahrten, beim Zurückwechseln in die App/den
+// Tab (nach > 30 s) und alle 5 Minuten, solange die Seite sichtbar ist –
+// so erscheinen z. B. Fahrten aus Home Assistant ohne Neuladen.
+// Während einer Eingabe wird bis zum Verlassen des Feldes gewartet.
+
+const AKTUALISIEREN_NACH_MS = 30 * 1000;
+const AKTUALISIEREN_ALLE_MS = 5 * 60 * 1000;
+const aktualisierer = [];
+
+function beiAktualisierung(fn) {
+  aktualisierer.push(fn);
+}
+
+function wirdBearbeitet() {
+  const el = document.activeElement;
+  return el && el.matches?.("input:not([type=button]):not([type=submit]), select, textarea, [contenteditable=true]");
+}
+
+let aktualisierungWartet = false;
+let aktualisierungGeplant = null;
+
+// Mehrere Auslöser kurz hintereinander (z. B. Nachreichen + Rückkehr) → einmal laden
+function aktualisiereAnsicht() {
+  clearTimeout(aktualisierungGeplant);
+  aktualisierungGeplant = setTimeout(fuehreAktualisierungAus, 300);
+}
+
+function fuehreAktualisierungAus() {
+  if (aktualisierer.length === 0 || document.hidden) return;
+  if (wirdBearbeitet()) {
+    if (aktualisierungWartet) return;
+    aktualisierungWartet = true;
+    document.activeElement.addEventListener("blur", () => {
+      aktualisierungWartet = false;
+      setTimeout(fuehreAktualisierungAus, 500);   // gespeicherte Änderung abwarten
+    }, { once: true });
+    return;
+  }
+  for (const fn of aktualisierer) Promise.resolve().then(fn).catch(err => console.warn("Aktualisieren:", err));
+}
+
+document.addEventListener("fahrtenNachgereicht", aktualisiereAnsicht);
+
+let verstecktSeit = null;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    verstecktSeit = Date.now();
+    return;
+  }
+  const lange = verstecktSeit && Date.now() - verstecktSeit > AKTUALISIEREN_NACH_MS;
+  verstecktSeit = null;
+  if (lange) synchronisiere().finally(aktualisiereAnsicht);
+});
+
+setInterval(() => { if (!document.hidden) aktualisiereAnsicht(); }, AKTUALISIEREN_ALLE_MS);
