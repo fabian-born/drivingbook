@@ -3,23 +3,25 @@
 // ============================================================
 
 import { HttpError } from "../http.js";
+import { COL, TAB, auditZuDb } from "./dbschema.js";
 
-// Felder, die im Änderungsprotokoll festgehalten werden
+// Felder (API-Namen), die im Änderungsprotokoll festgehalten werden
 const AUDIT_FIELDS = ["kmstand", "ziel", "fahrtart", "timestamp", "vehicle_id"];
 
+// row: Fahrt mit API-Namen (z. B. aus fahrtSpalten()); gespeichert wird mit DB-Namen
 function snapshot(row) {
   if (!row) return null;
   const data = {};
   for (const field of AUDIT_FIELDS) {
     data[field] = row[field] instanceof Date ? row[field].toISOString() : row[field];
   }
-  return data;
+  return auditZuDb(data);
 }
 
 // Schreibt einen Eintrag ins Änderungsprotokoll (db: Client in Transaktion)
 export async function writeAudit(db, { fahrtId, userId, action, oldRow, newRow, source }) {
   await db.query(
-    `INSERT INTO fahrten_audit (fahrt_id, user_id, action, old_data, new_data, source)
+    `INSERT INTO ${TAB.audit} (${COL.fahrtId}, user_id, action, old_data, new_data, source)
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [fahrtId, userId, action, snapshot(oldRow), snapshot(newRow), source]
   );
@@ -34,14 +36,14 @@ export async function checkKmPlausibility(db, userId, fahrt, force) {
   const params = [userId, fahrt.vehicle_id ?? null, fahrt.timestamp, fahrt.id ?? 0];
   const [prev, next] = await Promise.all([
     db.query(
-      `SELECT kmstand, timestamp FROM fahrten
+      `SELECT ${COL.kmstand} AS kmstand, timestamp FROM ${TAB.fahrten}
        WHERE  user_id = $1 AND vehicle_id IS NOT DISTINCT FROM $2
          AND  timestamp < $3 AND id <> $4
        ORDER  BY timestamp DESC LIMIT 1`,
       params
     ),
     db.query(
-      `SELECT kmstand, timestamp FROM fahrten
+      `SELECT ${COL.kmstand} AS kmstand, timestamp FROM ${TAB.fahrten}
        WHERE  user_id = $1 AND vehicle_id IS NOT DISTINCT FROM $2
          AND  timestamp > $3 AND id <> $4
        ORDER  BY timestamp ASC LIMIT 1`,

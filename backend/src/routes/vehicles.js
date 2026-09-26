@@ -9,11 +9,12 @@ import { steuerVergleich } from "../lib/steuer.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { pruefeJahr } from "../lib/pruefung.js";
 import { sichereFahrzeug, stelleFahrzeugWiederHer } from "../lib/sicherung.js";
+import { COL, TAB, antriebSql, antriebZuDb } from "../lib/dbschema.js";
 import { withTransaction } from "../db.js";
 import { idParam, importBody, infoQuery, vehicleUpdateBody, vehicleYearBody, vehicleYearParam } from "../schemas.js";
 
 const VEHICLE_FIELDS = `id, name, code, is_default, created_at, license_plate,
-                        list_price::float8 AS list_price, drive_type`;
+                        list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type`;
 
 export function vehicleRoutes({ pool, config, requireAuth }) {
   const router = express.Router();
@@ -44,7 +45,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
       `UPDATE vehicles SET ${setClause}
        WHERE  id = $${fields.length + 1} AND user_id = $${fields.length + 2}
        RETURNING ${VEHICLE_FIELDS}`,
-      [...fields.map(f => changes[f]), id, req.userId]
+      [...fields.map(f => (f === "drive_type" ? antriebZuDb(changes[f]) : changes[f])), id, req.userId]
     );
     if (result.rows.length === 0) {
       throw new HttpError(404, "Fahrzeug nicht gefunden oder keine Berechtigung");
@@ -64,10 +65,10 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
         `SELECT COUNT(*)::int AS fahrten,
                 MIN(timestamp) AS erste_fahrt,
                 MAX(timestamp) AS letzte_fahrt,
-                (SELECT kmstand FROM fahrten
+                (SELECT ${COL.kmstand} FROM ${TAB.fahrten}
                  WHERE user_id = $1 AND vehicle_id = $2
                  ORDER BY timestamp DESC, id DESC LIMIT 1) AS km_aktuell
-         FROM   fahrten
+         FROM   ${TAB.fahrten}
          WHERE  user_id = $1 AND vehicle_id = $2`,
         [req.userId, id]
       ),
@@ -124,9 +125,9 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
     const [fahrten, audit, ohneFahrzeug] = await Promise.all([
       jahresFahrten(pool, { userId: req.userId, year, vehicleId: id, timezone: tz }),
       pool.query(
-        `SELECT COUNT(DISTINCT fahrt_id) FILTER (WHERE action = 'update')::int AS geaendert,
-                COUNT(DISTINCT fahrt_id) FILTER (WHERE action = 'delete')::int AS geloescht
-         FROM   fahrten_audit
+        `SELECT COUNT(DISTINCT ${COL.fahrtId}) FILTER (WHERE action = 'update')::int AS geaendert,
+                COUNT(DISTINCT ${COL.fahrtId}) FILTER (WHERE action = 'delete')::int AS geloescht
+         FROM   ${TAB.audit}
          WHERE  user_id = $1
            AND  $3 IN ((old_data->>'vehicle_id')::int, (new_data->>'vehicle_id')::int)
            AND  $2 IN (
@@ -136,7 +137,7 @@ export function vehicleRoutes({ pool, config, requireAuth }) {
         [req.userId, year, id, tz]
       ),
       pool.query(
-        `SELECT COUNT(*)::int AS anzahl FROM fahrten
+        `SELECT COUNT(*)::int AS anzahl FROM ${TAB.fahrten}
          WHERE  user_id = $1 AND vehicle_id IS NULL
            AND  timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
            AND  timestamp <  make_timestamptz($2 + 1, 1, 1, 0, 0, 0, $3)`,

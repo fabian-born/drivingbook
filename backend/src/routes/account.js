@@ -9,6 +9,7 @@ import { withTransaction } from "../db.js";
 import { createApiToken } from "../lib/tokens.js";
 import { createVehicle } from "../lib/vehicles.js";
 import { writeAudit } from "../lib/fahrten.js";
+import { TAB, antriebSql, fahrtSpalten } from "../lib/dbschema.js";
 import { changePasswordBody, idParam, tokenBody, vehicleBody, vehicleDeleteQuery } from "../schemas.js";
 
 export function accountRoutes({ pool, requireAuth }) {
@@ -21,7 +22,7 @@ export function accountRoutes({ pool, requireAuth }) {
   );
   const listVehicles = userId => pool.query(
     `SELECT id, name, code, is_default, created_at, license_plate,
-            list_price::float8 AS list_price, drive_type
+            list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type
      FROM vehicles
      WHERE user_id = $1 ORDER BY is_default DESC, id ASC`,
     [userId]
@@ -125,7 +126,7 @@ export function accountRoutes({ pool, requireAuth }) {
       }
 
       const fahrten = (await client.query(
-        `SELECT id, kmstand, ziel, fahrtart, timestamp, vehicle_id FROM fahrten
+        `SELECT ${fahrtSpalten()} FROM ${TAB.fahrten}
          WHERE user_id = $1 AND vehicle_id = $2 FOR UPDATE`,
         [req.userId, id]
       )).rows;
@@ -143,8 +144,8 @@ export function accountRoutes({ pool, requireAuth }) {
         }
         for (const alt of fahrten) {
           const neu = (await client.query(
-            `UPDATE fahrten SET vehicle_id = $1 WHERE id = $2
-             RETURNING id, kmstand, ziel, fahrtart, timestamp, vehicle_id`,
+            `UPDATE ${TAB.fahrten} SET vehicle_id = $1 WHERE id = $2
+             RETURNING ${fahrtSpalten()}`,
             [ziel, alt.id]
           )).rows[0];
           await writeAudit(client, {

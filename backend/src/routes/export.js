@@ -8,6 +8,7 @@ import { csvField } from "../lib/csv.js";
 import { renderYearPdf } from "../lib/pdf.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
 import { jahresFahrten } from "../lib/strecken.js";
+import { COL, TAB, auditZeileAusDb, fahrtSpalten } from "../lib/dbschema.js";
 import { monthQuery, vehicleQuery, yearParam } from "../schemas.js";
 
 export function exportRoutes({ pool, config, requireAuth }) {
@@ -16,12 +17,12 @@ export function exportRoutes({ pool, config, requireAuth }) {
 
   // Alle Exporte akzeptieren ?vehicle=CODE; vehicleId === null → alle Fahrzeuge
   const yearTrips = (userId, year, vehicleId) => pool.query(
-    `SELECT f.id, f.kmstand, f.ziel, f.fahrtart, f.timestamp, f.vehicle_id,
+    `SELECT ${fahrtSpalten("f")},
             v.name AS vehicle_name,
             TO_CHAR(f.timestamp AT TIME ZONE $3, 'DD.MM.YYYY HH24:MI') AS zeitpunkt,
-            EXISTS (SELECT 1 FROM fahrten_audit a
-                    WHERE a.fahrt_id = f.id AND a.action = 'update') AS edited
-     FROM   fahrten f
+            EXISTS (SELECT 1 FROM ${TAB.audit} a
+                    WHERE a.${COL.fahrtId} = f.id AND a.action = 'update') AS edited
+     FROM   ${TAB.fahrten} f
      LEFT JOIN vehicles v ON v.id = f.vehicle_id
      WHERE  f.user_id = $1
        AND  f.timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
@@ -37,11 +38,11 @@ export function exportRoutes({ pool, config, requireAuth }) {
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
 
     const result = await pool.query(
-      `SELECT f.id, f.kmstand, f.ziel, f.fahrtart, f.timestamp, f.vehicle_id,
+      `SELECT ${fahrtSpalten("f")},
               v.name AS vehicle_name,
-              EXISTS (SELECT 1 FROM fahrten_audit a
-                      WHERE a.fahrt_id = f.id AND a.action = 'update') AS edited
-       FROM   fahrten f
+              EXISTS (SELECT 1 FROM ${TAB.audit} a
+                      WHERE a.${COL.fahrtId} = f.id AND a.action = 'update') AS edited
+       FROM   ${TAB.fahrten} f
        LEFT JOIN vehicles v ON v.id = f.vehicle_id
        WHERE  f.user_id = $1
          AND  TO_CHAR(f.timestamp AT TIME ZONE $3, 'YYYY-MM') = $2
@@ -95,8 +96,8 @@ export function exportRoutes({ pool, config, requireAuth }) {
       // Fahrten mit Strecke – dieselbe Berechnung wie Dashboard und Auto-Info
       jahresFahrten(pool, { userId: req.userId, year, vehicleId, timezone: tz }),
       pool.query(
-        `SELECT fahrt_id, action, old_data, new_data, changed_at
-         FROM   fahrten_audit
+        `SELECT ${COL.fahrtId}, action, old_data, new_data, changed_at
+         FROM   ${TAB.audit}
          WHERE  user_id = $1
            AND  action IN ('update', 'delete')
            AND  $2 IN (
@@ -116,7 +117,7 @@ export function exportRoutes({ pool, config, requireAuth }) {
       year,
       username: user.rows[0]?.username ?? "",
       trips,
-      audit:    audit.rows,
+      audit:    audit.rows.map(auditZeileAusDb),
       timezone: tz,
     });
   }));

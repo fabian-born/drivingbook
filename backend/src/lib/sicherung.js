@@ -16,6 +16,10 @@
 
 import { BACKUP_FORMAT, EXPORT_FORMAT, EXPORT_VERSION } from "../schemas.js";
 import { createVehicle } from "./vehicles.js";
+import { COL, TAB, antriebSql, antriebZuDb, auditAusDb, auditZeileAusDb, auditZuDb, fahrtartSql, fahrtartZuDb } from "./dbschema.js";
+
+// Fahrt-Spalten im Sicherungsformat (API-Namen und -Werte)
+const SICHERUNG_FAHRT = `id, ${COL.kmstand} AS kmstand, ${COL.ziel} AS ziel, ${fahrtartSql(COL.fahrtart)} AS fahrtart, timestamp`;
 
 const AUDIT_FIELDS = ["kmstand", "ziel", "fahrtart", "timestamp", "vehicle_id"];
 
@@ -24,7 +28,7 @@ const AUDIT_FIELDS = ["kmstand", "ziel", "fahrtart", "timestamp", "vehicle_id"];
 async function fahrzeugDaten(db, userId, vehicleId) {
   const [vehicle, jahre, fahrten, protokoll] = await Promise.all([
     db.query(
-      `SELECT id, name, code, license_plate, list_price::float8 AS list_price, drive_type
+      `SELECT id, name, code, license_plate, list_price::float8 AS list_price, ${antriebSql("drive_type")} AS drive_type
        FROM vehicles WHERE id = $1 AND user_id = $2`,
       [vehicleId, userId]
     ),
@@ -35,16 +39,16 @@ async function fahrzeugDaten(db, userId, vehicleId) {
       [vehicleId]
     ),
     db.query(
-      `SELECT id, kmstand, ziel, fahrtart, timestamp
-       FROM fahrten WHERE user_id = $1 AND vehicle_id = $2 ORDER BY timestamp, id`,
+      `SELECT ${SICHERUNG_FAHRT}
+       FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id = $2 ORDER BY timestamp, id`,
       [userId, vehicleId]
     ),
     // Auch Einträge gelöschter oder umgehängter Fahrten dieses Fahrzeugs
     db.query(
-      `SELECT fahrt_id, action, old_data, new_data, source, changed_at
-       FROM   fahrten_audit
+      `SELECT ${COL.fahrtId}, action, old_data, new_data, source, changed_at
+       FROM   ${TAB.audit}
        WHERE  user_id = $1
-         AND  (fahrt_id IN (SELECT id FROM fahrten WHERE user_id = $1 AND vehicle_id = $2)
+         AND  (${COL.fahrtId} IN (SELECT id FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id = $2)
                OR (old_data->>'vehicle_id')::int = $2
                OR (new_data->>'vehicle_id')::int = $2)
        ORDER  BY changed_at, id`,
@@ -52,7 +56,7 @@ async function fahrzeugDaten(db, userId, vehicleId) {
     ),
   ]);
   if (vehicle.rows.length === 0) return null;
-  return { fahrzeug: vehicle.rows[0], jahre: jahre.rows, fahrten: fahrten.rows, protokoll: protokoll.rows };
+  return { fahrzeug: vehicle.rows[0], jahre: jahre.rows, fahrten: fahrten.rows, protokoll: protokoll.rows.map(auditZeileAusDb) };
 }
 
 async function merkeSicherung(db, vehicleIds) {
@@ -73,14 +77,14 @@ export async function sichereAlles(db, userId) {
 
   const [fahrten, protokoll] = await Promise.all([
     db.query(
-      `SELECT id, kmstand, ziel, fahrtart, timestamp
-       FROM fahrten WHERE user_id = $1 AND vehicle_id IS NULL ORDER BY timestamp, id`,
+      `SELECT ${SICHERUNG_FAHRT}
+       FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id IS NULL ORDER BY timestamp, id`,
       [userId]
     ),
     db.query(
-      `SELECT fahrt_id, action, old_data, new_data, source, changed_at
-       FROM   fahrten_audit
-       WHERE  user_id = $1 AND fahrt_id IN (SELECT id FROM fahrten WHERE user_id = $1 AND vehicle_id IS NULL)
+      `SELECT ${COL.fahrtId}, action, old_data, new_data, source, changed_at
+       FROM   ${TAB.audit}
+       WHERE  user_id = $1 AND ${COL.fahrtId} IN (SELECT id FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id IS NULL)
        ORDER  BY changed_at, id`,
       [userId]
     ),
@@ -90,13 +94,13 @@ export async function sichereAlles(db, userId) {
   return {
     format: BACKUP_FORMAT, version: EXPORT_VERSION, erstellt_am: new Date().toISOString(),
     fahrzeuge,
-    ohne_fahrzeug: { fahrten: fahrten.rows, protokoll: protokoll.rows },
+    ohne_fahrzeug: { fahrten: fahrten.rows, protokoll: protokoll.rows.map(auditZeileAusDb) },
   };
 }
 
 // ── Wiederherstellen ─────────────────────────────────────────
 
-// Erkennt denselben Protokolleintrag wieder
+// Erkennt denselben Protokolleintrag wieder (Daten im API-Format)
 function auditSchluessel(action, changedAt, oldData, newData) {
   const d = oldData ?? newData ?? {};
   return `${action}|${new Date(changedAt).toISOString()}|${d.timestamp ? new Date(d.timestamp).toISOString() : ""}|${d.kmstand ?? ""}`;
@@ -106,7 +110,7 @@ function auditSchluessel(action, changedAt, oldData, newData) {
 async function neueFahrtIds(db, n) {
   if (n === 0) return [];
   const result = await db.query(
-    `SELECT nextval('fahrten_id_seq')::int AS id FROM generate_series(1, $1)`,
+    `SELECT nextval('${TAB.seq}')::int AS id FROM generate_series(1, $1)`,
     [n]
   );
   return result.rows.map(r => r.id);
@@ -123,15 +127,15 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
   const idMap = new Map();
   if (alteIds.length === 0) return idMap;
 
-  const stand = Number((await db.query(`SELECT last_value, is_called FROM fahrten_id_seq`)).rows
+  const stand = Number((await db.query(`SELECT last_value, is_called FROM ${TAB.seq}`)).rows
     .map(r => (r.is_called ? r.last_value : Number(r.last_value) - 1))[0]);
   const kandidaten = alteIds.filter(id => id > 0 && id <= stand);
 
   const [belegt, audits] = await Promise.all([
-    db.query(`SELECT id FROM fahrten WHERE id = ANY($1::int[])`, [kandidaten]),
+    db.query(`SELECT id FROM ${TAB.fahrten} WHERE id = ANY($1::int[])`, [kandidaten]),
     db.query(
-      `SELECT fahrt_id, user_id, action, changed_at, old_data, new_data
-       FROM fahrten_audit WHERE fahrt_id = ANY($1::int[])`,
+      `SELECT ${COL.fahrtId}, user_id, action, changed_at, old_data, new_data
+       FROM ${TAB.audit} WHERE ${COL.fahrtId} = ANY($1::int[])`,
       [kandidaten]
     ),
   ]);
@@ -143,7 +147,7 @@ async function vergebeFahrtIds(db, userId, alteIds, protokoll) {
     sicherungsSchluessel.get(e.fahrt_id).add(auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data));
   }
   const fremd = new Set();
-  for (const a of audits.rows) {
+  for (const a of audits.rows.map(auditZeileAusDb)) {
     const passt = a.user_id === userId &&
       sicherungsSchluessel.get(a.fahrt_id)?.has(auditSchluessel(a.action, a.changed_at, a.old_data, a.new_data));
     if (!passt) fremd.add(a.fahrt_id);
@@ -202,7 +206,7 @@ async function zielFahrzeug(db, userId, fahrzeug) {
   }
   await db.query(
     `UPDATE vehicles SET license_plate = $2, list_price = $3, drive_type = $4 WHERE id = $1`,
-    [vehicle.id, fahrzeug.license_plate ?? null, fahrzeug.list_price ?? null, fahrzeug.drive_type ?? "verbrenner"]
+    [vehicle.id, fahrzeug.license_plate ?? null, fahrzeug.list_price ?? null, antriebZuDb(fahrzeug.drive_type ?? "verbrenner")]
   );
   return { id: vehicle.id, neu: true };
 }
@@ -227,7 +231,7 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   // vorhanden → überspringen (auch wenn sie inzwischen zu einem anderen Fahrzeug
   // gehört); ohne Fahrzeug (Fahrzeug wurde gelöscht) → wieder zuordnen
   const vorhanden = await db.query(
-    `SELECT id, timestamp, kmstand, vehicle_id FROM fahrten WHERE user_id = $1`,
+    `SELECT id, timestamp, ${COL.kmstand} AS kmstand, vehicle_id FROM ${TAB.fahrten} WHERE user_id = $1`,
     [userId]
   );
   const bekannt = new Map(vorhanden.rows.map(f => [`${f.timestamp.toISOString()}|${f.kmstand}`, f]));
@@ -251,13 +255,13 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   }
 
   if (zuordnen.length > 0) {
-    await db.query(`UPDATE fahrten SET vehicle_id = $1 WHERE id = ANY($2::int[])`, [vehicleId, zuordnen]);
+    await db.query(`UPDATE ${TAB.fahrten} SET vehicle_id = $1 WHERE id = ANY($2::int[])`, [vehicleId, zuordnen]);
     // Protokoll dieser Fahrten zeigt wieder auf das (neue) Fahrzeug
     if (alteVehicleId != null && alteVehicleId !== vehicleId) {
       for (const spalte of ["old_data", "new_data"]) {
         await db.query(
-          `UPDATE fahrten_audit SET ${spalte} = jsonb_set(${spalte}, '{vehicle_id}', to_jsonb($1::int))
-           WHERE  user_id = $2 AND fahrt_id = ANY($3::int[]) AND (${spalte}->>'vehicle_id')::int = $4`,
+          `UPDATE ${TAB.audit} SET ${spalte} = jsonb_set(${spalte}, '{vehicle_id}', to_jsonb($1::int))
+           WHERE  user_id = $2 AND ${COL.fahrtId} = ANY($3::int[]) AND (${spalte}->>'vehicle_id')::int = $4`,
           [vehicleId, userId, zuordnen, alteVehicleId]
         );
       }
@@ -279,20 +283,20 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
   const ids     = neu.map(f => idMap.get(f.id));
   if (neu.length > 0) {
     await db.query(
-      `INSERT INTO fahrten (id, user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
+      `INSERT INTO ${TAB.fahrten} (id, user_id, vehicle_id, ${COL.kmstand}, ${COL.ziel}, ${COL.fahrtart}, timestamp)
        SELECT * FROM unnest($1::int[], $2::int[], $3::int[], $4::int[], $5::text[], $6::text[], $7::timestamptz[])`,
       [ids, neu.map(() => userId), neu.map(() => vehicleId), neu.map(f => f.kmstand),
-       neu.map(f => f.ziel), neu.map(f => f.fahrtart), neu.map(f => f.timestamp)]
+       neu.map(f => f.ziel), neu.map(f => fahrtartZuDb(f.fahrtart)), neu.map(f => f.timestamp)]
     );
   }
 
   if (eintraege.length > 0) {
     await db.query(
-      `INSERT INTO fahrten_audit (fahrt_id, user_id, action, old_data, new_data, source, changed_at)
+      `INSERT INTO ${TAB.audit} (${COL.fahrtId}, user_id, action, old_data, new_data, source, changed_at)
        SELECT * FROM unnest($1::int[], $2::int[], $3::text[], $4::jsonb[], $5::jsonb[], $6::text[], $7::timestamptz[])`,
       [eintraege.map(e => idMap.get(e.fahrt_id)), eintraege.map(() => userId), eintraege.map(e => e.action),
-       eintraege.map(e => e.old_data && JSON.stringify(mappeAuditDaten(e.old_data, vehicleMap))),
-       eintraege.map(e => e.new_data && JSON.stringify(mappeAuditDaten(e.new_data, vehicleMap))),
+       eintraege.map(e => e.old_data && JSON.stringify(auditZuDb(mappeAuditDaten(e.old_data, vehicleMap)))),
+       eintraege.map(e => e.new_data && JSON.stringify(auditZuDb(mappeAuditDaten(e.new_data, vehicleMap)))),
        eintraege.map(e => e.source), eintraege.map(e => e.changed_at)]
     );
   }
@@ -305,10 +309,10 @@ async function spieleEin(db, userId, { jahre = [], fahrten, protokoll }, vehicle
 
 async function bekannteAuditSchluessel(db, userId) {
   const result = await db.query(
-    `SELECT action, changed_at, old_data, new_data FROM fahrten_audit WHERE user_id = $1`,
+    `SELECT action, changed_at, old_data, new_data FROM ${TAB.audit} WHERE user_id = $1`,
     [userId]
   );
-  return new Set(result.rows.map(e => auditSchluessel(e.action, e.changed_at, e.old_data, e.new_data)));
+  return new Set(result.rows.map(e => auditSchluessel(e.action, e.changed_at, auditAusDb(e.old_data), auditAusDb(e.new_data))));
 }
 
 // Einzelsicherung wiederherstellen (db: Client in einer Transaktion)
@@ -351,7 +355,7 @@ export const ERINNERUNG_TAGE = 30;
 export async function sicherungsStatus(db, userId) {
   const result = await db.query(
     `SELECT v.id, v.name, v.code, v.last_backup_at,
-            (SELECT COUNT(*)::int FROM fahrten_audit a
+            (SELECT COUNT(*)::int FROM ${TAB.audit} a
              WHERE  a.user_id = v.user_id
                AND  a.changed_at > COALESCE(v.last_backup_at, '-infinity')
                AND  v.id IN ((a.old_data->>'vehicle_id')::int, (a.new_data->>'vehicle_id')::int)) AS aenderungen,

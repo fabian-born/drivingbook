@@ -8,9 +8,15 @@ import { withTransaction } from "../db.js";
 import { checkKmPlausibility, writeAudit } from "../lib/fahrten.js";
 import { fasseZusammen, jahresFahrten } from "../lib/strecken.js";
 import { vehicleIdByCode } from "../lib/vehicles.js";
+import { COL, TAB, auditZeileAusDb, fahrtSpalten, fahrtartZuDb } from "../lib/dbschema.js";
 import { auditQuery, fahrtCreate, fahrtUpdate, idParam, yearQuery } from "../schemas.js";
 
-const RETURNING = `id, kmstand, ziel, fahrtart, timestamp, vehicle_id`;
+// Fahrt mit API-Namen und -Werten (für Antworten und das Änderungsprotokoll)
+const RETURNING = fahrtSpalten();
+
+// API-Feld → Datenbankspalte (Werte von fahrtart werden zusätzlich übersetzt)
+const SPALTE = { kmstand: COL.kmstand, ziel: COL.ziel, fahrtart: COL.fahrtart, timestamp: "timestamp", vehicle_id: "vehicle_id" };
+const zuDb = (feld, wert) => (feld === "fahrtart" ? fahrtartZuDb(wert) : wert);
 
 export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
   const router = express.Router();
@@ -44,10 +50,10 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
       await checkKmPlausibility(client, req.userId, fahrt, force);
 
       const inserted = (await client.query(
-        `INSERT INTO fahrten (user_id, vehicle_id, kmstand, ziel, fahrtart, timestamp)
+        `INSERT INTO ${TAB.fahrten} (user_id, vehicle_id, ${COL.kmstand}, ${COL.ziel}, ${COL.fahrtart}, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING ${RETURNING}`,
-        [req.userId, fahrt.vehicle_id ?? null, fahrt.kmstand, fahrt.ziel, fahrt.fahrtart, fahrt.timestamp]
+        [req.userId, fahrt.vehicle_id ?? null, fahrt.kmstand, fahrt.ziel, fahrtartZuDb(fahrt.fahrtart), fahrt.timestamp]
       )).rows[0];
 
       await writeAudit(client, {
@@ -84,7 +90,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
 
     const updated = await withTransaction(pool, async client => {
       const old = (await client.query(
-        `SELECT ${RETURNING} FROM fahrten WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+        `SELECT ${RETURNING} FROM ${TAB.fahrten} WHERE id = $1 AND user_id = $2 FOR UPDATE`,
         [id, req.userId]
       )).rows[0];
       if (!old) {
@@ -95,14 +101,14 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
         await checkKmPlausibility(client, req.userId, { ...old, ...changes, id }, force);
       }
 
-      const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(", ");
+      const setClause = fields.map((f, i) => `${SPALTE[f]} = $${i + 1}`).join(", ");
       const row = (await client.query(
-        `UPDATE fahrten
+        `UPDATE ${TAB.fahrten}
          SET    ${setClause}
          WHERE  id = $${fields.length + 1} AND user_id = $${fields.length + 2}
          RETURNING ${RETURNING},
                    TO_CHAR(timestamp AT TIME ZONE $${fields.length + 3}, 'YYYY-MM') AS month`,
-        [...fields.map(f => changes[f]), id, req.userId, config.timezone]
+        [...fields.map(f => zuDb(f, changes[f])), id, req.userId, config.timezone]
       )).rows[0];
 
       await writeAudit(client, {
@@ -121,7 +127,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
 
     await withTransaction(pool, async client => {
       const old = (await client.query(
-        `DELETE FROM fahrten WHERE id = $1 AND user_id = $2 RETURNING ${RETURNING}`,
+        `DELETE FROM ${TAB.fahrten} WHERE id = $1 AND user_id = $2 RETURNING ${RETURNING}`,
         [id, req.userId]
       )).rows[0];
       if (!old) {
@@ -142,15 +148,15 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     const { id } = parse(idParam, req.params);
     const result = await pool.query(
       `SELECT action, old_data, new_data, source, changed_at
-       FROM   fahrten_audit
-       WHERE  fahrt_id = $1 AND user_id = $2
+       FROM   ${TAB.audit}
+       WHERE  ${COL.fahrtId} = $1 AND user_id = $2
        ORDER  BY changed_at ASC, id ASC`,
       [id, req.userId]
     );
     if (result.rows.length === 0) {
       throw new HttpError(404, "Keine Protokolleinträge für diese Fahrt");
     }
-    return res.json(result.rows);
+    return res.json(result.rows.map(auditZeileAusDb));
   }));
 
   // GET /api/fahrten?year=YYYY[&vehicle=CODE]  →  Fahrten eines Jahres mit Strecken,
@@ -183,8 +189,8 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
     const { year, vehicle } = parse(auditQuery, req.query);
     const vehicleId = await vehicleIdByCode(pool, req.userId, vehicle);
     const result = await pool.query(
-      `SELECT fahrt_id, action, old_data, new_data, source, changed_at
-       FROM   fahrten_audit
+      `SELECT ${COL.fahrtId}, action, old_data, new_data, source, changed_at
+       FROM   ${TAB.audit}
        WHERE  user_id = $1
          AND  action IN ('update', 'delete')
          AND  $2 IN (
@@ -195,7 +201,7 @@ export function fahrtenRoutes({ pool, config, requireAuth, geocode }) {
        ORDER  BY changed_at DESC, id DESC`,
       [req.userId, year, config.timezone, vehicleId]
     );
-    return res.json(result.rows);
+    return res.json(result.rows.map(auditZeileAusDb));
   }));
 
   return router;

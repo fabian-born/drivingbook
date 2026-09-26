@@ -9,27 +9,30 @@
 // ============================================================
 
 import { writeAudit } from "./fahrten.js";
+import { COL, TAB, fahrtSpalten, fahrtartSql } from "./dbschema.js";
 
 export const DUPLIKAT_SEKUNDEN = 5 * 60;
 
 const FAHRT_FELDER = `f.id, f.user_id, u.username, f.vehicle_id, v.name AS vehicle_name,
-                      f.kmstand, f.ziel, f.fahrtart, f.timestamp`;
+                      f.${COL.kmstand} AS kmstand, f.${COL.ziel} AS ziel,
+                      ${fahrtartSql(`f.${COL.fahrtart}`)} AS fahrtart, f.timestamp`;
 
 export async function findeDuplikate(db) {
   const kandidaten = (await db.query(
     `SELECT ${FAHRT_FELDER},
-            (SELECT COUNT(*)::int FROM fahrten_audit a WHERE a.fahrt_id = f.id) AS protokoll
-     FROM   fahrten f
+            (SELECT COUNT(*)::int FROM ${TAB.audit} a WHERE a.${COL.fahrtId} = f.id) AS protokoll
+     FROM   ${TAB.fahrten} f
      JOIN   users u ON u.id = f.user_id
      LEFT JOIN vehicles v ON v.id = f.vehicle_id
      WHERE  EXISTS (
-              SELECT 1 FROM fahrten g
+              SELECT 1 FROM ${TAB.fahrten} g
               WHERE  g.id <> f.id AND g.user_id = f.user_id
                 AND  g.vehicle_id IS NOT DISTINCT FROM f.vehicle_id
-                AND  g.kmstand = f.kmstand AND g.fahrtart = f.fahrtart AND g.ziel = f.ziel
+                AND  g.${COL.kmstand} = f.${COL.kmstand} AND g.${COL.fahrtart} = f.${COL.fahrtart}
+                AND  g.${COL.ziel} = f.${COL.ziel}
                 AND  ABS(EXTRACT(EPOCH FROM g.timestamp - f.timestamp)) <= $1
             )
-     ORDER  BY f.user_id, f.vehicle_id NULLS FIRST, f.kmstand, f.fahrtart, f.ziel, f.timestamp, f.id`,
+     ORDER  BY f.user_id, f.vehicle_id NULLS FIRST, f.${COL.kmstand}, f.${COL.fahrtart}, f.${COL.ziel}, f.timestamp, f.id`,
     [DUPLIKAT_SEKUNDEN]
   )).rows;
 
@@ -67,7 +70,7 @@ export async function ohneFahrzeug(db) {
             COALESCE((SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'code', v.code, 'is_default', v.is_default)
                                       ORDER BY v.is_default DESC, v.id)
                       FROM vehicles v WHERE v.user_id = u.id), '[]') AS fahrzeuge
-     FROM   fahrten f
+     FROM   ${TAB.fahrten} f
      JOIN   users u ON u.id = f.user_id
      WHERE  f.vehicle_id IS NULL
      GROUP  BY u.id, u.username
@@ -88,7 +91,7 @@ export async function bericht(db) {
   };
 }
 
-const RETURNING = `id, kmstand, ziel, fahrtart, timestamp, vehicle_id`;
+const RETURNING = fahrtSpalten();
 
 // Löscht die überzähligen Fahrten aller (oder der angegebenen) Duplikat-Gruppen.
 // ids: nur diese Fahrten – jede muss aktuell als „entfernen“ erkannt sein
@@ -98,7 +101,7 @@ export async function entferneDuplikate(db, ids = null) {
   const auswahl = ids ? zuEntfernen.filter(id => ids.includes(id)) : zuEntfernen;
 
   for (const id of auswahl) {
-    const alt = (await db.query(`DELETE FROM fahrten WHERE id = $1 RETURNING ${RETURNING}, user_id`, [id])).rows[0];
+    const alt = (await db.query(`DELETE FROM ${TAB.fahrten} WHERE id = $1 RETURNING ${RETURNING}, user_id`, [id])).rows[0];
     await writeAudit(db, { fahrtId: id, userId: alt.user_id, action: "delete", oldRow: alt, source: "admin" });
   }
   return { entfernt: auswahl.length, abgelehnt: ids ? ids.filter(id => !auswahl.includes(id)) : [] };
@@ -108,19 +111,19 @@ export async function entferneDuplikate(db, ids = null) {
 // db: Client in einer Transaktion
 export async function bearbeiteOhneFahrzeug(db, { user_id, aktion, vehicle_id }) {
   const fahrten = (await db.query(
-    `SELECT ${RETURNING} FROM fahrten WHERE user_id = $1 AND vehicle_id IS NULL FOR UPDATE`,
+    `SELECT ${RETURNING} FROM ${TAB.fahrten} WHERE user_id = $1 AND vehicle_id IS NULL FOR UPDATE`,
     [user_id]
   )).rows;
 
   for (const alt of fahrten) {
     if (aktion === "zuordnen") {
       const neu = (await db.query(
-        `UPDATE fahrten SET vehicle_id = $1 WHERE id = $2 RETURNING ${RETURNING}`,
+        `UPDATE ${TAB.fahrten} SET vehicle_id = $1 WHERE id = $2 RETURNING ${RETURNING}`,
         [vehicle_id, alt.id]
       )).rows[0];
       await writeAudit(db, { fahrtId: alt.id, userId: user_id, action: "update", oldRow: alt, newRow: neu, source: "admin" });
     } else {
-      await db.query(`DELETE FROM fahrten WHERE id = $1`, [alt.id]);
+      await db.query(`DELETE FROM ${TAB.fahrten} WHERE id = $1`, [alt.id]);
       await writeAudit(db, { fahrtId: alt.id, userId: user_id, action: "delete", oldRow: alt, source: "admin" });
     }
   }

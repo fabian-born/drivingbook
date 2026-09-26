@@ -7,6 +7,7 @@
 // ============================================================
 
 import { FAHRTARTEN } from "../schemas.js";
+import { COL, TAB, fahrtSpalten } from "./dbschema.js";
 
 // Schlüssel in den Summen ("geschäftlich" → "geschaeftlich")
 const SUMMEN_KEY = { privat: "privat", "geschäftlich": "geschaeftlich", arbeitsweg: "arbeitsweg" };
@@ -28,18 +29,18 @@ function addiere(summe, fahrt) {
 export async function jahresFahrten(db, { userId, year, vehicleId = null, timezone }) {
   const result = await db.query(
     `WITH strecken AS (
-       SELECT f.id, f.kmstand, f.ziel, f.fahrtart, f.timestamp, f.vehicle_id,
-              f.kmstand - LAG(f.kmstand) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS strecke,
+       SELECT ${fahrtSpalten("f")},
+              f.${COL.kmstand} - LAG(f.${COL.kmstand}) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS strecke,
               LAG(f.timestamp) OVER (PARTITION BY f.vehicle_id ORDER BY f.timestamp, f.id) AS vorher_timestamp
-       FROM   fahrten f
+       FROM   ${TAB.fahrten} f
        WHERE  f.user_id = $1
          AND  ($4::int IS NULL OR f.vehicle_id = $4)
          AND  f.timestamp < make_timestamptz($2 + 1, 1, 1, 0, 0, 0, $3)
      )
      SELECT s.*, v.name AS vehicle_name,
             TO_CHAR(s.timestamp AT TIME ZONE $3, 'YYYY-MM') AS monat,
-            EXISTS (SELECT 1 FROM fahrten_audit a
-                    WHERE a.fahrt_id = s.id AND a.action = 'update') AS edited
+            EXISTS (SELECT 1 FROM ${TAB.audit} a
+                    WHERE a.${COL.fahrtId} = s.id AND a.action = 'update') AS edited
      FROM   strecken s
      LEFT JOIN vehicles v ON v.id = s.vehicle_id
      WHERE  s.timestamp >= make_timestamptz($2, 1, 1, 0, 0, 0, $3)
