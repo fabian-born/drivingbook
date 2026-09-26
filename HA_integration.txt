@@ -32,12 +32,16 @@ rest_command:
     method: POST
     headers:
       Content-Type: "application/json"
-      Authorization: "Bearer !secret fahrtenbuch_token"
+      Authorization: !secret fahrtenbuch_auth
     payload: '{"odometer_km":{{ odometer_km }},"destination":"{{ destination }}","trip_type":"{{ trip_type }}","timestamp":"{{ timestamp }}"}'
 
 secrets.yaml
 -------------
-fahrtenbuch_token: "<DEIN-API-TOKEN>"
+fahrtenbuch_auth: "Bearer <DEIN-API-TOKEN>"
+
+Hinweis: !secret funktioniert nur als kompletter Wert, nicht innerhalb eines
+Textes ("Bearer !secret …" würde wörtlich gesendet → 401). Deshalb steht
+"Bearer " mit im Secret.
 
 Aufruf (z. B. aus einer Automation)
 -------------------------------------
