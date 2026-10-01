@@ -19,3 +19,6 @@ e2e/_tmp/
 
 # Homelab-Stack mit echter Domain und lokalen Pfaden – nur lokal
 stack-compose.yml
+
+# Demo-Umgebung: Datenbankverzeichnis
+demo/db/

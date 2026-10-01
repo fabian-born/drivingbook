@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drivingbook demo</title>
+<meta name="description" content="Try drivingbook live: a public demo with sample trips, two vehicles and the 1% rule comparison. Resets every hour.">
+<link rel="icon" href="img/favicon.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <a href="index.html"><img class="logo" src="img/logo.png" alt="drivingbook" width="336" height="72"></a>
+      <p class="tagline">
+        Try drivingbook in your browser. The demo comes with almost two years of sample trips,
+        two vehicles and annual costs, so every report and the tax comparison have something to show.
+        Change whatever you like: the demo resets every hour.
+      </p>
+      <div class="cta-row">
+        <!-- Demo URL: also used in the API example below -->
+        <a class="btn primary" href="https://demo.example.com/">Open the demo</a>
+        <a class="btn secondary" href="index.html">Back to overview</a>
+      </div>
+      <p class="notice">
+        The demo is shared by everyone who visits it. Please do not enter personal data –
+        everything is deleted on the next reset anyway.
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap">
+    <h2>Log in</h2>
+    <p class="section-intro">One account for all visitors. Sign-up is disabled in the demo.</p>
+    <div class="two">
+      <div class="panel">
+        <h3>Demo account</h3>
+        <dl class="creds">
+          <dt>Username</dt><dd><code>demo</code></dd>
+          <dt>Password</dt><dd><code>demo</code></dd>
+        </dl>
+        <p style="margin-top:0.8rem">The interface follows your browser language (German or English);
+          you can switch it on the profile page.</p>
+      </div>
+      <div class="panel">
+        <h3>Reset every hour</h3>
+        <p>Every hour the database goes back to the same sample data. New trips, edits, vehicles and
+          tokens disappear; you stay logged in and simply see the fresh data.</p>
+        <p>If the login stops working, someone changed the password – it is back after the next reset.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>What's inside</h2>
+    <p class="section-intro">Sample data of a company car driver near Munich, from January 1 of last
+      year until today. Destinations are German, as the tax comparison follows German law.</p>
+    <div class="features">
+      <div class="feature">
+        <h3>VW Passat Variant</h3>
+        <p>Combustion, default vehicle. Commutes to the office on weekdays, visits customers now
+          and then, private trips at weekends. Code <code>DEMPKW</code>.</p>
+      </div>
+      <div class="feature">
+        <h3>VW ID.3</h3>
+        <p>Electric second car with short private trips and an occasional business trip.
+          Code <code>DEMEV2</code>.</p>
+      </div>
+      <div class="feature">
+        <h3>Annual costs</h3>
+        <p>List price, costs and depreciation for last year and this year, so the vehicle info page
+          can compare the 1% rule with the logbook.</p>
+      </div>
+      <div class="feature">
+        <h3>All three trip types</h3>
+        <p>Business, private and commute trips, so the breakdowns and charts show every color.</p>
+      </div>
+      <div class="feature">
+        <h3>Pre-tax check</h3>
+        <p>With a complete previous year, the traffic light on the vehicle info page has real data
+          to check, ready for the tax return.</p>
+      </div>
+      <div class="feature">
+        <h3>Vacations &amp; edits</h3>
+        <p>A few weeks without trips and two edited trips, so the yearly history and the audit log
+          are not empty.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Things to try</h2>
+    <p class="section-intro">A short tour through the main features.</p>
+    <div class="two">
+      <div class="panel">
+        <ol class="try-list">
+          <li><strong>Log a trip on your phone.</strong> Open the demo on your phone, tap “New trip”
+            and use the GPS button for the current address.</li>
+          <li><strong>Edit a trip.</strong> Change a destination or odometer reading in the trip list,
+            then look at the audit log.</li>
+          <li><strong>Switch vehicles.</strong> Pick the ID.3 in the navigation – every page then shows
+            only its trips.</li>
+          <li><strong>Compare the 1% rule.</strong> Open the vehicle info page and see which method is
+            cheaper, including the pre-tax check.</li>
+        </ol>
+      </div>
+      <div class="panel">
+        <ol class="try-list" start="5">
+          <li><strong>Look back.</strong> The yearly history shows last year with a chart per month.</li>
+          <li><strong>Export.</strong> Download a year as CSV or PDF, or a JSON backup of the account.</li>
+          <li><strong>Go offline.</strong> Install the app on your home screen, switch to flight mode and
+            log a trip – it is sent once you are back online.</li>
+          <li><strong>Try dark mode and English/German</strong> on the profile page.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Try the API</h2>
+    <p class="section-intro">Create an API token on the account page, then log a trip from the
+      command line – the same way Home Assistant does.</p>
+    <div class="panel">
+<pre><span class="c"># log a trip for the Passat now; the odometer must be higher than the last trip's</span>
+curl -X POST \
+  https://demo.example.com/api/trips \
+  -H "Authorization: Bearer &lt;API-TOKEN&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "odometer_km": 99999,
+    "destination": "API test",
+    "trip_type": "business",
+    "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+    "vehicle_code": "DEMPKW"
+  }'</pre>
+    </div>
+  </section>
+
+  <section class="wrap" id="own-demo">
+    <h2>Run your own demo</h2>
+    <p class="section-intro">The repository contains everything needed for this demo in the
+      <code>demo/</code> folder: Compose stack, sample data and the reset container.</p>
+    <div class="two">
+      <div class="panel">
+        <h3>Setup</h3>
+        <ol class="steps">
+          <li><strong>Copy the folder</strong> <code>demo/</code> to your Docker host.</li>
+          <li><strong>Configure.</strong> Set image tags, domain, <code>DB_PASSWORD</code>,
+            <code>JWT_SECRET</code> and the demo passwords.
+<pre>cp .env.example .env</pre></li>
+          <li><strong>Start</strong>
+<pre>docker compose up -d</pre></li>
+        </ol>
+      </div>
+      <div class="panel">
+        <h3>How the reset works</h3>
+        <p>A small PostgreSQL container loads <code>seed.sql</code> on start and then every
+          <code>RESET_INTERVAL_MINUTES</code> (default 60), in a single transaction.</p>
+        <p>Reset right away:</p>
+<pre>docker compose exec reset /demo/reset.sh once</pre>
+        <p style="margin-top:0.6rem">Details are in
+          <a href="https://github.com/fabian-born/drivingbook/blob/main/demo/README.md">demo/README.md</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      <a href="index.html">drivingbook</a>
+      — <a href="https://github.com/fabian-born/drivingbook">github.com/fabian-born/drivingbook</a>
+      — <a href="https://github.com/fabian-born/drivingbook/blob/main/LICENSE">MIT licensed</a>
+    </p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,120 @@
+# ============================================================
+# Fahrtenbuch – demo environment (Traefik)
+#
+# Runs independently of production: own Compose project name,
+# own containers, own internal network, own database.
+#
+#   https://${DEMO_DOMAIN}/      → frontend (nginx)
+#   https://${DEMO_DOMAIN}/api/  → nginx forwards internally to backend:3000
+#
+# The "reset" container loads the demo data from seed.sql on start
+# and then every RESET_INTERVAL_MINUTES.
+# Reset immediately:
+#   docker compose exec reset /demo/reset.sh once
+#
+# Configuration: .env next to this file (template: .env.example)
+# ============================================================
+
+name: fahrtenbuch-demo
+
+networks:
+  frontend:
+    external: true
+  demo:
+    driver: bridge
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: fahrtenbuch-demo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       fahrtenbuch
+      POSTGRES_USER:     fahrtenbuch
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fahrtenbuch -d fahrtenbuch"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+    networks:
+      - demo
+
+  backend:
+    image: ghcr.io/fabian-born/fahrtenbuch-backend:${BACKEND_TAG:?BACKEND_TAG must be set}
+    container_name: fahrtenbuch-demo-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST:            db
+      DB_PORT:            5432
+      DB_NAME:            fahrtenbuch
+      DB_USER:            fahrtenbuch
+      DB_PASSWORD:        ${DB_PASSWORD:?DB_PASSWORD must be set}
+      JWT_SECRET:         ${JWT_SECRET:?JWT_SECRET must be set}
+      # Short sessions – the data only lives until the next reset anyway
+      JWT_EXPIRES:        ${JWT_EXPIRES:-2h}
+      # The admin from the first start is replaced by the demo users on the first reset
+      ADMIN_USERNAME:     admin
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      NOMINATIM_EMAIL:    ${NOMINATIM_EMAIL:-}
+      # Requests go through Traefik → nginx → backend (2 proxies)
+      TRUST_PROXY:        "2"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout:  5s
+      retries:  5
+      start_period: 20s
+    networks:
+      - demo
+
+  frontend:
+    image: ghcr.io/fabian-born/fahrtenbuch-frontend:${FRONTEND_TAG:?FRONTEND_TAG must be set}
+    container_name: fahrtenbuch-demo-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - frontend
+      - demo
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=frontend"
+      - "traefik.http.routers.drivingbook-demo-https.rule=Host(`${DEMO_DOMAIN:?DEMO_DOMAIN must be set}`)"
+      - "traefik.http.routers.drivingbook-demo-https.entrypoints=websecure"
+      - "traefik.http.routers.drivingbook-demo-https.tls=true"
+      - "traefik.http.routers.drivingbook-demo-https.tls.certresolver=${TRAEFIK_CERTRESOLVER:-hetzner}"
+      - "traefik.http.services.drivingbook-demo.loadbalancer.server.port=80"
+
+  # Regularly resets the database to the demo data.
+  # Starts only once the backend has applied the migrations.
+  reset:
+    image: postgres:16-alpine
+    container_name: fahrtenbuch-demo-reset
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      PGHOST:                 db
+      PGDATABASE:             fahrtenbuch
+      PGUSER:                 fahrtenbuch
+      PGPASSWORD:             ${DB_PASSWORD:?DB_PASSWORD must be set}
+      DEMO_PASSWORD:          ${DEMO_PASSWORD:-demo}
+      DEMO_ADMIN_PASSWORD:    ${DEMO_ADMIN_PASSWORD:-}
+      RESET_INTERVAL_MINUTES: ${RESET_INTERVAL_MINUTES:-60}
+      TZ:                     Europe/Berlin
+    volumes:
+      - ./reset.sh:/demo/reset.sh:ro
+      - ./seed.sql:/demo/seed.sql:ro
+    entrypoint: ["/bin/sh", "/demo/reset.sh"]
+    command: ["loop"]
+    networks:
+      - demo
