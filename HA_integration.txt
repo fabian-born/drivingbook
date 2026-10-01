@@ -1,7 +1,7 @@
 Home Assistant Integration – Fahrtenbuch
 =========================================
 
-Endpoint:   POST https://fahrtenbuch.home.fabianborn.net/api/trips
+Endpoint:   POST https://fahrtenbuch.example.com/api/trips
 Auth:       Authorization: Bearer <API-TOKEN>  (Token unter Profil > Konto > API-Tokens erzeugen)
 
 Achtung: Die frühere Adresse POST /api/fahrt mit den deutschen Feldern
@@ -28,7 +28,7 @@ configuration.yaml
 -------------------
 rest_command:
   fahrtenbuch_fahrt_eintragen:
-    url: "https://fahrtenbuch.home.fabianborn.net/api/trips"
+    url: "https://fahrtenbuch.example.com/api/trips"
     method: POST
     headers:
       Content-Type: "application/json"

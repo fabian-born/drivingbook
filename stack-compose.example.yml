@@ -1,7 +1,10 @@
 # ============================================================
-# Fahrtenbuch – Homelab-Stack (Traefik)
+# Fahrtenbuch – Homelab-Stack (Traefik) – Vorlage
 #
-# Alles läuft unter https://fahrtenbuch.homelab.fabianborn.net:
+# Kopieren nach stack-compose.yml (nicht in Git) und Domain sowie
+# Volume-Pfade an die eigene Umgebung anpassen.
+#
+# Alles läuft unter https://fahrtenbuch.example.com:
 #   /      → frontend (nginx)
 #   /api/  → nginx leitet intern an backend:3000 weiter
 #
@@ -32,7 +35,7 @@ services:
       POSTGRES_USER:     ${DB_USER:-fahrtenbuch}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD muss gesetzt sein}
     volumes:
-      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/db:/var/lib/postgresql/data
+      - ./db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fahrtenbuch} -d ${DB_NAME:-fahrtenbuch}"]
       interval: 10s
@@ -57,7 +60,7 @@ services:
       PGPASSWORD:       ${DB_PASSWORD:?DB_PASSWORD muss gesetzt sein}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
     volumes:
-      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/backups:/backups
+      - ./backups:/backups
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -104,7 +107,7 @@ services:
       start_period: 20s
     volumes:
       # Alte JSON-Daten, nur für die einmalige Migration (node migrate.js)
-      - /home/fabian/homelab-automates/configuration/docker-host-01/fahrtenbuch/backend/data:/app/data:ro
+      - ./backend/data:/app/data:ro
     # Kein Port und kein Traefik-Label: nur intern über nginx erreichbar
     networks:
       - fahrtenbuch
@@ -122,7 +125,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=frontend"
-      - "traefik.http.routers.driversbook-https.rule=Host(`fahrtenbuch.homelab.fabianborn.net`)"
+      - "traefik.http.routers.driversbook-https.rule=Host(`fahrtenbuch.example.com`)"
       - "traefik.http.routers.driversbook-https.entrypoints=websecure"
       - "traefik.http.routers.driversbook-https.tls=true"
       - "traefik.http.routers.driversbook-https.tls.certresolver=hetzner"

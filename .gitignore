@@ -16,3 +16,6 @@ npm-debug.log*
 e2e/test-results/
 e2e/playwright-report/
 e2e/_tmp/
+
+# Homelab-Stack mit echter Domain und lokalen Pfaden – nur lokal
+stack-compose.yml

@@ -66,7 +66,8 @@ docker compose logs -f backend
 ```
 .
 ├── docker-compose.yaml        ← lokal
-├── stack-compose.yml          ← Homelab (Traefik)
+├── stack-compose.example.yml  ← Vorlage Homelab (Traefik)
+├── stack-compose.yml          ← eigene Kopie der Vorlage, nicht in Git!
 ├── .env                       ← nicht in Git!
 ├── .env.example
 ├── backend/
