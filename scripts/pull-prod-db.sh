@@ -13,7 +13,7 @@
 #   DEV_HOST    SSH-Ziel des Dev-Hosts  (Standard: marder)
 #   DB_NAME     Datenbankname           (Standard: fahrtenbuch)
 #   DB_USER     Datenbank-User          (Standard: fahrtenbuch)
-#   PROD_DB_CONTAINER  DB-Container auf Prod (Standard: drivingbook-db)
+#   PROD_DB_CONTAINER  DB-Container auf Prod (Standard: fahrtenbuch-db)
 #   DEV_DB_CONTAINER   DB-Container auf Dev  (Standard: fahrtenbuch-db)
 #
 # ACHTUNG: Die Dev-Datenbank auf $DEV_HOST wird komplett ersetzt!
@@ -25,7 +25,7 @@ DEV_HOST="${DEV_HOST:-marder}"
 DB_NAME="${DB_NAME:-fahrtenbuch}"
 DB_USER="${DB_USER:-fahrtenbuch}"
 # Prod läuft als Stack mit anderen Containernamen als docker-compose.yaml
-PROD_CONTAINER="${PROD_DB_CONTAINER:-drivingbook-db}"
+PROD_CONTAINER="${PROD_DB_CONTAINER:-fahrtenbuch-db}"
 CONTAINER="${DEV_DB_CONTAINER:-fahrtenbuch-db}"
 STOP_CONTAINERS=(fahrtenbuch-backend fahrtenbuch-backup)
 BACKUP_FILE="${1:-}"

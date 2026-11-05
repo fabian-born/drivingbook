@@ -10,16 +10,16 @@
 #
 # Umgebungsvariablen:
 #   PROD_HOST           SSH-Ziel               (Standard: docker-host-01)
-#   BACKEND_CONTAINER   (Standard: drivingbook-backend)
-#   FRONTEND_CONTAINER  (Standard: drivebook-frontend)
-#   DB_CONTAINER        (Standard: drivingbook-db)
+#   BACKEND_CONTAINER   (Standard: fahrtenbuch-backend)
+#   FRONTEND_CONTAINER  (Standard: fahrtenbuch-frontend)
+#   DB_CONTAINER        (Standard: fahrtenbuch-db)
 # ============================================================
 set -euo pipefail
 
 PROD_HOST="${PROD_HOST:-docker-host-01}"
-BACKEND="${BACKEND_CONTAINER:-drivingbook-backend}"
-FRONTEND="${FRONTEND_CONTAINER:-drivebook-frontend}"
-DB="${DB_CONTAINER:-drivingbook-db}"
+BACKEND="${BACKEND_CONTAINER:-fahrtenbuch-backend}"
+FRONTEND="${FRONTEND_CONTAINER:-fahrtenbuch-frontend}"
+DB="${DB_CONTAINER:-fahrtenbuch-db}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 prod() { ssh -o BatchMode=yes "$PROD_HOST" "$@"; }
