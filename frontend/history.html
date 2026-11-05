@@ -86,17 +86,6 @@
 <script src="js/dashboard-history.js"></script>
 
 <!-- Fill print header with year + date -->
-<script>
-  document.getElementById("printDate").textContent =
-    t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
-
-  document.getElementById("historyYearSelect")?.addEventListener("change", function () {
-    document.getElementById("printHeadline").textContent =
-      t("history.printHeadline", { year: this.value });
-    document.getElementById("printDate").textContent =
-      t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
-  });
-</script>
 
 <footer class="bg-dark text-light mt-4">
   <div class="container py-3 text-center small">
@@ -104,9 +93,6 @@
   </div>
 </footer>
 
-<script>
-  document.getElementById("year").innerText = new Date().getFullYear();
-</script>
 <script src="js/footer.js"></script>
 </body>
 </html>

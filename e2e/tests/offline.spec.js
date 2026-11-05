@@ -23,6 +23,30 @@ test("offline erfasste Fahrt wird nachgereicht, sobald wieder Netz da ist", asyn
   expect(daten.trips.map(f => f.destination)).toEqual(["Offline-Ziel"]);
 });
 
+test("abgelaufene Sitzung beim Speichern: Fahrt bleibt in der Warteschlange und wird nach dem Login gesendet", async ({ page }) => {
+  const user = await neuerUser();
+  await loginImBrowser(page, user);
+  await page.goto("/driving.html");
+  await expect(page.locator("#vehicleHeaderName")).toHaveText("Golf");
+
+  // Server meldet die Sitzung als abgelaufen (401)
+  await page.route("**/api/trips", route =>
+    route.request().method() === "POST" ? route.fulfill({ status: 401, body: "{}" }) : route.continue());
+  await page.fill("#odometer", "777");
+  await page.fill("#destination", "Trotz Ablauf");
+  await page.getByRole("button", { name: "Fahrt speichern" }).click();
+  await expect(page).toHaveURL(/login\.html\?expired=1/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("offlineFahrten")).map(f => f.destination)))
+    .toEqual(["Trotz Ablauf"]);
+
+  await page.unroute("**/api/trips");
+  await loginImBrowser(page, user);
+  const jahr = new Date().getFullYear();
+  await expect.poll(async () =>
+    (await api(`/api/trips?year=${jahr}&vehicle=${user.vehicles[0].code}`, { token: user.token })).trips.map(f => f.destination),
+  { timeout: 15_000 }).toEqual(["Trotz Ablauf"]);
+});
+
 test("wartende Fahrten gehen nach Benutzerwechsel nicht an das falsche Konto", async ({ page, context }) => {
   const erster  = await neuerUser();
   const zweiter = await neuerUser();

@@ -222,7 +222,10 @@ async function targetVehicle(db, userId, savedVehicle) {
 // Imports annual costs, trips and audit log into a vehicle (vehicleId null = no vehicle).
 // knownAudits:  set of the user's existing audit log entries (kept up to date)
 // oldVehicleId: ID of the vehicle in the backup (for orphaned trips)
-async function restoreInto(db, userId, { years = [], trips, audit: auditLog }, vehicleId, vehicleMap, knownAudits, oldVehicleId = null) {
+// otherTrips:   backup IDs of trips contained in another part of the same full
+//               backup – their audit entries are restored there, together with
+//               the trip (a trip moved from A to B also appears in A's audit log)
+async function restoreInto(db, userId, { years = [], trips, audit: auditLog }, vehicleId, vehicleMap, knownAudits, oldVehicleId = null, otherTrips = new Set()) {
   let newYears = 0;
   if (vehicleId != null) {
     for (const j of years) {
@@ -278,7 +281,7 @@ async function restoreInto(db, userId, { years = [], trips, audit: auditLog }, v
 
   // Audit log: omit entries of skipped trips and entries that already exist
   const entryList = auditLog.filter(e => {
-    if (skippedCount.has(e.trip_id)) return false;
+    if (skippedCount.has(e.trip_id) || otherTrips.has(e.trip_id)) return false;
     const key = auditKey(e.action, e.changed_at, e.old_data, e.new_data);
     if (knownAudits.has(key)) return false;
     knownAudits.add(key);
@@ -342,13 +345,19 @@ export async function restoreAll(db, userId, backup) {
     if (f.vehicle.id != null) vehicleMap.set(f.vehicle.id, target.id);
   }
 
+  // Trip IDs per part of the backup, so each part skips the history of trips
+  // that are restored by another part
+  const parts = [...backup.vehicles, backup.unassigned];
+  const tripIds = parts.map(p => new Set(p.trips.map(f => f.id)));
+  const otherTrips = i => new Set(tripIds.flatMap((ids, j) => (j === i ? [] : [...ids])));
+
   const knownAudits = await knownAuditKeys(db, userId);
   const vehicleBackups = [];
   for (const [i, f] of backup.vehicles.entries()) {
-    const outcome = await restoreInto(db, userId, f, targets[i].id, vehicleMap, knownAudits, f.vehicle.id ?? null);
+    const outcome = await restoreInto(db, userId, f, targets[i].id, vehicleMap, knownAudits, f.vehicle.id ?? null, otherTrips(i));
     vehicleBackups.push({ vehicle_id: targets[i].id, name: f.vehicle.name, created: targets[i].created, ...outcome });
   }
-  const unassigned = await restoreInto(db, userId, backup.unassigned, null, vehicleMap, knownAudits);
+  const unassigned = await restoreInto(db, userId, backup.unassigned, null, vehicleMap, knownAudits, null, otherTrips(parts.length - 1));
 
   return { vehicles: vehicleBackups, unassigned };
 }

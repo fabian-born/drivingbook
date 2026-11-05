@@ -147,8 +147,14 @@ async function createUser() {
   document.getElementById("newUserToken").value = data.default_token;
   document.getElementById("newUserTokenBox").classList.remove("d-none");
   document.getElementById("userModalFooter").innerHTML = `
-    <button type="button" class="btn btn-success" data-bs-dismiss="modal" onclick="ladeUsers()">${t("admin.modal.done")}</button>`;
+    <button type="button" id="userModalDone" class="btn btn-success" data-bs-dismiss="modal">${t("admin.modal.done")}</button>`;
+  document.getElementById("userModalDone").addEventListener("click", loadUsers);
 }
+
+document.getElementById("copyNewUserToken").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(document.getElementById("newUserToken").value);
+  alert(t("admin.modal.copied"));
+});
 
 // ── Init ─────────────────────────────────────────────────────
 loadUsers();

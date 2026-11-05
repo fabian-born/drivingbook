@@ -8,7 +8,7 @@
 // The git hook (.githooks/pre-commit) sets CACHE to the frontend version
 // automatically; add new files to APP_SHELL.
 
-const CACHE = "fahrtenbuch-2026.09.26.19";
+const CACHE = "fahrtenbuch-2026.11.05.1";
 
 const APP_SHELL = [
   "./",

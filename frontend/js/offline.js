@@ -122,15 +122,16 @@ function updateQueueDisplay() {
 
 // Sends a trip; asks for confirmation on an implausible odometer reading.
 // Result: "ok" | "abgelehnt" (user cancelled) | "fehler" (validation etc.)
-// Network errors are propagated as exceptions.
+// Network errors and an expired session (SessionExpiredError) are propagated
+// as exceptions – the caller keeps the trip in the queue.
 async function sendTrip(trip, hint = "") {
-  let res = await apiFetch("/api/trips", { method: "POST", body: trip });
+  let res = await apiFetch("/api/trips", { method: "POST", body: trip, redirectOn401: false });
 
   if (res.status === 409) {
     const err = await res.json().catch(() => ({}));
     if (err.code !== "KM_PLAUSIBILITY") return { status: "fehler", message: err.error };
     if (!confirm(`${hint}${err.error}\n\n${t("offline.saveAnyway")}`)) return { status: "abgelehnt" };
-    res = await apiFetch("/api/trips", { method: "POST", body: { ...trip, force: true } });
+    res = await apiFetch("/api/trips", { method: "POST", body: { ...trip, force: true }, redirectOn401: false });
   }
 
   if (!res.ok) return { status: "fehler", message: await apiError(res, t("common.saveError")) };
@@ -139,9 +140,20 @@ async function sendTrip(trip, hint = "") {
 
 let syncRunning = false;
 
-// Sends the logged-in user's pending trips one after another
+// Sends the logged-in user's pending trips one after another.
+// Only one tab at a time (Web Locks API, if available) – otherwise two tabs
+// could send the same queue simultaneously.
 async function synchronize() {
   if (syncRunning || !navigator.onLine || !localStorage.getItem("authToken")) return;
+  if (navigator.locks) {
+    // ifAvailable: another tab is already sending → nothing to do here
+    return navigator.locks.request("drivingbook-sync", { ifAvailable: true }, lock => lock && sendQueue());
+  }
+  return sendQueue();
+}
+
+async function sendQueue() {
+  if (syncRunning) return;
   syncRunning = true;
 
   try {
@@ -153,7 +165,9 @@ async function synchronize() {
       let result;
       try {
         result = await sendTrip(body, `${t("offline.tripFrom", { date: localDate })}\n`);
-      } catch {
+      } catch (err) {
+        // Session expired: trip stays in the queue and is sent after the next login
+        if (err instanceof SessionExpiredError) endSession();
         break;  // offline again → retry later
       }
 

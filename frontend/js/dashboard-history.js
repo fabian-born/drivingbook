@@ -6,6 +6,8 @@ let historyChartInstance = null;
 async function loadHistoryDashboard(selectedYear) {
   const target = document.getElementById("historyContent");
   document.getElementById("printHeadline").textContent = t("history.printHeadline", { year: selectedYear });
+  document.getElementById("printDate").textContent =
+    t("history.created", { date: new Date().toLocaleDateString(i18n.locale) });
   await Promise.all([vehicleReady, initialSync]);
 
   let rawData = { months: [], totals: { total: 0, trips: 0 } };

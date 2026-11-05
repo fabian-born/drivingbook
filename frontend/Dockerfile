@@ -1,6 +1,7 @@
 FROM nginx:alpine
 
 COPY _config/nginx.conf /etc/nginx/conf.d/default.conf
+COPY _config/security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Copy only the served files (no config/README in the web root)
 COPY *.html *.png release.ver manifest.webmanifest sw.js /usr/share/nginx/html/

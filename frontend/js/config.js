@@ -105,9 +105,19 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// Thrown by apiFetch(…, { redirectOn401: false }) when the session has expired,
+// so the caller can save its data (e.g. queue a trip) before endSession()
+class SessionExpiredError extends Error {}
+
+// Removes the expired token and sends the user to the login
+function endSession() {
+  localStorage.removeItem("authToken");
+  window.location.href = "login.html?expired=1";
+}
+
 // Calls the API: sets the auth header, sends `body` as JSON and
 // redirects to the login when the session has expired (401).
-async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
+async function apiFetch(path, { method = "GET", body, headers = {}, redirectOn401 = true } = {}) {
   const authToken = localStorage.getItem("authToken");
   // Language for the backend's error messages, PDF and CSV
   const options   = { method, headers: { "Accept-Language": i18n.language, ...headers } };
@@ -121,8 +131,8 @@ async function apiFetch(path, { method = "GET", body, headers = {} } = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, options);
 
   if (res.status === 401 && authToken) {
-    localStorage.removeItem("authToken");
-    window.location.href = "login.html?expired=1";
+    if (!redirectOn401) throw new SessionExpiredError("session expired");
+    endSession();
     return new Promise(() => {});  // stop further processing, the page is being left
   }
   return res;

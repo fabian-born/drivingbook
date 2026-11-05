@@ -33,11 +33,18 @@ export function tripRoutes({ pool, config, requireAuth, geocode }) {
   // A trip that already exists identically (same timestamp to the millisecond,
   // odometer, destination, type and vehicle) is not inserted again: the offline
   // queue re-sends a trip if the page was left before the response arrived.
+  // Advisory lock namespace (first key) for trip creation
+  const TRIP_CREATE_LOCK = 0x7472_6970;  // "trip"
+
   async function createTrip(req, { force, vehicle_code, ...trip }) {
     trip.vehicle_id  = await resolveVehicleId(vehicle_code, req.userId);
     trip.destination = await geocode(trip.destination);
 
     const row = await withTransaction(pool, async client => {
+      // Serialise creations per user: otherwise two identical requests arriving at
+      // the same time (offline queue in two tabs, retry after a lost response)
+      // would both miss the duplicate check below and both insert
+      await client.query(`SELECT pg_advisory_xact_lock($1, $2)`, [TRIP_CREATE_LOCK, req.userId]);
       const existing = (await client.query(
         `SELECT ${TRIP_COLUMNS} FROM trips
          WHERE  user_id = $1 AND vehicle_id IS NOT DISTINCT FROM $2 AND timestamp = $3

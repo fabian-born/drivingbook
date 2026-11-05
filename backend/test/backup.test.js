@@ -173,6 +173,55 @@ describe("Vehicle backup", () => {
   });
 });
 
+describe("Full backup with a trip moved between vehicles", () => {
+  let t, user;
+
+  before(async () => {
+    t = await setup();
+    user = await t.registerUser("umzug");
+  });
+  after(() => t.close());
+
+  it("keeps the trip's history attached to the trip after restoring", async () => {
+    const second = (await t.http().post("/api/vehicles").set(user).send({ name: "Neuwagen" })).body;
+    const created = (await t.http().post("/api/trips").set(user).send({
+      odometer_km: 100, destination: "Kunde", trip_type: "business",
+      timestamp: "2026-03-01T08:00:00Z", vehicle_code: user.vehicle.code,
+    })).body;
+    const moved = await t.http().put(`/api/trips/${created.id}`).set(user).send({ vehicle_code: second.code });
+    assert.equal(moved.status, 200);
+
+    const backup = (await t.http().get("/api/backup").set(user)).body;
+    // the first vehicle's audit log also contains the moved trip's history
+    assert.ok(backup.vehicles[0].audit.some(e => e.trip_id === created.id));
+
+    // Total loss; the old trip ID is taken in the new database → new IDs are issued
+    const userId = (await t.pool.query(`SELECT id FROM users WHERE username = 'umzug'`)).rows[0].id;
+    await t.pool.query(`DELETE FROM trip_audit WHERE user_id = $1`, [userId]);
+    await t.pool.query(`DELETE FROM trips WHERE user_id = $1`, [userId]);
+    const other = await t.registerUser("platzhalter");
+    const otherId = (await t.pool.query(`SELECT id FROM users WHERE username = 'platzhalter'`)).rows[0].id;
+    await t.pool.query(
+      `INSERT INTO trips (id, user_id, vehicle_id, odometer_km, destination, trip_type, timestamp)
+       VALUES ($1, $2, $3, 1, 'x', 'private', NOW())`,
+      [created.id, otherId, other.vehicle.id]
+    );
+
+    const res = await t.http().post("/api/backup/restore").set(user).send(backup);
+    assert.equal(res.status, 200);
+
+    const trips = (await t.pool.query(`SELECT id, vehicle_id FROM trips WHERE user_id = $1`, [userId])).rows;
+    assert.equal(trips.length, 1);
+    assert.equal(trips[0].vehicle_id, second.id);
+    const history = (await t.pool.query(
+      `SELECT action FROM trip_audit WHERE trip_id = $1 ORDER BY changed_at, id`, [trips[0].id])).rows;
+    assert.deepEqual(history.map(e => e.action), ["create", "update"]);
+    const orphans = await t.pool.query(
+      `SELECT 1 FROM trip_audit a WHERE a.user_id = $1 AND NOT EXISTS (SELECT 1 FROM trips WHERE id = a.trip_id)`, [userId]);
+    assert.equal(orphans.rows.length, 0);
+  });
+});
+
 describe("Full backup", () => {
   let t, user, backup, secondCode;
 

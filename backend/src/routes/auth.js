@@ -34,6 +34,9 @@ export function authRoutes({ pool, config }) {
     if (loginLimiter.blocked(limitKey)) {
       throw new HttpError(429, "errors.tooManyLogins");
     }
+    // Count the attempt BEFORE the (slow) password check, so parallel requests
+    // cannot all slip past blocked() – a successful login resets the counter
+    loginLimiter.hit(limitKey);
 
     // Old accounts that differ only in letter case ("Max"/"max",
     // see migration 005) stay reachable: the account with the matching password wins
@@ -47,7 +50,6 @@ export function authRoutes({ pool, config }) {
     }
 
     if (!user) {
-      loginLimiter.hit(limitKey);
       throw new HttpError(401, "errors.invalidCredentials");
     }
 

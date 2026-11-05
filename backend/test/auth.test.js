@@ -39,6 +39,14 @@ describe("Login & registration", () => {
     assert.equal(res.status, 429);
   });
 
+  it("cannot bypass the lockout with parallel requests", async () => {
+    const results = await Promise.all(Array.from({ length: 25 }, () =>
+      t.http().post("/api/login").send({ username: "parallel", password: "x" })));
+    const checked = results.filter(r => r.status === 401).length;
+    assert.ok(checked <= 10, `${checked} passwords checked, expected at most 10`);
+    assert.ok(results.some(r => r.status === 429));
+  });
+
   it("registers with vehicle name, default token and immediate login", async () => {
     const res = await t.http().post("/api/register")
       .send({ username: "fabian", password: "password123", vehicleName: "Golf" });

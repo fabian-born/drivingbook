@@ -210,8 +210,11 @@ async function addTrip() {
       showStatus(result.message, "danger");
     }
   } catch (err) {
+    // Network error → handle as offline. Expired session → also keep the trip
+    // (sent after the next login), then go to the login.
+    onTripQueued(trip);
+    if (err instanceof SessionExpiredError) return endSession();
     console.error("Fehler beim Speichern:", err);
-    onTripQueued(trip);  // network error → handle as offline
   } finally {
     setSaving(false);
   }

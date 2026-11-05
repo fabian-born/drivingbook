@@ -99,6 +99,15 @@ describe("Trips", () => {
     assert.notEqual((await post({ ...body, timestamp: "2026-08-01T08:00:01.123Z" })).body.id, first.body.id);
   });
 
+  it("does not store an identical trip twice when sent in parallel (two tabs)", async () => {
+    const body = trip(31000, "2026-08-02T08:00:00.000Z", { vehicle_code: user.vehicle.code });
+    const results = await Promise.all(Array.from({ length: 5 }, () => post(body)));
+    assert.ok(results.every(r => r.status === 200));
+    assert.equal(new Set(results.map(r => r.body.id)).size, 1);
+    const list = (await month("2026-08")).body;
+    assert.equal(list.filter(f => f.odometer_km === 31000).length, 1);
+  });
+
   it("deletes by ID", async () => {
     const id = (await post(trip(1400, "2026-01-20T08:00:00Z"))).body.id;
     assert.equal((await t.http().delete(`/api/trips/${id}`).set(user)).status, 200);
